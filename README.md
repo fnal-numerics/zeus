@@ -6,13 +6,7 @@ Make sure to have GPU Driver installed:
 nvidia-smi
 ```
 
-Must have data file named "randomNumbers.bin", if not available, 
-then compile and execute:   
-```bash
-g++ -o generator data-generator.cpp && ./generator
-```
-
-then once random numbers are generated, the CUDA file can be compiled and executed using on Wahab Cluster:
+No need for input file, because we are generating the random doubles on the GPU to utilize their power. The CUDA file can be compiled and executed using on Wahab Cluster:
 ```bash
 crun nvcc -o exe multipoint-optimization.cu && ./exe
 ```
@@ -20,4 +14,5 @@ or
 ```bash
 nvcc -o exe multipoint-optimization.cu && ./exe
 ```
+on a local machine.
 
