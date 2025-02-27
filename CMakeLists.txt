@@ -20,7 +20,7 @@ add_executable(cuda_app main.cu)
 set_target_properties(cuda_app PROPERTIES CUDA_ARCHITECTURES ${CUDA_ARCH} CUDA_SEPARABLE_COMPILATION ON)
 
 # Test executable: compile both main.cu and test_main.cu with UNIT_TEST defined
-add_executable(cuda_test test_main.cu main.cu)
+add_executable(cuda_test testing/test_main.cu main.cu)
 target_compile_definitions(cuda_test PRIVATE UNIT_TEST)
 set_target_properties(cuda_test PROPERTIES CUDA_ARCHITECTURES ${CUDA_ARCH}
 	CUDA_SEPARABLE_COMPILATION ON)
