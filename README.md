@@ -1,18 +1,26 @@
-# HPC Research Project for Optimization
+# An Efficient Implementation of BFGS optimization algorithm with Automatic Differentiation using GPUs
 
-
-Make sure to have GPU Driver installed:   
+Make sure to have NVIDIA GPU Device connected and Driver installed:   
 ```bash
 nvidia-smi
 ```
 
-No need for input file, because we are generating the random doubles on the GPU to utilize their power. The CUDA file can be compiled and executed using on the ODU Wahab HPC Cluster:
+## Option 1: Build + Compile using CMake
+use the provided shell scripts to remove build directory, build the project and run the tests using: 
 ```bash
-crun.cuda nvcc -o exe main.cu && ./exe -5.0 5.0 
+./shell/rebuildcompile_test_run.sh -5.12 5.12 25 131072
 ```
-or   
+or on the ODU Wahab HPC Cluster:
 ```bash
-nvcc -o exe main.cu && ./exe -5.0 5.0
+./shell/rebuildcompile_test_run_onwahab.sh -5.12 5.12 25 131072
 ```
-on a local machine.
 
+## Option 2: Manual Compilation
+No need for input file, because we are generating the random doubles on the GPU to utilize their power. The CUDA file can be compiled and executed using:
+```bash
+nvcc -o exe main.cu && ./exe  -5.12 5.12 25 131072
+```
+or on the  ODU Wahab HPC Cluster:
+```bash
+crun.cuda nvcc -o exe main.cu && ./exe  -5.12 5.12 25 131072
+```
