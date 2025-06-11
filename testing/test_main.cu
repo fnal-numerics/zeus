@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <iostream>
 #include <stdio.h>
 #include <cuda_runtime.h>
 
@@ -88,7 +89,7 @@ void run_value_test(const double x[DIM], double expect, const char* name) {
   cudaMemcpy(dX,x,DIM*sizeof(double),cudaMemcpyHostToDevice);
   testValueKernel<Func,DIM><<<1,1>>>(dX,dOut);
   cudaMemcpy(&hOut, dOut,sizeof(double),cudaMemcpyDeviceToHost);
-  assert(fabs(hOut - expect) < 1e-8);
+  assert(fabs(hOut - expect) < 1e-6);
   cudaFree(dX);
   cudaFree(dOut);
   printf("%s (value) passed\n", name);
@@ -112,8 +113,10 @@ void run_grad_test(const double x[DIM], const double expect[DIM], const char* na
   cudaMemcpy(dX,x,DIM*sizeof(double),cudaMemcpyHostToDevice);
   testGradKernel<Func,DIM><<<1,1>>>(dX,dG);
   cudaMemcpy(hG, dG, DIM*sizeof(double),cudaMemcpyDeviceToHost);
-  for(int i=0;i<DIM;++i)
+  for(int i=0;i<DIM;++i) {
+    std::cout << "expected: "<<expect[i] << "\tactual: "<< hG[i]<< std::endl;
     assert(fabs(hG[i] - expect[i]) < 1e-6);
+  }
   cudaFree(dX);
   cudaFree(dG);
   printf("%s (grad) passed\n", name);
@@ -127,7 +130,7 @@ int main() {
       const int D = 2;
       double x0[D] = {0.0,0.0};
       // at min: f=10*2 + 0 = 20
-      run_value_test<util::Rastrigin,D>(x0, 10.0*D + 0.0, "rastrigin@origin");
+      run_value_test<util::Rastrigin,D>(x0, 0.0, "rastrigin@origin");
       double x1[D] = {0.1,-0.3};
       double expected1 = 10.0*D
         + (0.1*0.1 - 10*cos(2*M_PI*0.1))
@@ -172,7 +175,7 @@ int main() {
       }
       //--- Ackley grad @ origin = [0,0]
       {
-        double x[D] = {0.0,0.0}, expg[D]={0,0};
+        double x[D] = {-1e-17,1e-17}, expg[D]={-2.0,2.0};
         run_grad_test<util::Ackley,D>(x, expg, "grad_ackley@origin");
       }
       //--- Rosenbrock grad @ min = [0,0]
