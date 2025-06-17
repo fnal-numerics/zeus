@@ -1,3 +1,5 @@
 build/
 Testing/
-exe
+pso
+particledata
+experiments/

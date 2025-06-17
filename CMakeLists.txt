@@ -8,8 +8,8 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 find_package(CUDAToolkit REQUIRED)
 
-add_executable(cuda_app parallel_pso.cu)
-target_link_libraries(cuda_app PUBLIC CUDA::cudart)
+add_executable(zeus zeus.cu)
+target_link_libraries(zeus PUBLIC CUDA::cudart)
 
 # Table‐generator executable: dumps a LaTeX table to stdout
 #add_executable(cuda_table
@@ -23,15 +23,15 @@ target_link_libraries(cuda_app PUBLIC CUDA::cudart)
 # Link in the CUDA runtime
 #target_link_libraries(cuda_table PUBLIC CUDA::cudart)
 
-#add_executable(cuda_test testing/test_main.cu)
-add_executable(cuda_test
+#add_executable(test testing/test_main.cu)
+add_executable(unit_test
   testing/test_main.cu
-  parallel_pso.cu
+  zeus.cu
 )
-target_compile_definitions(cuda_test PRIVATE UNIT_TEST)
-target_link_libraries(cuda_test PUBLIC CUDA::cudart)
+target_compile_definitions(unit_test PRIVATE UNIT_TEST)
+target_link_libraries(unit_test PUBLIC CUDA::cudart)
 
 enable_testing()
 #add_test(NAME RunCudaApp  COMMAND cuda_app -30 30 1000 100 0 10 1e-6)
-add_test(NAME RunCudaTest COMMAND cuda_test)
+add_test(NAME RunCudaTest COMMAND unit_test)
 
