@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <cuda_runtime.h>
 
-#include "../parallel_pso.cuh"
+#include "../fun.cuh"
 
 // Forward declarations for device functions from main.cu
 extern "C" {
