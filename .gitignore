@@ -2,4 +2,4 @@ build/
 Testing/
 pso
 particledata
-experiments/
+experiments/pso_iteration_study
