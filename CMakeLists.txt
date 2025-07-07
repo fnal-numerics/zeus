@@ -8,9 +8,12 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 find_package(CUDAToolkit REQUIRED)
 
-add_executable(zeus zeus.cu)
-target_link_libraries(zeus PUBLIC CUDA::cudart)
+include_directories(${CMAKE_SOURCE_DIR}/include)
+##add_library(utils
 
+add_executable(zeus zeus.cu)
+
+target_link_libraries(zeus PUBLIC CUDA::cudart)
 # Table‐generator executable: dumps a LaTeX table to stdout
 #add_executable(cuda_table
 #  table_generator.cu

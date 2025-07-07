@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <cuda_runtime.h>
 
-#include "../fun.cuh"
+#include "fun.h"
 
 // Forward declarations for device functions from main.cu
 extern "C" {
@@ -100,7 +100,7 @@ void run_value_test(const double x[DIM], double expect, const char* name) {
 //------------------------------------------------------------------------------
 template<template<int> class Func, int DIM>
 __global__ void testGradKernel(const double* x, double* g) {
-  util::calculateGradientUsingAD<Func<DIM>, DIM>(
+  dual::calculateGradientUsingAD<Func<DIM>, DIM>(
     const_cast<double*>(x), g
   );
 }
