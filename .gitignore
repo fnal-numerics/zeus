@@ -2,4 +2,5 @@ build/
 Testing/
 pso
 particledata
-experiments/pso_iteration_study
+*.tar.gz
+*.tsv
