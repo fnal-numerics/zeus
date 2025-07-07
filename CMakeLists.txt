@@ -17,10 +17,8 @@ target_link_libraries(zeus PUBLIC CUDA::cudart)
 #  parallel_pso.cu
 #)
 
-# If your table generator needs any special defines, add them here
 # target_compile_definitions(cuda_table PRIVATE …)
 
-# Link in the CUDA runtime
 #target_link_libraries(cuda_table PUBLIC CUDA::cudart)
 
 #add_executable(test testing/test_main.cu)
