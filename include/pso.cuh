@@ -1,11 +1,34 @@
 #pragma once
 #include <curand_kernel.h>
 
+struct Convergence {
+    int actual;
+    int claimed;
+    int surrendered;
+    int stopped;
+};
+
+template<int DIM>
+struct Result {
+    int idx;
+    int status; // 1 if converged, else if stopped_bc_someone_flipped_the_flag: 2, else 0
+    double fval; // function value
+    double gradientNorm;
+    double coordinates[DIM];
+    int iter;
+    Convergence c;
+};
+
+__device__ int d_stopFlag;  // 0 = keep going; 1 = stop immediately
+__device__ int d_convergedCount; // how many threads have converged?
+__device__ int d_threadsRemaining;
+
 namespace pso {
+
 
 // kernel #1: initialize X, V, pBest; atomically seed gBestVal/gBestX
 template<typename Function, int DIM>
-__global__ void psoInitKernel(
+__global__ void initKernel(
     Function           func,
     double             lower,
     double             upper,
@@ -57,7 +80,7 @@ __global__ void psoInitKernel(
 
 // kernel #2: one PSO iteration (velocity+position update, personal & global best)
 template<typename Function, int DIM>
-__global__ void psoIterKernel(
+__global__ void iterKernel(
     Function           func,
     double             lower,
     double             upper,
@@ -143,9 +166,100 @@ __global__ void psoIterKernel(
 }
 
 
+template<typename Function, int DIM>
+double* launch(const int PSO_ITER,const int N,const double lower,const double upper, float& ms_init, float& ms_pso,const int seed, curandState* states) { //, Result<DIM>& best) {
+        // allocate PSO buffers on device
+        double *dX, *dV, *dPBestVal, *dGBestX, *dGBestVal, *dPBestX;
+        cudaMalloc(&dX,        N*DIM*sizeof(double));
+        cudaMalloc(&dV,        N*DIM*sizeof(double));
+        cudaMalloc(&dPBestX,   N*DIM*sizeof(double));
+        cudaMalloc(&dPBestVal, N   *sizeof(double));
+        cudaMalloc(&dGBestX,   DIM *sizeof(double));
+        cudaMalloc(&dGBestVal, sizeof(double));
+        int zero = 0;
+        cudaMemcpyToSymbol(d_stopFlag, &zero, sizeof(int));
+        cudaMemcpyToSymbol(d_threadsRemaining, &N, sizeof(int));
+        cudaMemcpyToSymbol(d_convergedCount,   &zero, sizeof(int));
+        // set seed to infinity
+        {
+            double inf = std::numeric_limits<double>::infinity();
+            cudaMemcpy(dGBestVal, &inf, sizeof(inf), cudaMemcpyHostToDevice);
+        }
 
+        dim3 psoBlock(256);
+        dim3 psoGrid((N + psoBlock.x - 1) / psoBlock.x);
 
+        // host-side buffers for printing
+        double hostGBestVal;
+        std::vector<double> hostGBestX(DIM);
 
+        // PSO‐init Kernel
+        cudaEvent_t t0, t1;
+        cudaEventCreate(&t0);
+        cudaEventCreate(&t1);
+        cudaEventRecord(t0);
+        initKernel<Function,DIM><<<psoGrid,psoBlock>>>(
+             Function(), lower, upper,
+             dX, dV,
+             dPBestX, dPBestVal,
+             dGBestX, dGBestVal,
+             N,seed, states);
+        cudaDeviceSynchronize();
+        cudaEventRecord(t1);
+        cudaEventSynchronize(t1);
 
+        cudaEventElapsedTime(&ms_init, t0, t1);
+        //printf("PSO‑Init Kernel execution time = %.4f ms\n", ms_init);
+
+        // copy back and print initial global best
+        cudaMemcpy(&hostGBestVal, dGBestVal, sizeof(double),        cudaMemcpyDeviceToHost);
+        cudaMemcpy(hostGBestX.data(),  dGBestX,   DIM*sizeof(double), cudaMemcpyDeviceToHost);
+
+        //printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
+        //for(int d=0; d<DIM; ++d) printf(" %.4f", hostGBestX[d]);
+        //printf(" ]\n\n");
+
+        // PSO iterations
+        //const double w  = 0.7298, c1 = 1.4962, c2 = 1.4962;
+        const double w  = 0.5, c1 = 1.2, c2 = 1.5;
+        for(int iter=1; iter<PSO_ITER+1; ++iter) {
+            cudaEventRecord(t0);
+            iterKernel<Function,DIM><<<psoGrid,psoBlock>>>(
+                Function(),
+                lower, upper,
+                w, c1, c2,
+                dX, dV,
+                dPBestX, dPBestVal,
+                dGBestX, dGBestVal,
+                nullptr,// traj
+                false,//saveTraj
+                N, iter, seed, states);//, best);
+            cudaDeviceSynchronize();
+            cudaEventRecord(t1);
+            cudaEventSynchronize(t1);
+            float ms_iter=0;
+            cudaEventElapsedTime(&ms_iter, t0, t1);
+            cudaMemcpy(&hostGBestVal, dGBestVal, sizeof(double),        cudaMemcpyDeviceToHost);
+            cudaMemcpy(hostGBestX.data(),  dGBestX,   DIM*sizeof(double), cudaMemcpyDeviceToHost);
+
+            //printf("PSO‑Iter %2d execution time = %.3f ms   gBestVal = %.6e at [",iter, ms_iter, hostGBestVal);
+            //for(int d=0; d<DIM; ++d) printf(" %.4f", hostGBestX[d]);
+            //printf(" ]\n");
+            ms_pso += ms_iter;
+        }// end pso loop
+        //printf("total pso time = %.3f\n", ms_pso+ms_init);
+    cudaEventDestroy(t0);
+    cudaEventDestroy(t1);
+    cudaFree(dX);
+    cudaFree(dV);
+    //cudaFree(dPBestX);
+    cudaFree(dPBestVal);
+    cudaFree(dGBestX);
+    cudaFree(dGBestVal);
+    return dPBestX;
 }
+
+
+
+}// end namespace pso
 
