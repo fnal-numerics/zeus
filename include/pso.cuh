@@ -19,9 +19,11 @@ struct Result {
     Convergence c;
 };
 
-__device__ int d_stopFlag;  // 0 = keep going; 1 = stop immediately
-__device__ int d_convergedCount; // how many threads have converged?
-__device__ int d_threadsRemaining;
+namespace bfgs {
+extern __device__ int d_stopFlag;  // 0 = keep going; 1 = stop immediately
+extern __device__ int d_convergedCount; // how many threads have converged?
+extern __device__ int d_threadsRemaining;
+}
 
 namespace pso {
 
@@ -177,9 +179,9 @@ double* launch(const int PSO_ITER,const int N,const double lower,const double up
         cudaMalloc(&dGBestX,   DIM *sizeof(double));
         cudaMalloc(&dGBestVal, sizeof(double));
         int zero = 0;
-        cudaMemcpyToSymbol(d_stopFlag, &zero, sizeof(int));
-        cudaMemcpyToSymbol(d_threadsRemaining, &N, sizeof(int));
-        cudaMemcpyToSymbol(d_convergedCount,   &zero, sizeof(int));
+        cudaMemcpyToSymbol(bfgs::d_stopFlag, &zero, sizeof(int));
+        cudaMemcpyToSymbol(bfgs::d_threadsRemaining, &N, sizeof(int));
+        cudaMemcpyToSymbol(bfgs::d_convergedCount,   &zero, sizeof(int));
         // set seed to infinity
         {
             double inf = std::numeric_limits<double>::infinity();

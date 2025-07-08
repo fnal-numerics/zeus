@@ -15,7 +15,7 @@ add_library(util
     include/utils.cuh
 )
 
-add_executable(zeus zeus.cu)
+add_executable(zeus main.cu)
 
 target_link_libraries(zeus PUBLIC CUDA::cudart)
 # Table‐generator executable: dumps a LaTeX table to stdout
@@ -25,18 +25,12 @@ target_link_libraries(zeus PUBLIC CUDA::cudart)
 #)
 
 target_link_libraries(zeus PUBLIC util CUDA::cudart) # build util into zeus
-target_link_libraries(zeus PUBLIC util CUDA::cudart)
-# target_compile_definitions(cuda_table PRIVATE …)
 
-#target_link_libraries(cuda_table PUBLIC CUDA::cudart)
-
-#add_executable(test testing/test_main.cu)
 add_executable(unit_test
   testing/test_main.cu
-  zeus.cu
+  main.cu
 )
 target_compile_definitions(unit_test PRIVATE UNIT_TEST)
-#target_link_libraries(unit_test PUBLIC CUDA::cudart)
 target_link_libraries(unit_test
   PUBLIC
     util          # bring in vector_scale, vector_add
