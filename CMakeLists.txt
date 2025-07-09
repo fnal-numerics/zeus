@@ -40,3 +40,7 @@ enable_testing()
 #add_test(NAME RunCudaApp  COMMAND cuda_app -30 30 1000 100 0 10 1e-6)
 add_test(NAME RunCudaTest COMMAND unit_test)
 
+#add_executable(zeus_test test.cpp)
+#target_include_directories(zeus_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
+#target_link_libraries(zeus_test PRIVATE util CUDA::cudart)
+
