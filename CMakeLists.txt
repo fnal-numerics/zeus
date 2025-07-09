@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(Zeus LANGUAGES CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
@@ -43,7 +43,24 @@ enable_testing()
 #add_test(NAME RunCudaApp  COMMAND cuda_app -30 30 1000 100 0 10 1e-6)
 add_test(NAME RunCudaTest COMMAND unit_test)
 
-#add_executable(zeus_test test.cpp)
+# metaprogramming 
+set_source_files_properties(metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
+add_executable(zeus_test metaprogramming_t.cpp)
+target_include_directories(zeus_test PRIVATE
+  ${PROJECT_SOURCE_DIR}/include
+)
+target_link_libraries(zeus_test PRIVATE
+  util
+  CUDA::cudart
+)
+# embed an RPATH so you don’t need crun.cuda to find libcudart.so
+set_target_properties(zeus_test PROPERTIES
+  BUILD_RPATH "${CUDATOOLKIT_ROOT_DIR}/lib64"
+)
+#set_source_files_properties(metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
+
+#add_executable(zeus_test metaprogramming_t.cpp)
+
 #target_include_directories(zeus_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
 #target_link_libraries(zeus_test PRIVATE util CUDA::cudart)
 
