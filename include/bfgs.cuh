@@ -4,6 +4,7 @@
 #include "duals.cuh"
 #include "utils.cuh"
 #include "pso.cuh"
+//#include "zeus.cuh"
 
 namespace bfgs {
 
@@ -335,7 +336,7 @@ launch(const int N,
 
   cudaMemcpy(
     h_results, d_results, N * sizeof(Result<DIM>), cudaMemcpyDeviceToHost);
-  Convergence c = dump_data_2_file(h_results, fun_name, N, pso_iter, run);
+  Convergence c = util::dump_data_2_file(h_results, fun_name, N, pso_iter, run);
   /*int countConverged = 0, surrender = 0, stopped = 0;
   for (int i = 0; i < N; ++i) {
       if (h_results[i].status == 1) {

@@ -3,8 +3,83 @@
 #include <cstdint>           // for uint64_t
 #include <curand_kernel.h>   // for curandState
 #include <cstdio> 	    // for printf
+#include <string>
+#include <iostream>
+#include <filesystem>
+#include <fstream>
+
+struct Convergence {
+    int actual;
+    int claimed;
+    int surrendered;
+    int stopped;
+};
+
+template<int DIM>
+struct Result {
+    int idx;
+    int status; // 1 if converged, else if stopped_bc_someone_flipped_the_flag: 2, else 0
+    double fval; // function value
+    double gradientNorm;
+    double coordinates[DIM];
+    int iter;
+    Convergence c;
+};
 
 namespace util {
+
+bool
+askUser2saveTrajectories();
+
+
+double
+calculate_euclidean_error(const std::string fun_name,
+                          const double* coordinates,
+                          const int dim);
+
+template <int DIM>
+Convergence
+dump_data_2_file(const Result<DIM>* h_results,
+                 const std::string fun_name,
+                 const int N,
+                 const int PSO_ITER,
+                 const int run)
+{
+    Convergence result;
+
+    std::string tab = "\t";
+    int actually_converged = 0;
+    int countConverged = 0, surrender = 0, stopped = 0;
+    for (int i = 0; i < N; ++i) {
+        //outfile << fun_name << tab << run << tab << i << tab << std::scientific; 
+        if (h_results[i].status == 1) {
+            countConverged++;
+            //outfile << 1 << tab;
+            double error = calculate_euclidean_error(fun_name,  h_results[i].coordinates, DIM);
+            if(error < 0.5) {actually_converged++;}
+            //outfile << h_results[i].iter << tab << h_results[i].fval << tab << h_results[i].gradientNorm;
+            //for(int d = 0; d < DIM; ++d) { outfile << "\t"<< h_results[i].coordinates[d]; }
+            //outfile << std::endl;
+        } else if(h_results[i].status == 2) { // particle was stopped early
+            stopped++;
+            //outfile << 2 << tab;
+            //printf("Thread %d was stopped early (iter=%d)\n", i, h_results[i].iter);
+        } else {
+            surrender++;
+            //outfile << 0 << tab;
+        }
+        //outfile << h_results[i].iter << tab << h_results[i].fval << tab << h_results[i].gradientNorm;
+        //for(int d = 0; d < DIM; ++d) { outfile << "\t"<< h_results[i].coordinates[d]; }
+        //outfile << std::endl;
+    }
+    result.actual = actually_converged;
+    result.claimed = countConverged;
+    result.surrendered = surrender;
+    result.stopped = stopped;
+    return result;
+    //std::cout << "\ndumped data 2 "<< filename << "\n"<<countConverged <<" converged, "<<stopped << " stopped early, "<<surrender<<" surrendered\n"; 
+    //printf("\ndumped data 2 %s\n%d converged, %d stopped early, %d surrendered\n",filename.c_str(),countConverged, stopped, surrender);
+}
 
 // https://xorshift.di.unimi.it/splitmix64.c
 // Very fast 64-bit mixer — returns a new 64-bit value each time.

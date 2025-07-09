@@ -1,23 +1,6 @@
 #pragma once
 #include <curand_kernel.h>
 
-struct Convergence {
-    int actual;
-    int claimed;
-    int surrendered;
-    int stopped;
-};
-
-template<int DIM>
-struct Result {
-    int idx;
-    int status; // 1 if converged, else if stopped_bc_someone_flipped_the_flag: 2, else 0
-    double fval; // function value
-    double gradientNorm;
-    double coordinates[DIM];
-    int iter;
-    Convergence c;
-};
 
 namespace bfgs {
 extern __device__ int d_stopFlag;  // 0 = keep going; 1 = stop immediately
