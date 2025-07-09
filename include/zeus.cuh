@@ -1,5 +1,8 @@
 #pragma once
 
+#include <type_traits>
+#include <functional> 
+
 #include "fun.h"
 #include "duals.cuh"
 #include "pso.cuh"
@@ -8,6 +11,18 @@
 
 
 namespace zeus {
+
+  template<typename F, typename Arg> // F is callable type, Arg is element-type inside vector
+  auto fmap(F f, std::vector<Arg> const& xs)
+  {
+    using R = std::invoke_result_t<F, Arg>; // std trait that yields the type F(Arg) returns
+    std::vector<R> result;
+    result.reserve(xs.size());
+    for (auto const& x : xs) {
+      result.push_back(f(x));
+    }
+    return result;
+  }
 
 void
 append_results_2_tsv(const int dim,

@@ -1,6 +1,7 @@
 #pragma once
 #include <curand_kernel.h>
 
+#include "utils.cuh"
 
 namespace bfgs {
 extern __device__ int d_stopFlag;  // 0 = keep going; 1 = stop immediately

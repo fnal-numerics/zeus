@@ -7,6 +7,7 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 struct Convergence {
     int actual;

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cub/cub.cuh>
+#include <cuda_runtime.h>
+
 #include "fun.h"
 #include "duals.cuh"
 #include "utils.cuh"
