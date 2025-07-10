@@ -93,9 +93,9 @@ test_vector_scale()
 
 template <template <int> class Func, int DIM>
 __global__ void
-testValueKernel(const double* x, double* out)
+testValueKernel(const double* x, double* out,Func<DIM> f)
 {
-  out[0] = Func<DIM>::evaluate(x);
+  out[0] = f(x);
 }
 
 template <template <int> class Func, int DIM>
@@ -106,7 +106,8 @@ run_value_test(const double x[DIM], double expect, const char* name)
   cudaMalloc(&dX, DIM * sizeof(double));
   cudaMalloc(&dOut, sizeof(double));
   cudaMemcpy(dX, x, DIM * sizeof(double), cudaMemcpyHostToDevice);
-  testValueKernel<Func, DIM><<<1, 1>>>(dX, dOut);
+  Func<DIM> f;
+  testValueKernel<Func, DIM><<<1, 1>>>(dX, dOut, f);
   cudaMemcpy(&hOut, dOut, sizeof(double), cudaMemcpyDeviceToHost);
   assert(fabs(hOut - expect) < 1e-6);
   cudaFree(dX);
@@ -121,7 +122,8 @@ template <template <int> class Func, int DIM>
 __global__ void
 testGradKernel(const double* x, double* g)
 {
-  dual::calculateGradientUsingAD<Func<DIM>, DIM>(const_cast<double*>(x), g);
+  Func<DIM> functor;
+  dual::calculateGradientUsingAD<Func<DIM>, DIM>(const_cast<double*>(x), g, functor);
 }
 
 template <template <int> class Func, int DIM>

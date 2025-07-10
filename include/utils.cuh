@@ -38,6 +38,30 @@ calculate_euclidean_error(const std::string fun_name,
                           const double* coordinates,
                           const int dim);
 
+
+
+void
+append_results_2_tsv(const int dim,
+                     const int N,
+                     const std::string fun_name,
+                     float ms_init,
+                     float ms_pso,
+                     float ms_opt,
+                     float ms_rand,
+                     const int max_iter,
+                     const int pso_iter,
+                     const double error,
+                     const double globalMin,
+                     double* hostCoordinates,
+                     const int idx,
+                     const int status,
+                     const double norm,
+                     const int run,
+                     const int claimed,
+                     const int actual,
+                     const int surrendered,
+                     const int stopped);
+
 template <int DIM>
 Convergence
 dump_data_2_file(const Result<DIM>* h_results,
@@ -185,7 +209,7 @@ __device__ double generate_random_double(curandState* state, double lower,double
 __global__ void setup_curand_states(curandState* states, uint64_t seed, int N);
 
 template<typename Function, int DIM>
-__device__ double line_search(double f0, const double* x, const double* p, const double* g){
+__device__ double line_search(double f0, const double* x, const double* p, const double* g, Function f){
     const double c1=0.3;
     double alpha=1.0;
     double ddir = dot_product_device(g,p,DIM);
@@ -194,7 +218,7 @@ __device__ double line_search(double f0, const double* x, const double* p, const
         for(int j=0;j<DIM;j++){
             xTemp[j] = x[j] + alpha*p[j];
         }
-        double f1 = Function::evaluate(xTemp);
+        double f1 = f(xTemp);
         if(f1 <= f0 + c1*alpha*ddir) break;
         alpha *= 0.5;
     }

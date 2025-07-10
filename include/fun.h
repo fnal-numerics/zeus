@@ -179,31 +179,46 @@ struct Eggholder {
     }
 };
 
-
-
-template<int DIM> struct Rosenbrock {
-  __device__ static dual::DualNumber evaluate(const dual::DualNumber* x) {
+template<int D>
+struct Rosenbrock {
+  static constexpr size_t DIM = D;
+  __host__ __device__
+  dual::DualNumber operator()(dual::DualNumber const* x) const {
     return rosenbrock<DIM>(x);
   }
-  __host__ __device__ static double evaluate(const double* x) {
+
+  __host__ __device__
+  double operator()(double const* x) const {
     return rosenbrock<DIM>(x);
   }
+  
 };
-template<int DIM> struct Rastrigin {
-  __device__ static dual::DualNumber evaluate(const dual::DualNumber* x) {
+
+template<int D> struct Rastrigin {
+  static constexpr size_t DIM = D;
+  __host__ __device__
+  dual::DualNumber operator()(dual::DualNumber const* x) const {
     return rastrigin<DIM>(x);
   }
-  __host__ __device__ static double evaluate(const double* x) {
+
+  __host__ __device__
+  double operator()(double const* x) const {
     return rastrigin<DIM>(x);
   }
+
 };
-template<int DIM> struct Ackley {
-  __device__ static dual::DualNumber evaluate(const dual::DualNumber* x) {
+template<int D> struct Ackley {
+  static constexpr size_t DIM = D;
+  __host__ __device__
+  dual::DualNumber operator()(dual::DualNumber const* x) const {
     return ackley<DIM>(x);
   }
-  __host__ __device__ static double evaluate(const double* x) {
+
+  __host__ __device__
+  double operator()(double const* x) const {
     return ackley<DIM>(x);
   }
+
 };
 
 template<int DIM>

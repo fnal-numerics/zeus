@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 namespace dual {
 
 class DualNumber {
@@ -74,8 +76,25 @@ static __inline__ __host__ __device__ T pow(const T& base, double exponent) {
     return T(powf(base.real, exponent), exponent * powf(base.real, exponent - 1) * base.dual);
 }
 
-template<typename Function, int DIM>
-__device__ void calculateGradientUsingAD(double *x, double *gradient) {
+// compile-time trait: can we call F with Scalar*? double or DualNumber
+template<class F, class Scalar, class = void>
+struct is_callable_with : std::false_type {}; // default to false
+
+// 
+template<class F, class Scalar>
+struct is_callable_with<
+        F, Scalar, // 
+        std::void_t< decltype(std::declval<F>()(std::declval<const Scalar*>()))>> : std::true_type {};
+        // void if success, else SFINAE
+
+template<class F, class Scalar>
+inline constexpr bool is_callable_with_v = is_callable_with<F,Scalar>::value;
+
+// enabled only if Function can be instantiated with DualNumber
+template<class Function, int DIM,
+         class = std::enable_if_t<
+             is_callable_with_v<Function, DualNumber>>>
+__device__ inline void calculateGradientUsingAD(double *x, double *gradient, Function f) {
     dual::DualNumber xDual[DIM];
 
     for (int i = 0; i < DIM; ++i) { // // iterate through each dimension (vairbale)
@@ -85,13 +104,12 @@ __device__ void calculateGradientUsingAD(double *x, double *gradient) {
     // calculate the partial derivative of  each dimension
     for (int i = 0; i < DIM; ++i) {
         xDual[i].dual = 1.0; // derivative w.r.t. dimension i
-        dual::DualNumber result = Function::evaluate(xDual); // evaluate the function using AD
+        dual::DualNumber result = f(xDual); // evaluate the function using AD
         gradient[i] = result.dual; // store derivative
         //printf("\nxDual[%d]: %f, grad[%d]: %f ",i,xDual[i].real,i,gradient[i]);
         xDual[i].dual = 0.0;
     }
 }//end calculate gradientusingAD
-
 
 } // end of dual
 

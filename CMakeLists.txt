@@ -10,6 +10,7 @@ set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
+
 find_package(CUDAToolkit REQUIRED)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
@@ -46,6 +47,11 @@ add_test(NAME RunCudaTest COMMAND unit_test)
 # metaprogramming 
 set_source_files_properties(metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
 add_executable(zeus_test metaprogramming_t.cpp)
+target_compile_options(zeus_test
+    PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
+)
+
 target_include_directories(zeus_test PRIVATE
   ${PROJECT_SOURCE_DIR}/include
 )
@@ -54,9 +60,9 @@ target_link_libraries(zeus_test PRIVATE
   CUDA::cudart
 )
 # embed an RPATH so you don’t need crun.cuda to find libcudart.so
-set_target_properties(zeus_test PROPERTIES
-  BUILD_RPATH "${CUDATOOLKIT_ROOT_DIR}/lib64"
-)
+#set_target_properties(zeus_test PROPERTIES
+#  BUILD_RPATH "${CUDATOOLKIT_ROOT_DIR}/lib64"
+#)
 #set_source_files_properties(metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
 
 #add_executable(zeus_test metaprogramming_t.cpp)

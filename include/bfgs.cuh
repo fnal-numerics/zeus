@@ -16,9 +16,34 @@ namespace bfgs {
   __device__ int d_threadsRemaining = 0;
 
 
+
+inline curandState*
+initialize_states(int N, int seed, float& ms_rand)
+{
+  // PRNG setup
+  curandState* d_states;
+  cudaMalloc(&d_states, N * sizeof(curandState));
+
+  // Launch setup
+  int threads = 256;
+  int blocks = (N + threads - 1) / threads;
+  cudaEvent_t t0, t1;
+  cudaEventCreate(&t0);
+  cudaEventCreate(&t1);
+  cudaEventRecord(t0);
+  util::setup_curand_states<<<blocks, threads>>>(d_states, seed, N);
+  cudaEventRecord(t1);
+  cudaEventSynchronize(t1);
+  cudaEventElapsedTime(&ms_rand, t0, t1);
+  cudaDeviceSynchronize();
+  return d_states;
+}
+
+
 template <typename Function, int DIM, unsigned int blockSize>
 __global__ void
 optimizeKernel(
+  Function f,
   const double lower,
   const double upper,
   const double* __restrict__ pso_array, // pso initialized positions
@@ -79,12 +104,14 @@ optimizeKernel(
     states[idx] = localState;
   }
 
-  double f0 = Function::evaluate(x); // rosenbrock_device(x, DIM);
+  double f0 = f(x); // rosenbrock_device(x, DIM);
   deviceResults[idx] = f0;
   double bestVal = f0;
   // if (idx == 0) printf("\n\nf0 = %f", f0);
   int iter;
-  dual::calculateGradientUsingAD<Function, DIM>(x, g);
+
+  static_assert(dual::is_callable_with_v<Function, dual::DualNumber>,"\n\n> This objective is not templated.\nMake it\n\n\ttemplate<class T> T fun(const T* x) { ... }\n");
+  dual::calculateGradientUsingAD<Function, DIM>(x, g, f);
   for (iter = 0; iter < MAX_ITER; ++iter) {
     // printf("inside BeeG File System");
     //  check if somebody already asked to stop
@@ -97,7 +124,7 @@ optimizeKernel(
       // printf("thread %d get outta dodge cuz we converged...", idx);
       r.status = 2;
       r.iter = iter;
-      r.fval = Function::evaluate(x);
+      r.fval = f(x);
       for (int d = 0; d < DIM; d++) {
         r.coordinates[d] = x[d];
       }
@@ -109,7 +136,7 @@ optimizeKernel(
     util::compute_search_direction<DIM>(p, H, g); // p = -H * g
 
     // use the alpha obtained from the line search
-    double alpha = util::line_search<Function, DIM>(bestVal, x, p, g);
+    double alpha = util::line_search<Function, DIM>(bestVal, x, p, g,f);
     if (alpha == 0.0) {
       printf("Alpha is zero, no movement in iteration=%d\n", iter);
       alpha = 1e-3;
@@ -121,9 +148,10 @@ optimizeKernel(
       delta_x[i] = x_new[i] - x[i];
     }
 
-    double fnew = Function::evaluate(x_new);
+    double fnew = f(x_new);
+    //static_assert(is_callable_with_v<Function, dual::DualNumber>,"\n\n> This objective is not templated.\nMake it\n\n\ttemplate<class T> T fun(const T* x) { ... }\n");
     // get the new gradient g_new at x_new
-    dual::calculateGradientUsingAD<Function, DIM>(x_new, g_new);
+    dual::calculateGradientUsingAD<Function, DIM>(x_new, g_new, f);
 
     // calculate new delta_x and delta_g
     for (int i = 0; i < DIM; ++i) {
@@ -153,13 +181,13 @@ optimizeKernel(
       // atomically increment the converged counter
       int oldCount = atomicAdd(&d_convergedCount, 1);
       int newCount = oldCount + 1;
-      double fcurr = Function::evaluate(x);
+      double fcurr = f(x);
       // printf("\nconverged for %d at iter=%d); f = %.6f;",idx, iter,fcurr);
       // for (int d = 0; d < DIM; ++d) { printf(" % .6f", x[d]);}
       // printf(" ]\n");
       r.status = 1;
       r.gradientNorm = grad_norm;
-      r.fval = Function::evaluate(x);
+      r.fval = f(x);
       r.iter = iter;
       for (int d = 0; d < DIM; ++d) {
         r.coordinates[d] = x[d];
@@ -201,12 +229,12 @@ optimizeKernel(
     r.status = 0; // surrender
     r.iter = iter;
     r.gradientNorm = util::calculate_gradient_norm<DIM>(g);
-    r.fval = Function::evaluate(x);
+    r.fval = f(x);
     for (int d = 0; d < DIM; ++d) {
       r.coordinates[d] = x[d];
     }
   }
-  deviceResults[idx] = Function::evaluate(x);
+  deviceResults[idx] = f(x);
   result[idx] = r;
 } // end optimizerKernel
 
@@ -270,7 +298,8 @@ launch(const int N,
             float& ms_opt,
             std::string fun_name,
             curandState* states,
-            const int run)
+            const int run,
+            Function f)
 {
   int blockSize, minGridSize;
   cudaOccupancyMaxPotentialBlockSize(
@@ -303,7 +332,7 @@ launch(const int N,
   if (save_trajectories) {
     cudaMalloc(&deviceTrajectory, N * MAX_ITER * DIM * sizeof(double));
     optimizeKernel<Function, DIM, 128>
-      <<<optGrid, optBlock>>>(lower,
+      <<<optGrid, optBlock>>>(f, lower,
                               upper,
                               pso_results_device,
                               deviceResults,
@@ -317,7 +346,7 @@ launch(const int N,
                               /*saveTraj=*/true);
   } else {
     optimizeKernel<Function, DIM, 128>
-      <<<optGrid, optBlock>>>(lower,
+      <<<optGrid, optBlock>>>(f, lower,
                               upper,
                               pso_results_device,
                               deviceResults,

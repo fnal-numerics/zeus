@@ -50,7 +50,7 @@ __global__ void initKernel(
     }
 
     // eval personal best
-    double fval = Function::evaluate(&X[i*DIM]);
+    double fval = func(&X[i*DIM]);
     pBestVal[i] = fval;
 
     // atomic update of global best
@@ -127,7 +127,7 @@ __global__ void iterKernel(
 
 
     // evaluate at new position
-    double fval = Function::evaluate(&X[i*DIM]);
+    double fval = func(&X[i*DIM]);
 
     // personal best? no atomic needed, it's a private best position
     if (fval < pBestVal[i]) {
@@ -153,7 +153,7 @@ __global__ void iterKernel(
 
 
 template<typename Function, int DIM>
-double* launch(const int PSO_ITER,const int N,const double lower,const double upper, float& ms_init, float& ms_pso,const int seed, curandState* states) { //, Result<DIM>& best) {
+double* launch(const int PSO_ITER,const int N,const double lower,const double upper, float& ms_init, float& ms_pso,const int seed, curandState* states, Function f) { //, Result<DIM>& best) {
         // allocate PSO buffers on device
         double *dX, *dV, *dPBestVal, *dGBestX, *dGBestVal, *dPBestX;
         cudaMalloc(&dX,        N*DIM*sizeof(double));
@@ -185,7 +185,7 @@ double* launch(const int PSO_ITER,const int N,const double lower,const double up
         cudaEventCreate(&t1);
         cudaEventRecord(t0);
         initKernel<Function,DIM><<<psoGrid,psoBlock>>>(
-             Function(), lower, upper,
+             f, lower, upper,
              dX, dV,
              dPBestX, dPBestVal,
              dGBestX, dGBestVal,
@@ -211,7 +211,7 @@ double* launch(const int PSO_ITER,const int N,const double lower,const double up
         for(int iter=1; iter<PSO_ITER+1; ++iter) {
             cudaEventRecord(t0);
             iterKernel<Function,DIM><<<psoGrid,psoBlock>>>(
-                Function(),
+                f,
                 lower, upper,
                 w, c1, c2,
                 dX, dV,
