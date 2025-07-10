@@ -18,6 +18,20 @@ createOutputDirs(const std::string& path)
   std::filesystem::create_directories(path);
 }
 
+void set_stack_size() 
+{
+  // logic to set the stact size limit to 65 kB per thread
+  size_t currentStackSize = 0;
+  cudaDeviceGetLimit(&currentStackSize, cudaLimitStackSize);
+  //printf("Current stack size: %zu bytes\n", currentStackSize);
+  size_t newStackSize = 64 * 1024; // 65 kB
+  cudaError_t err = cudaDeviceSetLimit(cudaLimitStackSize, newStackSize);
+  if (err != cudaSuccess) {
+    printf("cudaDeviceSetLimit error: %s\n", cudaGetErrorString(err));
+    //return 1;
+  }
+}
+
 cudaError_t
 writeTrajectoryData(double* hostTrajectory,
                     int N,

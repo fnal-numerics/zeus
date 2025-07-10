@@ -32,6 +32,7 @@ namespace util {
 bool
 askUser2saveTrajectories();
 
+void set_stack_size();
 
 double
 calculate_euclidean_error(const std::string fun_name,
