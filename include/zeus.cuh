@@ -138,12 +138,15 @@ namespace zeus {
     );
   }
 
+/*
+template<class Function>
+constexpr size_t fun_dim_v = std::remove_cv_t<Function>::DIM;          // SFINAE-friendly alias
+*/
+
+// concept HasDim = requires { { std::remove_cv_t<T>::DIM } -> std::convertible_to<std::size_t>; };
 
 template<class Function>
-constexpr size_t fun_dim_v =
-    std::remove_cv_t<Function>::DIM;          // SFINAE-friendly alias
-
-template<class Function>
+requires requires {std::remove_cv_t<Function>::DIM;} // contraint expression
 auto Zeus(Function f,
           double lower,
           double upper,
@@ -153,10 +156,12 @@ auto Zeus(Function f,
           std::string fun_name,
           double tolerance,
           int seed, int run)
--> Result< fun_dim_v<Function> >
+//-> Result< fun_dim_v<Function> >
+-> Result< std::remove_cv_t<Function>::DIM >
 {
-    constexpr size_t DIM = fun_dim_v<Function>;
-    return detail::ZeusImpl<Function, DIM>(
+  constexpr size_t DIM = std::remove_cv_t<Function>::DIM;  
+  //constexpr size_t DIM = fun_dim_v<Function>;
+  return detail::ZeusImpl<Function, DIM>(
         std::move(f), lower, upper,
         hostResults,
         N, MAX_ITER, PSO_ITER, requiredConverged,
