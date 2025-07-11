@@ -1,4 +1,5 @@
 #pragma once
+#include <cassert>
 #include "duals.cuh"
 
 namespace util {
@@ -226,53 +227,45 @@ namespace util {
     }
   };
 
-  template <int D>
-  struct Rosenbrock {
-    static constexpr size_t DIM = D;
-    __host__ __device__ dual::DualNumber
-    operator()(dual::DualNumber const* x) const
-    {
-      return rosenbrock<DIM>(x);
-    }
+template<int D>
+struct Rosenbrock {
+    static constexpr int DIM = D;
 
-    __host__ __device__ double
-    operator()(double const* x) const
+    template<class T>
+    __host__ __device__
+    T operator()(const T* x, int dim = D) const
     {
-      return rosenbrock<DIM>(x);
+        assert(dim == D);
+        return rosenbrock<D>(x);
     }
-  };
+};
 
-  template <int D>
+  template<int D>
   struct Rastrigin {
-    static constexpr size_t DIM = D;
-    __host__ __device__ dual::DualNumber
-    operator()(dual::DualNumber const* x) const
-    {
-      return rastrigin<DIM>(x);
-    }
+    static constexpr int DIM = D;
 
-    __host__ __device__ double
-    operator()(double const* x) const
+    template<class T>
+    __host__ __device__
+    T operator()(const T* x, int dim = D) const
     {
-      return rastrigin<DIM>(x);
+        assert(dim == D);
+        return rastrigin<D>(x);
     }
   };
-  template <int D>
+
+  template<int D>
   struct Ackley {
-    static constexpr size_t DIM = D;
-    __host__ __device__ dual::DualNumber
-    operator()(dual::DualNumber const* x) const
-    {
-      return ackley<DIM>(x);
-    }
+    static constexpr int DIM = D;
 
-    __host__ __device__ double
-    operator()(double const* x) const
+    template<class T>
+    __host__ __device__
+    T operator()(const T* x, int dim = D) const
     {
-      return ackley<DIM>(x);
+        assert(dim == D);
+        return ackley<D>(x);
     }
   };
-
+  
   template <int DIM>
   struct Himmelblau {
     __host__ __device__ static dual::DualNumber

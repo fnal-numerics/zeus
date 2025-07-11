@@ -114,12 +114,11 @@ namespace dual {
   template <class F, class Scalar, class = void>
   struct is_callable_with : std::false_type {}; // default to false
 
-  //
   template <class F, class Scalar>
   struct is_callable_with<
     F,
     Scalar, //
-    std::void_t<decltype(std::declval<F>()(std::declval<const Scalar*>()))>>
+    std::void_t<decltype(std::declval<F>()(std::declval<const Scalar*>(), int{}))>> // need integer as second arg
     : std::true_type {};
   // void if success, else SFINAE
 
@@ -134,16 +133,17 @@ namespace dual {
   calculateGradientUsingAD(Function f, double const* x, double* gradient)
   {
     dual::DualNumber xDual[DIM];
-
+    #pragma unroll
     for (int i = 0; i < DIM;
          ++i) { // // iterate through each dimension (vairbale)
       xDual[i] = dual::DualNumber(x[i], 0.0);
     }
 
     // calculate the partial derivative of  each dimension
+    #pragma unroll
     for (int i = 0; i < DIM; ++i) {
       xDual[i].dual = 1.0;                // derivative w.r.t. dimension i
-      dual::DualNumber result = f(xDual); // evaluate the function using AD
+      dual::DualNumber result = f(xDual, DIM); // evaluate the function using AD
       gradient[i] = result.dual;          // store derivative
       // printf("\nxDual[%d]: %f, grad[%d]: %f ",i,xDual[i].real,i,gradient[i]);
       xDual[i].dual = 0.0;

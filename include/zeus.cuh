@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tuple>
 #include <type_traits>
 #include <functional>
 
@@ -26,10 +27,10 @@ namespace zeus {
     return result;
   }
 
-  namespace detail {
+  namespace impl {
     template <typename Function, size_t DIM>
     Result<DIM>
-    ZeusImpl(Function f,
+    Zeus(Function f,
              double lower,
              double upper,
              double* hostResults,
@@ -115,7 +116,7 @@ namespace zeus {
       }
       return best;
     } // end Zeus
-  } // namespace detail
+  } // namespace impl
 
 
   /*
@@ -126,8 +127,36 @@ namespace zeus {
   // concept HasDim = requires { { std::remove_cv_t<T>::DIM } ->
   // std::convertible_to<std::size_t>; };
 
-  template <typename Function>
-  //requires requires { std::remove_cv_t<Function>::DIM;} // contraint expression
+// traits to tells us how many parameters a callable takes and
+//    lets us get each parameter’s type.
+template<class F>
+struct fn_traits : fn_traits<decltype(static_cast<double (F::*)(const double*, int) const>(&F::operator()))> {};
+//struct fn_traits : fn_traits<decltype(&F::template operator()<double>)> {};
+//struct fn_traits : fn_traits<decltype(&F::template operator())> {};
+
+// for free/static functions
+//    double (*)(double,int)
+template<class R, class... A>
+struct fn_traits<R(*)(A...)> {
+    static constexpr std::size_t arity = sizeof...(A); // how many arguments?
+    template<std::size_t N> using arg  = std::tuple_element_t<N, std::tuple<A...>>; // type of argument N
+};
+
+// for member functions and lambdas
+//  eg..  double (F::*)(double*,int) const
+template<class C, class R, class... A>
+struct fn_traits<R(C::*)(A...) const> {
+    static constexpr std::size_t arity = sizeof...(A); // 
+    template<std::size_t N> using arg = std::tuple_element_t<N, std::tuple<A...>>;
+};
+
+template<class F>
+concept objective_2param =      // objective must have 
+       fn_traits<F>::arity == 2 // two arguments
+    && std::is_pointer_v<typename fn_traits<F>::arg<0>> // with first argument being pointer to scalar type: double* DualNumber* 
+    && std::is_same_v<typename fn_traits<F>::arg<1>, int>; // and second being integer for DIM
+
+  template <objective_2param Function>
   auto
   Zeus(Function f,
        double lower,
@@ -141,13 +170,17 @@ namespace zeus {
        double tolerance,
        int seed,
        int run)
-    //-> Result< fun_dim_v<Function> >
-    //-> Result<std::remove_cv_t<Function>::DIM>
   {
-    static_assert(std::is_integral_v<Function::DIM>, "specified function does not contain value DIM.");
-    constexpr size_t DIM = std::remove_cv_t<Function>::DIM;
-    // constexpr size_t DIM = fun_dim_v<Function>;
-    return detail::ZeusImpl<Function, DIM>(std::move(f),
+    // static_assert(std::is_integral_v<Function::DIM>, "specified function does not contain value DIM.");
+    //constexpr std::size_t DIM = fn_traits<Function>::arity;
+
+    constexpr int DIM = std::remove_cv_t<Function>::DIM;
+    static_assert(DIM > 0, "specified opbjective does not define DIM...");
+
+
+    constexpr auto n_arg = fn_traits<Function>::arity;
+    std::cout << n_arg << " arguments in template fun"<<std::endl;
+    return impl::Zeus<Function, DIM>(std::move(f),
                                            lower,
                                            upper,
                                            hostResults,

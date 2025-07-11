@@ -108,8 +108,7 @@ namespace bfgs {
     int iter;
 
     static_assert(dual::is_callable_with_v<Function, dual::DualNumber>,
-                  "\n\n> This objective is not templated.\nMake "
-                  "it\n\n\ttemplate<class T> T fun(const T* x) { ... }\n");
+                  "\n\n> This objective is not templated..\nExpected something like\n\n\ttemplate<class T> T fun(const T* x, int dim) const { ... }\n");
     dual::calculateGradientUsingAD<Function, DIM>(f, x, g);
     for (iter = 0; iter < MAX_ITER; ++iter) {
       // printf("inside BeeG File System");
