@@ -130,8 +130,8 @@ namespace dual {
   template <class Function,
             int DIM,
             class = std::enable_if_t<is_callable_with_v<Function, DualNumber>>>
-  __device__ inline void
-  calculateGradientUsingAD(double* x, double* gradient, Function f)
+  __device__ void
+  calculateGradientUsingAD(Function f, double const* x, double* gradient)
   {
     dual::DualNumber xDual[DIM];
 

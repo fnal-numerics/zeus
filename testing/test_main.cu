@@ -123,8 +123,8 @@ __global__ void
 testGradKernel(const double* x, double* g)
 {
   Func<DIM> functor;
-  dual::calculateGradientUsingAD<Func<DIM>, DIM>(
-    const_cast<double*>(x), g, functor);
+  dual::calculateGradientUsingAD<Func<DIM>, DIM>( functor,
+    const_cast<double*>(x), g);
 }
 
 template <template <int> class Func, int DIM>

@@ -117,48 +117,17 @@ namespace zeus {
     } // end Zeus
   } // namespace detail
 
-  template <typename Function, size_t DIM>
-  Result<DIM>
-  Zeus(Function f,
-       double lower,
-       double upper,
-       double* hostResults,
-       int N,
-       int MAX_ITER,
-       int PSO_ITER,
-       int requiredConverged,
-       std::string fun_name,
-       double tolerance,
-       int seed,
-       int run)
-  {
-    return detail::ZeusImpl<Function, DIM>(std::move(f),
-                                           lower,
-                                           upper,
-                                           hostResults,
-                                           N,
-                                           MAX_ITER,
-                                           PSO_ITER,
-                                           requiredConverged,
-                                           std::move(fun_name),
-                                           tolerance,
-                                           seed,
-                                           run);
-  }
 
   /*
   template<class Function>
-  constexpr size_t fun_dim_v = std::remove_cv_t<Function>::DIM;          //
-  SFINAE-friendly alias
+  constexpr size_t fun_dim_v = std::remove_cv_t<Function>::DIM;  // SFINAE-friendly alias
   */
 
   // concept HasDim = requires { { std::remove_cv_t<T>::DIM } ->
   // std::convertible_to<std::size_t>; };
 
-  template <class Function>
-    requires requires {
-      std::remove_cv_t<Function>::DIM;
-    } // contraint expression
+  template <typename Function>
+  //requires requires { std::remove_cv_t<Function>::DIM;} // contraint expression
   auto
   Zeus(Function f,
        double lower,
@@ -173,8 +142,9 @@ namespace zeus {
        int seed,
        int run)
     //-> Result< fun_dim_v<Function> >
-    -> Result<std::remove_cv_t<Function>::DIM>
+    //-> Result<std::remove_cv_t<Function>::DIM>
   {
+    static_assert(std::is_integral_v<Function::DIM>, "specified function does not contain value DIM.");
     constexpr size_t DIM = std::remove_cv_t<Function>::DIM;
     // constexpr size_t DIM = fun_dim_v<Function>;
     return detail::ZeusImpl<Function, DIM>(std::move(f),

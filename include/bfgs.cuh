@@ -110,7 +110,7 @@ namespace bfgs {
     static_assert(dual::is_callable_with_v<Function, dual::DualNumber>,
                   "\n\n> This objective is not templated.\nMake "
                   "it\n\n\ttemplate<class T> T fun(const T* x) { ... }\n");
-    dual::calculateGradientUsingAD<Function, DIM>(x, g, f);
+    dual::calculateGradientUsingAD<Function, DIM>(f, x, g);
     for (iter = 0; iter < MAX_ITER; ++iter) {
       // printf("inside BeeG File System");
       //  check if somebody already asked to stop
@@ -153,7 +153,7 @@ namespace bfgs {
       // This objective is not templated.\nMake it\n\n\ttemplate<class T> T
       // fun(const T* x) { ... }\n");
       //  get the new gradient g_new at x_new
-      dual::calculateGradientUsingAD<Function, DIM>(x_new, g_new, f);
+      dual::calculateGradientUsingAD<Function, DIM>(f, x_new, g_new);
 
       // calculate new delta_x and delta_g
       for (int i = 0; i < DIM; ++i) {
