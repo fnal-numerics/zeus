@@ -93,7 +93,7 @@ test_vector_scale()
 
 template <template <int> class Func, int DIM>
 __global__ void
-testValueKernel(const double* x, double* out,Func<DIM> f)
+testValueKernel(const double* x, double* out, Func<DIM> f)
 {
   out[0] = f(x);
 }
@@ -123,7 +123,8 @@ __global__ void
 testGradKernel(const double* x, double* g)
 {
   Func<DIM> functor;
-  dual::calculateGradientUsingAD<Func<DIM>, DIM>(const_cast<double*>(x), g, functor);
+  dual::calculateGradientUsingAD<Func<DIM>, DIM>(
+    const_cast<double*>(x), g, functor);
 }
 
 template <template <int> class Func, int DIM>
