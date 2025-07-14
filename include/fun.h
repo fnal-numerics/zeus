@@ -226,45 +226,6 @@ namespace util {
       return eggholder<DIM>(x);
     }
   };
-/*
-template<int D>
-struct Rosenbrock {
-    static constexpr int DIM = D;
-
-    template<class T>
-    __host__ __device__
-    T operator()(const T* x, int dim = D) const
-    {
-        assert(dim == D);
-        return rosenbrock<D>(x);
-    }
-};
-  
-  template<int D>
-  struct Rastrigin {
-    static constexpr int DIM = D;
-
-    template<class T>
-    __host__ __device__
-    T operator()(const T* x, int dim = D) const
-    {
-        assert(dim == D);
-        return rastrigin<D>(x);
-    }
-  };
-
-  template<int D>
-  struct Ackley {
-    static constexpr int DIM = D;
-
-    template<class T>
-    __host__ __device__
-    T operator()(const T* x, int dim = D) const
-    {
-        assert(dim == D);
-        return ackley<D>(x);
-    }
-  };*/
 
 template<int D>
 struct Rosenbrock {
