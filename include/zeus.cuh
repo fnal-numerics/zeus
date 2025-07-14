@@ -10,6 +10,10 @@
 #include "utils.cuh"
 #include "bfgs.cuh"
 
+__device__ int d_stopFlag = 0;
+__device__ int d_convergedCount = 0;
+__device__ int d_threadsRemaining = 0;
+
 namespace zeus {
 
   template <typename F, typename Arg> // F is callable type, Arg is element-type

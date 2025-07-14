@@ -19,6 +19,13 @@ add_library(util
     include/utils.cuh
 )
 
+add_executable(zeus main.cu)
+target_link_libraries(zeus PUBLIC CUDA::cudart)
+target_link_libraries(zeus PUBLIC util CUDA::cudart)
+
+target_compile_options(zeus PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
+
+
 #add_executable(zeus main.cu)
 set_source_files_properties(metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
 add_executable(zeus_test metaprogramming_t.cpp)
@@ -27,9 +34,7 @@ target_compile_options(zeus_test
     $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
 )
 
-target_compile_options(zeus_test PRIVATE
-  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>
-)
+target_compile_options(zeus_test PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
 
 target_include_directories(zeus_test PRIVATE
   ${PROJECT_SOURCE_DIR}/include

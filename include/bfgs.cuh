@@ -69,8 +69,7 @@ namespace bfgs {
     //std::array<double, DIM> x_new;
     // int early_stopping = 0;
     double H[DIM * DIM];
-    double p[DIM], delta_x[DIM],
-      delta_g[DIM]; //, new_direction[DIM];
+    double delta_x[DIM], delta_g[DIM]; //, new_direction[DIM];
     // double tolerance = 1e-5;
     //  Line Search params
 

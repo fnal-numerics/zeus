@@ -226,7 +226,7 @@ namespace util {
       return eggholder<DIM>(x);
     }
   };
-
+/*
 template<int D>
 struct Rosenbrock {
     static constexpr int DIM = D;
@@ -239,7 +239,7 @@ struct Rosenbrock {
         return rosenbrock<D>(x);
     }
 };
-
+  
   template<int D>
   struct Rastrigin {
     static constexpr int DIM = D;
@@ -264,7 +264,38 @@ struct Rosenbrock {
         assert(dim == D);
         return ackley<D>(x);
     }
-  };
+  };*/
+
+template<int D>
+struct Rosenbrock {
+  template<class T, std::size_t N, class = std::enable_if_t<N == D>>
+  __host__ __device__
+  T operator()(const std::array<T,N>& x) const {
+    return rosenbrock<D>(x.data());
+  }
+};
+
+
+template<int D>
+struct Rastrigin {
+  template<class T, std::size_t N, class = std::enable_if_t<N == D>>
+  __host__ __device__
+  T operator()(const std::array<T,N>& x) const {
+    return rastrigin<D>(x.data());
+  }
+};
+
+template<int D>
+struct Ackley {
+  template<class T, std::size_t N,
+           class = std::enable_if_t<N == D>>
+  __host__ __device__
+  T operator()(const std::array<T,N>& x) const {
+    return ackley<D>(x.data());
+  }
+};
+
+
   
   template <int DIM>
   struct Himmelblau {
