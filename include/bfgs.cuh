@@ -65,7 +65,6 @@ namespace bfgs {
     curandState localState = states[idx];
 
     std::array<double, DIM> x_arr, x_new, g_arr,g_new, p_arr;
-    //std::array<double, DIM> g_arr;
 
     //std::array<double, DIM> x_new;
     // int early_stopping = 0;
@@ -133,8 +132,7 @@ namespace bfgs {
        
       util::compute_search_direction<DIM>(p_arr, H, g_arr); // p = -H * g
 
-      for(int d=0;d<DIM;d++)
-        p_arr[d] = p[d];
+      //for(int d=0;d<DIM;d++) p[d] = p_arr[d];
 
       // use the alpha obtained from the line search
       double alpha = util::line_search<Function, DIM>(bestVal, x_arr, p_arr, g_arr, f);
@@ -146,7 +144,7 @@ namespace bfgs {
       // update current point x by taking a step size of alpha in the direction
       // p
       for (int i = 0; i < DIM; ++i) {
-        x_new[i] = x_arr[i] + alpha * p[i];
+        x_new[i] = x_arr[i] + alpha * p_arr[i];
         delta_x[i] = x_new[i] - x_arr[i];
         //x_new_raw[i] = x_new[i];
       }
