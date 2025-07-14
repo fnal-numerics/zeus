@@ -1,9 +1,9 @@
 #pragma once
 
-#include "traits.hpp"
-
-template<typename F>
-using first_arg_t = typename fn_traits_f<F>::arg0_type;
+//#include "traits.hpp"
+#include <array>
+//template<typename F>
+//using first_arg_t = typename fn_traits_f<F>::arg0_type;
 
 namespace dual {
 
