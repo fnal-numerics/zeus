@@ -50,8 +50,15 @@ namespace pso {
       pBestX[i * DIM + d] = rx;
     }
 
+    std::array<double, DIM> xarr; 
+    double* x = xarr.data();
+    #pragma unroll
+    for (int d = 0; d < DIM; ++d)
+      x[d] = X[i*DIM + d]; // pointer indexing is allowed in __device__
+    
     // eval personal best
-    double fval = func(&X[i * DIM]);
+    //double fval = func(&X[i * DIM]);
+    double fval = func(xarr);
     pBestVal[i] = fval;
 
     // atomic update of global best
@@ -129,8 +136,13 @@ namespace pso {
       }
     }
 
+    std::array<double, DIM> xarr;
+    double* x = xarr.data();
+    #pragma unroll
+    for (int d = 0; d < DIM; ++d)
+      x[d] = X[i*DIM + d];
     // evaluate at new position
-    double fval = func(&X[i * DIM]);
+    double fval = func(xarr);
 
     // personal best? no atomic needed, it's a private best position
     if (fval < pBestVal[i]) {

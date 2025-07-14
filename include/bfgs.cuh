@@ -64,9 +64,13 @@ namespace bfgs {
 
     curandState localState = states[idx];
 
+    std::array<double, DIM> x_arr, x_new, g_arr,g_new, p_arr;
+    //std::array<double, DIM> g_arr;
+
+    //std::array<double, DIM> x_new;
     // int early_stopping = 0;
     double H[DIM * DIM];
-    double g[DIM], x[DIM], x_new[DIM], p[DIM], g_new[DIM], delta_x[DIM],
+    double p[DIM], delta_x[DIM],
       delta_g[DIM]; //, new_direction[DIM];
     // double tolerance = 1e-5;
     //  Line Search params
@@ -84,37 +88,32 @@ namespace bfgs {
 
     int num_steps = 0;
 
+    double x_raw[DIM];//, g_raw[DIM];
     // initialize x either from PSO array or fallback by RNG
-    if (pso_array) {
 #pragma unroll
-      for (int d = 0; d < DIM; ++d) {
-        x[d] = pso_array[idx * DIM + d];
-        // if(idx == 0) printf("x[%d]=%0.7f\n", d, x[d]);
-      }
-    } else {
-// unsigned int seed = 456;
-#pragma unroll
-      for (int d = 0; d < DIM; ++d) {
-        // x[d] = util::statelessUniform(idx,d,1,lower, upper, seed);
-        x[d] = util::generate_random_double(&localState, lower, upper);
-      }
+    for (int d = 0; d < DIM; ++d) {
+      x_raw[d] = pso_array
+               ? pso_array[idx*DIM + d]
+               : util::generate_random_double(&states[idx], lower, upper);
+      x_arr[d] = x_raw[d];
+      g_arr[d] = 0.0;
+      //g_raw[d] = 0.0;
       states[idx] = localState;
     }
 
-    double f0 = f(x); // rosenbrock_device(x, DIM);
+    double f0 = f(x_arr); // rosenbrock_device(x, DIM);
     deviceResults[idx] = f0;
     double bestVal = f0;
     // if (idx == 0) printf("\n\nf0 = %f", f0);
     int iter;
-
-    static_assert(dual::is_callable_with_v<Function, dual::DualNumber>,
-                  "\n\n> This objective is not templated..\nExpected something like\n\n\ttemplate<class T> T fun(const T* x, int dim) const { ... }\n");
-    dual::calculateGradientUsingAD<Function, DIM>(f, x, g);
+    
+    //double x_new_raw[DIM];
+    //static_assert(dual::is_callable_with_v<Function, dual::DualNumber>,              "\n\n> This objective is not templated..\nExpected something like\n\n\ttemplate<class T> T fun(const T* x, int dim) const { ... }\n");
+    dual::calculateGradientUsingAD(f, x_arr, g_arr);
     for (iter = 0; iter < MAX_ITER; ++iter) {
       // printf("inside BeeG File System");
       //  check if somebody already asked to stop
-      if (atomicAdd(&d_stopFlag, 0) !=
-          0) { // atomicAdd here just to get a strong read-barrier
+      if (atomicAdd(&d_stopFlag, 0) !=  0) { // atomicAdd here just to get a strong read-barrier
         // CUDA will fetch a coherent copy of the integer from global memory.
         // as soon as one thread writes 1 into d_stopFlag via atomicExch,
         // the next time any thread does atomicAdd(&d_stopFlag, 0) it’ll see 1
@@ -122,19 +121,23 @@ namespace bfgs {
         // idx);
         r.status = 2;
         r.iter = iter;
-        r.fval = f(x);
+        r.fval = f(x_arr);
         for (int d = 0; d < DIM; d++) {
-          r.coordinates[d] = x[d];
+          r.coordinates[d] = x_arr[d];
+          //g_raw[d] = g_arr[d];
         }
-        r.gradientNorm = util::calculate_gradient_norm<DIM>(g);
+        r.gradientNorm = util::calculate_gradient_norm<DIM>(g_arr);
         break;
       }
       num_steps++;
+       
+      util::compute_search_direction<DIM>(p_arr, H, g_arr); // p = -H * g
 
-      util::compute_search_direction<DIM>(p, H, g); // p = -H * g
+      for(int d=0;d<DIM;d++)
+        p_arr[d] = p[d];
 
       // use the alpha obtained from the line search
-      double alpha = util::line_search<Function, DIM>(bestVal, x, p, g, f);
+      double alpha = util::line_search<Function, DIM>(bestVal, x_arr, p_arr, g_arr, f);
       if (alpha == 0.0) {
         printf("Alpha is zero, no movement in iteration=%d\n", iter);
         alpha = 1e-3;
@@ -143,8 +146,9 @@ namespace bfgs {
       // update current point x by taking a step size of alpha in the direction
       // p
       for (int i = 0; i < DIM; ++i) {
-        x_new[i] = x[i] + alpha * p[i];
-        delta_x[i] = x_new[i] - x[i];
+        x_new[i] = x_arr[i] + alpha * p[i];
+        delta_x[i] = x_new[i] - x_arr[i];
+        //x_new_raw[i] = x_new[i];
       }
 
       double fnew = f(x_new);
@@ -152,13 +156,11 @@ namespace bfgs {
       // This objective is not templated.\nMake it\n\n\ttemplate<class T> T
       // fun(const T* x) { ... }\n");
       //  get the new gradient g_new at x_new
-      dual::calculateGradientUsingAD<Function, DIM>(f, x_new, g_new);
+      dual::calculateGradientUsingAD(f, x_new, g_new);
 
       // calculate new delta_x and delta_g
       for (int i = 0; i < DIM; ++i) {
-        delta_g[i] =
-          g_new[i] -
-          g[i]; // difference in gradient at the new point vs old point
+        delta_g[i] = g_new[i] - g_arr[i]; // difference in gradient at the new point vs old point
       }
 
       // calculate the the dot product between the change in x and change in
@@ -173,26 +175,28 @@ namespace bfgs {
       if (fnew < bestVal) {
         bestVal = fnew;
         for (int i = 0; i < DIM; ++i) {
-          x[i] = x_new[i];
-          g[i] = g_new[i];
+          x_arr[i] = x_new[i];
+          g_arr[i] = g_new[i];
         }
       }
       // refactor? yes
-      double grad_norm = util::calculate_gradient_norm<DIM>(g);
+      double grad_norm = util::calculate_gradient_norm<DIM>(g_arr);
       if (grad_norm < tolerance) {
         // atomically increment the converged counter
         int oldCount = atomicAdd(&d_convergedCount, 1);
         int newCount = oldCount + 1;
-        double fcurr = f(x);
+        for (int d = 0; d < DIM; ++d)
+          x_arr[d] = x_raw[d];
+        double fcurr = f(x_arr);
         // printf("\nconverged for %d at iter=%d); f = %.6f;",idx, iter,fcurr);
         // for (int d = 0; d < DIM; ++d) { printf(" % .6f", x[d]);}
         // printf(" ]\n");
         r.status = 1;
         r.gradientNorm = grad_norm;
-        r.fval = f(x);
+        r.fval = fcurr;
         r.iter = iter;
         for (int d = 0; d < DIM; ++d) {
-          r.coordinates[d] = x[d];
+          r.coordinates[d] = x_arr[d];
         }
         // if we just hit the threshold set by the user, the VERY FIRST thread
         // to do so sets d_stopFlag=1 so everyone else exits on their next check
@@ -216,12 +220,12 @@ namespace bfgs {
         break;
       }
 
-      //  deviceTrajectory layout: idx * (MAX_ITER * DIM) + iter * DIM + i
+      /*  deviceTrajectory layout: idx * (MAX_ITER * DIM) + iter * DIM + i
       if (save_trajectories) {
         for (int i = 0; i < DIM; i++) {
-          deviceTrajectory[idx * (MAX_ITER * DIM) + iter * DIM + i] = x[i];
+          deviceTrajectory[idx * (MAX_ITER * DIM) + iter * DIM + i] = x_raw[i];
         }
-      }
+      }*/
 
       // for(int i=0; i<DIM; ++i) {x[i] = x_new[i];}
     } // end bfgs loop
@@ -230,13 +234,14 @@ namespace bfgs {
     if (MAX_ITER == iter) {
       r.status = 0; // surrender
       r.iter = iter;
-      r.gradientNorm = util::calculate_gradient_norm<DIM>(g);
-      r.fval = f(x);
       for (int d = 0; d < DIM; ++d) {
-        r.coordinates[d] = x[d];
+        r.coordinates[d] = x_raw[d];  
+        x_arr[d] = x_raw[d];
       }
+      r.gradientNorm = util::calculate_gradient_norm<DIM>(g_arr);
+      r.fval = f(x_arr);
     }
-    deviceResults[idx] = f(x);
+    deviceResults[idx] = f(x_arr);
     result[idx] = r;
   } // end optimizerKernel
 

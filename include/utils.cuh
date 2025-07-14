@@ -152,6 +152,21 @@ namespace util {
     }
   }
 
+  // overload to take arrays
+  template<int DIM>
+  __device__ double
+  calculate_gradient_norm(const std::array<double,DIM>& g_arr)
+  {
+    return calculate_gradient_norm<DIM>(g_arr.data());
+  }
+
+  template <int DIM>
+  __device__ void
+  compute_search_direction(std::array<double, DIM>& p_arr, const double* H, const std::array<double,DIM>& g_arr)
+  {
+    compute_search_direction<DIM>(p_arr.data(), H, g_arr.data());
+  }
+
   // wrap kernel definitions extern "C" block so that their symbols are exported
   // with C linkage
   extern "C" {
@@ -241,7 +256,7 @@ namespace util {
     const double c1 = 0.3;
     double alpha = 1.0;
     double ddir = dot_product_device(g, p, DIM);
-    double xTemp[DIM];
+    std::array<double, DIM> xTemp;
     for (int i = 0; i < 20; i++) {
       for (int j = 0; j < DIM; j++) {
         xTemp[j] = x[j] + alpha * p[j];
@@ -253,6 +268,27 @@ namespace util {
     }
     return alpha;
   }
+
+
+// overload that takes arrays
+template<typename Function, std::size_t DIM>
+__host__ __device__
+double line_search(
+    double                     current_best,
+    const std::array<double,DIM>& x_arr,
+    const std::array<double,DIM>& p_arr,
+    const std::array<double,DIM>& g_arr,
+    Function                   f)
+{
+  // forward to your existing pointer‐based routine
+  return line_search<Function,DIM>(
+    current_best,
+    x_arr.data(),
+    p_arr.data(),
+    g_arr.data(),
+    f
+  );
+}
 
   __device__ double atomicMinDouble(double* addr, double val);
 

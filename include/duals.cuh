@@ -1,6 +1,9 @@
 #pragma once
 
-#include <type_traits>
+#include "traits.hpp"
+
+template<typename F>
+using first_arg_t = typename fn_traits_f<F>::arg0_type;
 
 namespace dual {
 
@@ -110,44 +113,38 @@ namespace dual {
              exponent * powf(base.real, exponent - 1) * base.dual);
   }
 
-  // compile-time trait: can we call F with Scalar*? double or DualNumber
-  template <class F, class Scalar, class = void>
-  struct is_callable_with : std::false_type {}; // default to false
 
-  template <class F, class Scalar>
-  struct is_callable_with<
-    F,
-    Scalar, //
-    std::void_t<decltype(std::declval<F>()(std::declval<const Scalar*>(), int{}))>> // need integer as second arg
-    : std::true_type {};
-  // void if success, else SFINAE
+// can we call F with std::array<Scalar,DIM>?
 
-  template <class F, class Scalar>
-  inline constexpr bool is_callable_with_v = is_callable_with<F, Scalar>::value;
-
-  // enabled only if Function can be instantiated with DualNumber
-  template <class Function,
-            int DIM,
-            class = std::enable_if_t<is_callable_with_v<Function, DualNumber>>>
-  __device__ void
-  calculateGradientUsingAD(Function f, double const* x, double* gradient)
+// Only enabled if f takes std::array<dual,DIM> -> dual
+  template<class Function, std::size_t DIM,
+         class = std::enable_if_t<
+           std::is_same_v<decltype(std::declval<Function>()(
+               std::declval<std::array<dual::DualNumber,DIM>>()
+             )),
+             dual::DualNumber>>>
+  __device__ void calculateGradientUsingAD(
+    Function f,
+    const std::array<double,DIM>& x_arr,  // input point
+    std::array<double,DIM>& grad)     // output derivative vector
   {
-    dual::DualNumber xDual[DIM];
-    #pragma unroll
-    for (int i = 0; i < DIM;
-         ++i) { // // iterate through each dimension (vairbale)
-      xDual[i] = dual::DualNumber(x[i], 0.0);
-    }
-
-    // calculate the partial derivative of  each dimension
-    #pragma unroll
-    for (int i = 0; i < DIM; ++i) {
-      xDual[i].dual = 1.0;                // derivative w.r.t. dimension i
-      dual::DualNumber result = f(xDual, DIM); // evaluate the function using AD
-      gradient[i] = result.dual;          // store derivative
-      // printf("\nxDual[%d]: %f, grad[%d]: %f ",i,xDual[i].real,i,gradient[i]);
+    // build dual‐array on stack
+    std::array<dual::DualNumber, DIM> xDual;
+#pragma unroll
+    for (std::size_t i = 0; i < DIM; ++i) {
+      xDual[i].real = x_arr[i];
       xDual[i].dual = 0.0;
     }
-  } // end calculate gradientusingAD
+
+    // partials
+#pragma unroll
+    for (std::size_t i = 0; i < DIM; ++i) {
+      xDual[i].dual = 1.0;  // derivative w.r.t. dimension i
+      dual::DualNumber result = f(xDual); // evaluate the function using AD
+      grad[i] = result.dual; // store derivative
+      xDual[i].dual = 0.0; 
+    }
+  }
+
 
 } // end of dual

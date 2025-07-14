@@ -19,16 +19,35 @@ add_library(util
     include/utils.cuh
 )
 
-add_executable(zeus main.cu)
+#add_executable(zeus main.cu)
+set_source_files_properties(metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
+add_executable(zeus_test metaprogramming_t.cpp)
+target_compile_options(zeus_test
+    PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
+)
 
-target_link_libraries(zeus PUBLIC CUDA::cudart)
+target_compile_options(zeus_test PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>
+)
+
+target_include_directories(zeus_test PRIVATE
+  ${PROJECT_SOURCE_DIR}/include
+)
+target_link_libraries(zeus_test PRIVATE
+  util
+  CUDA::cudart
+)
+
+
+#target_link_libraries(zeus PUBLIC CUDA::cudart)
 # Table‐generator executable: dumps a LaTeX table to stdout
 #add_executable(cuda_table
 #  table_generator.cu
 #  parallel_pso.cu
 #)
 
-target_link_libraries(zeus PUBLIC util CUDA::cudart) # build util into zeus
+target_link_libraries(zeus_test PUBLIC util CUDA::cudart) # build util into zeus
 
 add_executable(unit_test
   testing/test_main.cu
@@ -45,28 +64,10 @@ enable_testing()
 add_test(NAME RunCudaTest COMMAND unit_test)
 
 # metaprogramming 
-set_source_files_properties(metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
-add_executable(zeus_test metaprogramming_t.cpp)
-target_compile_options(zeus_test
-    PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>
-)
-
-target_include_directories(zeus_test PRIVATE
-  ${PROJECT_SOURCE_DIR}/include
-)
-target_link_libraries(zeus_test PRIVATE
-  util
-  CUDA::cudart
-)
-# embed an RPATH so you don’t need crun.cuda to find libcudart.so
-#set_target_properties(zeus_test PROPERTIES
-#  BUILD_RPATH "${CUDATOOLKIT_ROOT_DIR}/lib64"
-#)
 #set_source_files_properties(metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
-
 #add_executable(zeus_test metaprogramming_t.cpp)
+#target_compile_options(zeus_test PRIVATE    $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>)
 
-#target_include_directories(zeus_test PRIVATE ${CMAKE_SOURCE_DIR}/include)
-#target_link_libraries(zeus_test PRIVATE util CUDA::cudart)
+#target_include_directories(zeus_test PRIVATE  ${PROJECT_SOURCE_DIR}/include)
+#target_link_libraries(zeus_test PRIVATE  util  CUDA::cudart)
 
