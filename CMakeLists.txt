@@ -53,6 +53,9 @@ add_executable(unit_test
   testing/test_main.cu
   main.cu
 )
+target_compile_options(unit_test PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>
+)
 target_compile_definitions(unit_test PRIVATE UNIT_TEST)
 target_link_libraries(unit_test
   PUBLIC

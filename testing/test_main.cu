@@ -95,7 +95,10 @@ template <template <int> class Func, int DIM>
 __global__ void
 testValueKernel(const double* x, double* out, Func<DIM> f)
 {
-  out[0] = f(x);
+  std::array<double,DIM> x_arr;
+  for(int d=0;d<DIM;d++)
+    x_arr[d] = x[d];
+  out[0] = f(x_arr);
 }
 
 template <template <int> class Func, int DIM>
@@ -123,8 +126,16 @@ __global__ void
 testGradKernel(const double* x, double* g)
 {
   Func<DIM> functor;
-  dual::calculateGradientUsingAD<Func<DIM>, DIM>( functor,
-    const_cast<double*>(x), g);
+  std::array<double,DIM> x_arr, g_arr;
+  for(int d=0;d<DIM;d++) {
+    x_arr[d] = x[d];
+    g_arr[d] = g[d];
+  }
+  //dual::calculateGradientUsingAD(functor,x_arr, g_arr);
+  dual::calculateGradientUsingAD<decltype(functor), DIM>(functor, x_arr, g_arr);
+for (int d = 0; d < DIM; ++d) {
+  g[d] = g_arr[d];
+}
 }
 
 template <template <int> class Func, int DIM>
