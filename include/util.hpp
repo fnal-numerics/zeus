@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>         // for uint64_t
-#include <curand_kernel.h> // for curandState
 #include <cstdio>          // for printf
 #include <string>
 #include <iostream>
@@ -9,7 +8,8 @@
 #include <fstream>
 #include <vector>
 #include <string>
-
+#include <cmath>      // for std::sqrt
+#include <limits> 
 
 struct Convergence {
   int actual;
@@ -34,7 +34,6 @@ namespace util {
 
   bool askUser2saveTrajectories();
 
-  void set_stack_size();
 
   double calculate_euclidean_error(const std::string fun_name,
                                    const double* coordinates,

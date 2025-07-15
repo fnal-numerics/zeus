@@ -1,8 +1,12 @@
 #pragma once
 
+#include <curand_kernel.h> // for curandState
+
 #include "util.hpp"
 
 namespace util {
+
+  void set_stack_size();
 
   // https://xorshift.di.unimi.it/splitmix64.c
   // Very fast 64-bit mixer — returns a new 64-bit value each time.

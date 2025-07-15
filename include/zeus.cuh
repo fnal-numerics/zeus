@@ -162,26 +162,4 @@ namespace zeus {
                                            run);
   }
 
-  inline curandState*
-  initialize_states(int N, int seed, float& ms_rand)
-  {
-    // PRNG setup
-    curandState* d_states;
-    cudaMalloc(&d_states, N * sizeof(curandState));
-
-    // Launch setup
-    int threads = 256;
-    int blocks = (N + threads - 1) / threads;
-    cudaEvent_t t0, t1;
-    cudaEventCreate(&t0);
-    cudaEventCreate(&t1);
-    cudaEventRecord(t0);
-    util::setup_curand_states<<<blocks, threads>>>(d_states, seed, N);
-    cudaEventRecord(t1);
-    cudaEventSynchronize(t1);
-    cudaEventElapsedTime(&ms_rand, t0, t1);
-    cudaDeviceSynchronize();
-    return d_states;
-  }
-
 } // end zeus namespace

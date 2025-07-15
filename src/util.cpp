@@ -18,60 +18,6 @@ namespace util {
     std::filesystem::create_directories(path);
   }
 
-  void
-  set_stack_size()
-  {
-    // logic to set the stact size limit to 65 kB per thread
-    size_t currentStackSize = 0;
-    cudaDeviceGetLimit(&currentStackSize, cudaLimitStackSize);
-    // printf("Current stack size: %zu bytes\n", currentStackSize);
-    size_t newStackSize = 64 * 1024; // 65 kB
-    cudaError_t err = cudaDeviceSetLimit(cudaLimitStackSize, newStackSize);
-    if (err != cudaSuccess) {
-      printf("cudaDeviceSetLimit error: %s\n", cudaGetErrorString(err));
-      // return 1;
-    }
-  }
-
-  cudaError_t
-  writeTrajectoryData(double* hostTrajectory,
-                      int N,
-                      int MAX_ITER,
-                      int DIM,
-                      const std::string& fun_name,
-                      const std::string& basePath)
-  {
-    // construct the directory path and create it.
-    std::string dirPath = basePath + "/" + fun_name + "/" +
-                          std::to_string(DIM) + "d/" +
-                          std::to_string(MAX_ITER * N) + "/trajectories";
-    std::filesystem::create_directories(dirPath);
-    // createOutputDirs(dirPath);
-
-    // the final filename.
-    std::string filename = dirPath + "/" + std::to_string(MAX_ITER) + "it_" +
-                           std::to_string(N) + ".tsv";
-
-    std::ofstream stepOut(filename);
-    stepOut << "OptIndex\tStep";
-    for (int d = 0; d < DIM; d++)
-      stepOut << "\tX_" << d;
-    stepOut << "\n";
-    stepOut << std::scientific << std::setprecision(17);
-    for (int i = 0; i < N; i++) {
-      for (int it = 0; it < MAX_ITER; it++) {
-        stepOut << i << "\t" << it;
-        for (int d = 0; d < DIM; d++) {
-          stepOut << "\t"
-                  << hostTrajectory[i * (MAX_ITER * DIM) + it * DIM + d];
-        }
-        stepOut << "\n";
-      }
-    }
-    stepOut.close();
-    return cudaSuccess;
-  }
-
   double
   calculate_euclidean_error(const std::string fun_name,
                             const double* coordinates,

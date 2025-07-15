@@ -20,6 +20,8 @@ find_package(CUDAToolkit REQUIRED)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 add_library(util
     src/utils.cu
+    src/util.cpp
+    include/util.hpp
     include/utils.cuh
 )
 
