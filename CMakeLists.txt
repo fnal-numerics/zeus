@@ -39,7 +39,8 @@ target_include_directories(zeus_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(zeus_test PRIVATE  util  CUDA::cudart)
 target_link_libraries(zeus_test PUBLIC util CUDA::cudart) # build util into zeus
 
-## TESTING
+
+## TESTING SETUP
 include(FetchContent)
 include(CTest)
 FetchContent_Declare(
@@ -49,20 +50,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(catch2)
 
-
 add_executable(unit_test
-  testing/test_main.cu
-  main.cpp
+  testing/catch_main.cpp
+  testing/util_tests.cu
+  testing/fun_tests.cu
 )
+
 set_target_properties(unit_test PROPERTIES
   CUDA_SEPARABLE_COMPILATION ON
 )
 target_compile_options(unit_test PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
 target_compile_definitions(unit_test PRIVATE UNIT_TEST)
-target_include_directories(unit_test
-  PRIVATE
-    $<TARGET_PROPERTY:Catch2::Catch2WithMain,INTERFACE_INCLUDE_DIRECTORIES>
-)
+target_include_directories(unit_test  PRIVATE $<TARGET_PROPERTY:Catch2::Catch2WithMain,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(unit_test
   PUBLIC
     util          # bring in vector_scale, vector_add
@@ -76,6 +75,4 @@ catch_discover_tests(unit_test
   #TEST_PREFIX unit_
   REPORTER console
 )
-
-add_test(NAME RunCudaTest COMMAND unit_test)
 
