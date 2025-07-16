@@ -2,7 +2,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <cuda_runtime.h>
-
+#include <catch2/catch_all.hpp>
 #include "fun.h"
 
 // Forward declarations for device functions from main.cu
@@ -157,6 +157,17 @@ run_grad_test(const double x[DIM], const double expect[DIM], const char* name)
   cudaFree(dG);
   printf("%s (grad) passed\n", name);
 }
+
+TEST_CASE("vector_add works on small arrays", "[vector][add]")
+{
+  test_vector_add();
+}
+
+TEST_CASE("vector_scale works for small scale", "[vector][scale]")
+{
+  test_vector_scale();
+}
+
 
 int
 main()
