@@ -19,6 +19,7 @@ find_package(CUDAToolkit REQUIRED)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 add_library(util
+    src/bfgs.cu
     src/utils.cu
     src/util.cpp
     include/util.hpp
@@ -54,6 +55,8 @@ add_executable(unit_test
   testing/catch_main.cpp
   testing/util_tests.cu
   testing/fun_tests.cu
+  testing/pso_tests.cu
+  testing/bfgs_test.cu
 )
 
 set_target_properties(unit_test PROPERTIES

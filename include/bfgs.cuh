@@ -10,10 +10,12 @@
 // #include "zeus.cuh"
 
 namespace bfgs {
-
-  __device__ int d_stopFlag = 0;
-  __device__ int d_convergedCount = 0;
-  __device__ int d_threadsRemaining = 0;
+  extern __device__ int d_stopFlag;
+  extern __device__ int d_convergedCount;
+  extern __device__ int d_threadsRemaining;
+  //__device__ int d_stopFlag = 0;
+  //__device__ int d_convergedCount = 0;
+  //__device__ int d_threadsRemaining = 0;
 
   inline curandState*
   initialize_states(int N, int seed, float& ms_rand)
