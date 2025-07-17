@@ -13,9 +13,6 @@ namespace bfgs {
   extern __device__ int d_stopFlag;
   extern __device__ int d_convergedCount;
   extern __device__ int d_threadsRemaining;
-  //__device__ int d_stopFlag = 0;
-  //__device__ int d_convergedCount = 0;
-  //__device__ int d_threadsRemaining = 0;
 
   inline curandState*
   initialize_states(int N, int seed, float& ms_rand)
@@ -136,6 +133,9 @@ namespace bfgs {
       }
 
       double fnew = f(x_new);
+      static_assert(std::is_same_v<decltype(std::declval<Function>()(
+               std::declval<std::array<dual::DualNumber,DIM>>()
+             )),dual::DualNumber>, "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
       //static_assert(is_callable_with_v<Function, dual::DualNumber>,"\n\n> This objective is not templated.\nMake it\n\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
       //  get the new gradient g_new at x_new
       dual::calculateGradientUsingAD(f, x_new, g_new);
