@@ -68,27 +68,22 @@ namespace bfgs {
 
     std::array<double, DIM> x_arr, x_new, g_arr,g_new, p_arr;
 
-    //std::array<double, DIM> x_new;
-    // int early_stopping = 0;
     double H[DIM * DIM];
-    double delta_x[DIM], delta_g[DIM]; //, new_direction[DIM];
-    // double tolerance = 1e-5;
-    //  Line Search params
+    double delta_x[DIM], delta_g[DIM];
 
     Result<DIM> r;
     r.status = -1; // assume “not converged” by default
     r.fval = 333777.0;
     r.gradientNorm = 69.0;
     for (int d = 0; d < DIM; ++d) {
-      r.coordinates[d] = 0.0;
+      r.coordinates[d] = 7.0;
     }
     r.iter = -1;
     r.idx = idx;
     util::initialize_identity_matrix(H, DIM);
 
-    int num_steps = 0;
-
-    double x_raw[DIM];//, g_raw[DIM];
+    int num_steps = 0, iter;
+    double x_raw[DIM];
     // initialize x either from PSO array or fallback by RNG
 #pragma unroll
     for (int d = 0; d < DIM; ++d) {
@@ -97,17 +92,12 @@ namespace bfgs {
                : util::generate_random_double(&states[idx], lower, upper);
       x_arr[d] = x_raw[d];
       g_arr[d] = 0.0;
-      //g_raw[d] = 0.0;
       states[idx] = localState;
     }
 
     double f0 = f(x_arr); // rosenbrock_device(x, DIM);
     deviceResults[idx] = f0;
     double bestVal = f0;
-    // if (idx == 0) printf("\n\nf0 = %f", f0);
-    int iter;
-    
-    //double x_new_raw[DIM];
     //static_assert(dual::is_callable_with_v<Function, dual::DualNumber>,              "\n\n> This objective is not templated..\nExpected something like\n\n\ttemplate<class T> T fun(const T* x, int dim) const { ... }\n");
     dual::calculateGradientUsingAD(f, x_arr, g_arr);
     for (iter = 0; iter < MAX_ITER; ++iter) {
@@ -124,7 +114,6 @@ namespace bfgs {
         r.fval = f(x_arr);
         for (int d = 0; d < DIM; d++) {
           r.coordinates[d] = x_arr[d];
-          //g_raw[d] = g_arr[d];
         }
         r.gradientNorm = util::calculate_gradient_norm<DIM>(g_arr);
         break;
@@ -133,8 +122,6 @@ namespace bfgs {
        
       util::compute_search_direction<DIM>(p_arr, H, g_arr); // p = -H * g
 
-      //for(int d=0;d<DIM;d++) p[d] = p_arr[d];
-
       // use the alpha obtained from the line search
       double alpha = util::line_search<Function, DIM>(bestVal, x_arr, p_arr, g_arr, f);
       if (alpha == 0.0) {
@@ -142,18 +129,14 @@ namespace bfgs {
         alpha = 1e-3;
       }
 
-      // update current point x by taking a step size of alpha in the direction
-      // p
+      // update current point x by taking a step size of alpha in the direction p
       for (int i = 0; i < DIM; ++i) {
         x_new[i] = x_arr[i] + alpha * p_arr[i];
         delta_x[i] = x_new[i] - x_arr[i];
-        //x_new_raw[i] = x_new[i];
       }
 
       double fnew = f(x_new);
-      // static_assert(is_callable_with_v<Function, dual::DualNumber>,"\n\n>
-      // This objective is not templated.\nMake it\n\n\ttemplate<class T> T
-      // fun(const T* x) { ... }\n");
+      //static_assert(is_callable_with_v<Function, dual::DualNumber>,"\n\n> This objective is not templated.\nMake it\n\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
       //  get the new gradient g_new at x_new
       dual::calculateGradientUsingAD(f, x_new, g_new);
 
@@ -170,7 +153,6 @@ namespace bfgs {
       util::bfgs_update<DIM>(H, delta_x, delta_g, delta_dot);
       // only update x and g for next iteration if the new minima is smaller
       // than previous double min =
-      // Function::evaluate(x_new);//rosenbrock_device(x_new, DIM);
       if (fnew < bestVal) {
         bestVal = fnew;
         for (int i = 0; i < DIM; ++i) {
@@ -184,12 +166,7 @@ namespace bfgs {
         // atomically increment the converged counter
         int oldCount = atomicAdd(&d_convergedCount, 1);
         int newCount = oldCount + 1;
-        for (int d = 0; d < DIM; ++d)
-          x_arr[d] = x_raw[d];
         double fcurr = f(x_arr);
-        // printf("\nconverged for %d at iter=%d); f = %.6f;",idx, iter,fcurr);
-        // for (int d = 0; d < DIM; ++d) { printf(" % .6f", x[d]);}
-        // printf(" ]\n");
         r.status = 1;
         r.gradientNorm = grad_norm;
         r.fval = fcurr;
@@ -226,7 +203,6 @@ namespace bfgs {
         }
       }*/
 
-      // for(int i=0; i<DIM; ++i) {x[i] = x_new[i];}
     } // end bfgs loop
     // if we broek out because we hit the max numberof iterations, then its a
     // surrender
