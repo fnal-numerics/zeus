@@ -340,3 +340,60 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]") 
     cudaFree(d_states);
 }
 
+
+// dim we’ll test with
+constexpr int DIM = 2;
+
+struct GoodObjective {
+  // templated call operator: accepts an array of DualNumber<DIM>
+  template<class T>
+  __device__ T operator()(const std::array<T, DIM>& x) const {
+    // just sum coordinates
+    T sum = T(0);
+    for (int i = 0; i < DIM; ++i) sum = sum + x[i];
+    return sum;
+  }
+};
+
+struct BadObjective {
+  // takes array of doubles, not DualNumber!
+  __device__ double operator()(const std::array<double, DIM>& x) const {
+    return x[0] * x[0] + x[1] * x[1];
+  }
+};
+
+void instantiate_optimizer() {
+  curandState* states = nullptr;
+  // dummy device pointers:
+  double* d_pso = nullptr;
+  double* d_results = nullptr;
+  const int N = 1, MAX_ITER = 1, requiredConverged = 1;
+  const double lower = 0.0, upper = 1.0, tolerance = 1e-6;
+  Result<DIM>* d_out = nullptr;
+
+  // This **should compile** without error:
+  bfgs::optimizeKernel<GoodObjective, DIM, 128>
+    <<<1,128>>>(
+      GoodObjective(),
+      lower, upper,
+      d_pso, d_results, nullptr,
+      N, MAX_ITER, requiredConverged, tolerance,
+      d_out, states
+    );
+
+  // This **must fail** to compile, triggering your static_assert:
+  /*bfgs::optimizeKernel<BadObjective, DIM, 128>
+    <<<1,128>>>(
+      BadObjective(),
+      lower, upper,
+      d_pso, d_results, nullptr,
+      N, MAX_ITER, requiredConverged, tolerance,
+      d_out, states
+    );*/
+}
+
+TEST_CASE("good/bad objective test","[bfgs][objective]") 
+{
+  instantiate_optimizer();
+}
+
