@@ -396,8 +396,7 @@ struct BadObjective {
   }
 };
 
-void
-instantiate_optimizer()
+TEST_CASE("good/bad objective test", "[bfgs][objective]")
 {
   curandState* states = nullptr;
   // dummy device pointers:
@@ -421,18 +420,17 @@ instantiate_optimizer()
                                                             d_out,
                                                             states);
 
-  // This **must fail** to compile, triggering your static_assert:
-  /*bfgs::optimizeKernel<BadObjective, DIM, 128>
+  // This **must fail** to compile, triggering static_assert:
+#if(0)
+  bfgs::optimizeKernel<BadObjective, DIM, 128>
     <<<1,128>>>(
       BadObjective(),
       lower, upper,
       d_pso, d_results, nullptr,
       N, MAX_ITER, requiredConverged, tolerance,
       d_out, states
-    );*/
+    ); 
+  dual::calculateGradientUsingAD(BadObjective, , ga);  
+#endif
 }
 
-TEST_CASE("good/bad objective test", "[bfgs][objective]")
-{
-  instantiate_optimizer();
-}
