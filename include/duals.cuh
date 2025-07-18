@@ -114,15 +114,16 @@ namespace dual {
   }
 
 
-// can we call F with std::array<Scalar,DIM>?
+  // can we call F with std::array<Scalar,DIM>?
 
-// Only enabled if f takes std::array<dual,DIM> -> dual
+  // only enabled if f takes std::array<dual,DIM> -> dual
   template<class Function, std::size_t DIM,
          class = std::enable_if_t<
            std::is_same_v<decltype(std::declval<Function>()(
                std::declval<std::array<dual::DualNumber,DIM>>()
              )),
              dual::DualNumber>>>
+   
   __device__ void calculateGradientUsingAD(
     Function f,
     const std::array<double,DIM>& x_arr,  // input point

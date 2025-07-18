@@ -57,6 +57,9 @@ namespace bfgs {
     extern __device__ int d_threadsRemaining;
     extern __device__ int d_convergedCount;
 
+    static_assert(std::is_same_v<decltype(std::declval<Function>()(
+               std::declval<std::array<dual::DualNumber,DIM>>()
+             )),dual::DualNumber>, "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N)
       return;
@@ -95,7 +98,6 @@ namespace bfgs {
     double f0 = f(x_arr); // rosenbrock_device(x, DIM);
     deviceResults[idx] = f0;
     double bestVal = f0;
-    //static_assert(dual::is_callable_with_v<Function, dual::DualNumber>,              "\n\n> This objective is not templated..\nExpected something like\n\n\ttemplate<class T> T fun(const T* x, int dim) const { ... }\n");
     dual::calculateGradientUsingAD(f, x_arr, g_arr);
     for (iter = 0; iter < MAX_ITER; ++iter) {
       // printf("inside BeeG File System");
@@ -133,10 +135,6 @@ namespace bfgs {
       }
 
       double fnew = f(x_new);
-      static_assert(std::is_same_v<decltype(std::declval<Function>()(
-               std::declval<std::array<dual::DualNumber,DIM>>()
-             )),dual::DualNumber>, "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
-      //static_assert(is_callable_with_v<Function, dual::DualNumber>,"\n\n> This objective is not templated.\nMake it\n\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
       //  get the new gradient g_new at x_new
       dual::calculateGradientUsingAD(f, x_new, g_new);
 

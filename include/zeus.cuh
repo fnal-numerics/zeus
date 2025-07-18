@@ -147,7 +147,9 @@ namespace zeus {
     >,
     "Your objective must be callable as f(std::array<double,DIM>) -> double"
   );
-
+    static_assert(std::is_same_v<decltype(std::declval<Function>()(
+               std::declval<std::array<dual::DualNumber,DIM>>()
+             )),dual::DualNumber>, "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
     return impl::Zeus<Function, DIM>(std::move(f),
                                            lower,
                                            upper,
