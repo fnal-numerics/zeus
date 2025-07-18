@@ -80,3 +80,25 @@ catch_discover_tests(unit_test
   REPORTER console
 )
 
+
+# set up bad objectives
+set(BAD_SRC "${CMAKE_CURRENT_SOURCE_DIR}/testing/bad_objectives.cu")
+try_compile(BAD_OK
+  "${CMAKE_CURRENT_BINARY_DIR}"
+  "${BAD_SRC}"
+  CMAKE_FLAGS
+    "-DCMAKE_CUDA_STANDARD=14"
+    "-DCMAKE_CXX_STANDARD=17"
+  OUTPUT_VARIABLE BAD_OUT
+)
+
+if(BAD_OK)
+  message(FATAL_ERROR
+    "❌ bad_objectives.cu unexpectedly compiled!\n${BAD_OUT}"
+  )
+else()
+  message(STATUS
+    "✅ bad_objectives.cu failed to compile as expected."
+  )
+endif()
+
