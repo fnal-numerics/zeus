@@ -17,6 +17,11 @@ namespace dual {
       : real(real), dual(dual)
     {}
 
+    // unary minus
+    __host__ __device__
+    DualNumber operator-() const {
+      return DualNumber(-real, -dual);
+    }
     __host__ __device__ DualNumber&
     operator+=(const DualNumber& rhs)
     {

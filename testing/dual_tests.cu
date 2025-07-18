@@ -147,9 +147,45 @@ test_atan2(const double* y,
   d[0] = R.dual;       // store dual part = 0.5
 }
 
+// Kernel for unary minus: tests  –(1.5 + 2.5e) = –1.5 + –2.5e
+__global__ void
+test_neg(const double* a, double* r, double* d)
+{
+  DualNumber A{a[0], a[1]};  // load A = 1.5 + 2.5e
+  DualNumber R = -A;         // compute R = –1.5 + –2.5e
+  r[0] = R.real;             // store real part = –1.5
+  d[0] = R.dual;             // store dual part = –2.5
+}
+
 // --- TEST CASES ----------------------------------------------------------
 
-TEST_CASE("operator+: (1+2e)+(3+4e)=4+6e", "[dual][add]")
+TEST_CASE("operator-(): -(1.5+2.5e) = -1.5-2.5e", "[dual][neg]")
+{
+  double ha[2] = {1.5, 2.5}, outR, outD;
+  double *dA, *dR, *dD;
+
+  // allocate & copy host → device
+  ALLOC_COPY(dA, ha, sizeof(ha));
+  cudaMalloc(&dR, sizeof(double));
+  cudaMalloc(&dD, sizeof(double));
+
+  // launch and sync
+  test_neg<<<1,1>>>(dA, dR, dD);
+  cudaDeviceSynchronize();
+
+  // copy results back
+  cudaMemcpy(&outR, dR, sizeof(double), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&outD, dD, sizeof(double), cudaMemcpyDeviceToHost);
+
+  // check
+  REQUIRE(outR == Approx(-1.5).margin(1e-12));
+  REQUIRE(outD == Approx(-2.5).margin(1e-12));
+
+  // cleanup
+  FREE4(dA, dA, dR, dD);  // note: FREE4(a,b,c,d) frees four pointers
+}
+
+TEST_CASE("operator+(): (1+2e)+(3+4e)=4+6e", "[dual][add]")
 {
   double ha[2] = {1, 2}, hb[2] = {3, 4}, outR, outD;
   double *dA, *dB, *dR, *dD;
@@ -169,7 +205,7 @@ TEST_CASE("operator+: (1+2e)+(3+4e)=4+6e", "[dual][add]")
   FREE4(dA, dB, dR, dD);
 }
 
-TEST_CASE("operator-: (5+2.5e)-(1.5+0.5e)=3.5+2e", "[dual][sub]")
+TEST_CASE("operator-(): (5+2.5e)-(1.5+0.5e)=3.5+2e", "[dual][sub]")
 {
   double ha[2] = {5.0, 2.5}, hb[2] = {1.5, 0.5}, outR, outD;
   double *dA, *dB, *dR, *dD;
@@ -189,7 +225,7 @@ TEST_CASE("operator-: (5+2.5e)-(1.5+0.5e)=3.5+2e", "[dual][sub]")
   FREE4(dA, dB, dR, dD);
 }
 
-TEST_CASE("operator*: (2+3e)*(4+5e)=8+22e", "[dual][mul]")
+TEST_CASE("operator*(): (2+3e)*(4+5e)=8+22e", "[dual][mul]")
 {
   double ha[2] = {2, 3}, hb[2] = {4, 5}, outR, outD;
   double *dA, *dB, *dR, *dD;
@@ -209,7 +245,7 @@ TEST_CASE("operator*: (2+3e)*(4+5e)=8+22e", "[dual][mul]")
   FREE4(dA, dB, dR, dD);
 }
 
-TEST_CASE("operator/: (6+2e)/(3+1e)=2+0e", "[dual][div]")
+TEST_CASE("operator/(): (6+2e)/(3+1e)=2+0e", "[dual][div]")
 {
   double ha[2] = {6, 2}, hb[2] = {3, 1}, outR, outD;
   double *dA, *dB, *dR, *dD;
@@ -229,7 +265,7 @@ TEST_CASE("operator/: (6+2e)/(3+1e)=2+0e", "[dual][div]")
   FREE4(dA, dB, dR, dD);
 }
 
-TEST_CASE("operator sin: sin(π/6)+1e -> 0.5+0.866e", "[dual][sin]")
+TEST_CASE("operator sin(): sin(π/6)+1e -> 0.5+0.866e", "[dual][sin]")
 {
   double x = M_PI / 6, dx = 1.0, outR, outD;
   double *dX, *dDX, *dR, *dD;
@@ -249,7 +285,7 @@ TEST_CASE("operator sin: sin(π/6)+1e -> 0.5+0.866e", "[dual][sin]")
   FREE4(dX, dDX, dR, dD);
 }
 
-TEST_CASE("operator cos: cos(π/3)+2 -> 0.5−1.732e", "[dual][cos]")
+TEST_CASE("operator cos(): cos(π/3)+2 -> 0.5−1.732e", "[dual][cos]")
 {
   double x = M_PI / 3, dx = 2.0, outR, outD;
   double *dX, *dDX, *dR, *dD;
@@ -269,7 +305,7 @@ TEST_CASE("operator cos: cos(π/3)+2 -> 0.5−1.732e", "[dual][cos]")
   FREE4(dX, dDX, dR, dD);
 }
 
-TEST_CASE("operator exp: exp(1)+3e→e+3ee", "[dual][exp]")
+TEST_CASE("operator exp(): exp(1)+3e→e+3ee", "[dual][exp]")
 {
   double x = 1.0, dx = 3.0, outR, outD;
   double *dX, *dDX, *dR, *dD;
@@ -289,7 +325,7 @@ TEST_CASE("operator exp: exp(1)+3e→e+3ee", "[dual][exp]")
   FREE4(dX, dDX, dR, dD);
 }
 
-TEST_CASE("operator sqrt: sqrt(4)+1.5e -> 2+0.375e", "[dual][sqrt]")
+TEST_CASE("operator sqrt(): sqrt(4)+1.5e -> 2+0.375e", "[dual][sqrt]")
 {
   double x = 4.0, dx = 1.5, outR, outD;
   double *dX, *dDX, *dR, *dD;
@@ -309,7 +345,7 @@ TEST_CASE("operator sqrt: sqrt(4)+1.5e -> 2+0.375e", "[dual][sqrt]")
   FREE4(dX, dDX, dR, dD);
 }
 
-TEST_CASE("operator pow^3: (2+1e)^3=8+12e", "[dual][pow]")
+TEST_CASE("operator pow() w 3: (2+1e)^3=8+12e", "[dual][pow]")
 {
   double x = 2.0, dx = 1.0, outR, outD;
   double *dX, *dDX, *dR, *dD;
@@ -329,7 +365,7 @@ TEST_CASE("operator pow^3: (2+1e)^3=8+12e", "[dual][pow]")
   FREE4(dX, dDX, dR, dD);
 }
 
-TEST_CASE("operator atan2: atan2(1+1e,1+0e)=π/4+0.5e", "[dual][atan2]")
+TEST_CASE("operator atan2(): atan2(1+1e,1+0e)=π/4+0.5e", "[dual][atan2]")
 {
   double y = 1.0, dy = 1.0, x = 1.0, dx = 0.0, outR, outD;
   double *dY, *dDY, *dX, *dDX, *dR, *dD;
