@@ -14,7 +14,7 @@ namespace pso {
   // kernel #1: initialize X, V, pBest; atomically seed gBestVal/gBestX
   template <typename Function, int DIM>
   __global__ void
-  initKernel(Function func,
+  initKernel(const Function& func,
              double lower,
              double upper,
              double* X,
@@ -75,7 +75,7 @@ namespace pso {
   // best)
   template <typename Function, int DIM>
   __global__ void
-  iterKernel(Function func,
+  iterKernel(const Function& func,
              double lower,
              double upper,
              double w,  // weight inertia

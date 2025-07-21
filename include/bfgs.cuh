@@ -39,7 +39,7 @@ namespace bfgs {
   template <typename Function, int DIM, unsigned int blockSize>
   __global__ void
   optimizeKernel(
-    Function f,
+    const Function& f,
     const double lower,
     const double upper,
     const double* __restrict__ pso_array, // pso initialized positions
