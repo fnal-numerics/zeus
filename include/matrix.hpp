@@ -8,13 +8,13 @@ extern "C" void   cuda_free     (void* ptr);
 extern "C" void   cuda_copy_to_device(void* dst, void const* src, std::size_t bytes);
 
 template<std::size_t N>
-class ManagedMatrix {
+class Matrix {
 public:
-  ManagedMatrix();                     
-  ManagedMatrix(ManagedMatrix const&); 
-  ManagedMatrix(ManagedMatrix&&) noexcept;
-  ManagedMatrix& operator=(ManagedMatrix) noexcept;
-  ~ManagedMatrix();
+  Matrix();                     
+  Matrix(Matrix const&); 
+  Matrix(Matrix&&) noexcept;
+  Matrix& operator=(Matrix) noexcept;
+  ~Matrix();
 
   // Host accessors:
   __host__ double&      at (std::size_t i, std::size_t j);
@@ -28,7 +28,7 @@ public:
   double const* device_data() const noexcept;
 
 private:
-  void swap(ManagedMatrix& o) noexcept {
+  void swap(Matrix& o) noexcept {
     std::swap(host_data_,  o.host_data_);
     std::swap(device_data_, o.device_data_);
   }
