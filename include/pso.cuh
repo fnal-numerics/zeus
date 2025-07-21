@@ -176,7 +176,7 @@ namespace pso {
          float& ms_pso,
          const int seed,
          curandState* states,
-         Function f)
+         Function const& f)
   { //, Result<DIM>& best) {
     // allocate PSO buffers on device
     double *dX, *dV, *dPBestVal, *dGBestX, *dGBestVal, *dPBestX;

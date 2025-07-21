@@ -130,7 +130,7 @@ namespace dual {
              dual::DualNumber>>>
    
   __device__ void calculateGradientUsingAD(
-    Function f,
+    Function const& f,
     const std::array<double,DIM>& x_arr,  // input point
     std::array<double,DIM>& grad)     // output derivative vector
   {

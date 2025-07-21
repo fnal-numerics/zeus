@@ -149,7 +149,7 @@ namespace util {
               const double* x,
               const double* p,
               const double* g,
-              Function f)
+              Function const& f)
   {
     const double c1 = 0.3;
     double alpha = 1.0;
@@ -176,7 +176,7 @@ double line_search(
     const std::array<double,DIM>& x_arr,
     const std::array<double,DIM>& p_arr,
     const std::array<double,DIM>& g_arr,
-    Function                   f)
+    Function                 const&  f)
 {
   // forward to your existing pointer‐based routine
   return line_search<Function,DIM>(

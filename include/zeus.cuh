@@ -34,7 +34,7 @@ namespace zeus {
   namespace impl {
     template <typename Function, size_t DIM>
     Result<DIM>
-    Zeus(Function f,
+    Zeus(Function const& f,
              double lower,
              double upper,
              double* hostResults,
@@ -47,13 +47,6 @@ namespace zeus {
              int seed,
              int run)
     {
-      int blockSize, minGridSize;
-      cudaOccupancyMaxPotentialBlockSize(
-        &minGridSize,
-        &blockSize,
-        bfgs::optimizeKernel<Function, DIM, 128>,
-        0,
-        N);
       float ms_rand = 0.0f;
       curandState* states = bfgs::initialize_states(N, seed, ms_rand);
       // printf("Recommended block size: %d\n", blockSize);
@@ -126,7 +119,7 @@ namespace zeus {
   //template <objective_array Function>
   template<typename Function, std::size_t DIM>
   auto
-  Zeus(Function f,
+  Zeus(Function const& f,
        const std::array<double, DIM>&,
        double lower,
        double upper,
@@ -150,7 +143,7 @@ namespace zeus {
     static_assert(std::is_same_v<decltype(std::declval<Function>()(
                std::declval<std::array<dual::DualNumber,DIM>>()
              )),dual::DualNumber>, "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
-    return impl::Zeus<Function, DIM>(std::move(f),
+    return impl::Zeus<Function, DIM>(f,
                                            lower,
                                            upper,
                                            hostResults,

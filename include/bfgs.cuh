@@ -244,12 +244,12 @@ namespace bfgs {
     printf("Global best summary:\n");
     printf("   idx          = %d\n", best.idx);
     printf("   status       = %d\n", best.status);
-    printf("   fval         = %.6f\n", best.fval);
-    printf("   gradientNorm = %.6f\n", best.gradientNorm);
+    printf("   fval         = %.7e\n", best.fval);
+    printf("   gradientNorm = %.7e\n", best.gradientNorm);
     printf("   iter         = %d\n", best.iter);
     printf("   coords       = [");
     for (int d = 0; d < DIM; ++d) {
-      printf(" %.7f", best.coordinates[d]);
+      printf(" %.7e", best.coordinates[d]);
     }
     printf(" ]\n");
 
@@ -276,7 +276,7 @@ namespace bfgs {
          std::string fun_name,
          curandState* states,
          const int run,
-         Function f)
+         Function const& f)
   {
     int blockSize, minGridSize;
     cudaOccupancyMaxPotentialBlockSize(
