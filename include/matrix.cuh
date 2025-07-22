@@ -44,6 +44,18 @@ public:
     cudaMemcpy(device_data_, o.device_data_, sz, cudaMemcpyDeviceToDevice);
   }
 
+  // move constructor, null the source out
+  Matrix(Matrix&& o) noexcept
+    : host_data_(o.host_data_),
+      device_data_(o.device_data_),
+      rows_(o.rows_),
+      cols_(o.cols_)
+  {
+    o.host_data_   = nullptr;
+    o.device_data_ = nullptr;
+    o.rows_ = o.cols_ = 0;
+  }
+
   // picks the right pointer on host vs. device
   __host__ __device__
   T* data() {
