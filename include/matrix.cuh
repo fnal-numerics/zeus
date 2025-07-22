@@ -35,6 +35,15 @@ public:
     printf("Matrix: allocated host & device memory\n");
   }
 
+  // copy constructor: allocate new buffers and copy on both host + device
+  Matrix(Matrix const& o)
+    : Matrix(o.rows_, o.cols_)
+  {
+    std::size_t sz = rows_*cols_*sizeof(T);
+    std::memcpy(host_data_, o.host_data_, sz);
+    cudaMemcpy(device_data_, o.device_data_, sz, cudaMemcpyDeviceToDevice);
+  }
+
   // picks the right pointer on host vs. device
   __host__ __device__
   T* data() {
