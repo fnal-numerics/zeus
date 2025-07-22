@@ -14,7 +14,7 @@ namespace pso {
   // kernel #1: initialize X, V, pBest; atomically seed gBestVal/gBestX
   template <typename Function, int DIM>
   __global__ void
-  initKernel(const Function& func,
+  initKernel(Function func,
              double lower,
              double upper,
              double* X,
@@ -75,7 +75,7 @@ namespace pso {
   // best)
   template <typename Function, int DIM>
   __global__ void
-  iterKernel(const Function& func,
+  iterKernel(Function func,
              double lower,
              double upper,
              double w,  // weight inertia
@@ -101,18 +101,8 @@ namespace pso {
       return;
 
     curandState localState = states[i];
-    /*uint64_t state = seed;
-    state = state * 6364136223846793005ULL + iter;   // mix in iteration
-    state = state * 6364136223846793005ULL + (uint64_t)i;  // mix in thread idx
-    */
     // update velocity & position
     for (int d = 0; d < DIM; ++d) {
-      // uint64_t z1 = splitmix64(state);
-      // uint64_t z2 = splitmix64(state);
-      // double r1 = random_double(state,0.0,1.0 );
-      // //util::generate_random_double(seed1, 0.0, 1.0); double r2 =
-      // random_double(state, 0.0, 1.0); //util::generate_random_double(seed2,
-      // 0.0, 1.0);
       double r1 = util::generate_random_double(&localState, 0.0, 1.0);
       double r2 = util::generate_random_double(&localState, 0.0, 1.0);
 
@@ -162,7 +152,8 @@ namespace pso {
     /*printf("it %d gBestVal = %.6f  at gBestX = [",i,fval);
     for (int d = 0; d < DIM; ++d)
         printf(" %8.4f", gBestX[d]);
-    printf(" ]\n");*/
+    printf(" ]\n");
+    */
     states[i] = localState; // next time we draw, we continue where we left off
   }
 
@@ -220,9 +211,16 @@ namespace pso {
                                                      N,
                                                      seed,
                                                      states);
-    cudaDeviceSynchronize();
     cudaEventRecord(t1);
     cudaEventSynchronize(t1);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) 
+      std::fprintf(stderr, "pso::initKernel launch error: %s\n",cudaGetErrorString(err));
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+      std::fprintf(stderr, "pso::initKernel runtime error: %s\n",cudaGetErrorString(err));
+      std::exit(1);
+    }
 
     cudaEventElapsedTime(&ms_init, t0, t1);
     // printf("PSO‑Init Kernel execution time = %.4f ms\n", ms_init);
@@ -233,9 +231,9 @@ namespace pso {
     cudaMemcpy(
       hostGBestX.data(), dGBestX, DIM * sizeof(double), cudaMemcpyDeviceToHost);
 
-    // printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
-    // for(int d=0; d<DIM; ++d) printf(" %.4f", hostGBestX[d]);
-    // printf(" ]\n\n");
+    printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
+    for(int d=0; d<DIM; ++d) printf(" %.4f", hostGBestX[d]);
+    printf(" ]\n\n");
 
     // PSO iterations
     // const double w  = 0.7298, c1 = 1.4962, c2 = 1.4962;
@@ -260,9 +258,16 @@ namespace pso {
                                                        iter,
                                                        seed,
                                                        states); //, best);
-      cudaDeviceSynchronize();
       cudaEventRecord(t1);
       cudaEventSynchronize(t1);
+      cudaError_t err = cudaGetLastError();
+      if (err != cudaSuccess)
+        std::fprintf(stderr, "pso::iterKernel launch error: %s\n", cudaGetErrorString(err));
+      err = cudaDeviceSynchronize();
+      if (err != cudaSuccess) {
+        std::fprintf(stderr, "pso::iterKernel runtime error: %s\n",cudaGetErrorString(err));
+        std::exit(1);
+      }      
       float ms_iter = 0;
       cudaEventElapsedTime(&ms_iter, t0, t1);
       cudaMemcpy(

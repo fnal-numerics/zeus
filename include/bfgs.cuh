@@ -39,7 +39,7 @@ namespace bfgs {
   template <typename Function, int DIM, unsigned int blockSize>
   __global__ void
   optimizeKernel(
-    const Function& f,
+    Function f,
     const double lower,
     const double upper,
     const double* __restrict__ pso_array, // pso initialized positions
@@ -337,7 +337,14 @@ namespace bfgs {
                                 d_results,
                                 states);
     }
-    cudaDeviceSynchronize();
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) 
+      std::fprintf(stderr, "bfgs kernel launch error: %s\n", cudaGetErrorString(err));
+    err = cudaDeviceSynchronize();
+    if (err != cudaSuccess) {
+      std::fprintf(stderr, "bfgs kernel runtime error: %s\n",cudaGetErrorString(err));
+      std::exit(1);
+    }    
     cudaEventRecord(stopOpt);
     cudaEventSynchronize(stopOpt);
     cudaEventElapsedTime(&ms_opt, startOpt, stopOpt);
