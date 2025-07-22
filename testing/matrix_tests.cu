@@ -145,28 +145,47 @@ TEST_CASE("matrix: copy constructor deep‑copies, no aliasing!", "[matrix][copy
 
 // move constructor (old object releases ownership)
 TEST_CASE("matrix: move constructor transfers ownership and nulls source", "[matrix][move]") {
-    Matrix<double> src(1,1);
-    src(0,0) = 123.456;
+  Matrix<double> src(1,1);
+  src(0,0) = 123.456;
 
-    // sync so that host_data_ and device_data_ are consistent
-    src.syncHostToDevice();
+  // sync so that host_data_ and device_data_ are consistent
+  src.syncHostToDevice();
 
-    // capture the host pointer before move
-    double* old_host_ptr = src.data();
+  // capture the host pointer before move
+  double* old_host_ptr = src.data();
+ 
+ Matrix<double> dst(std::move(src));
 
-    Matrix<double> dst(std::move(src));
+  // dst has the data
+  REQUIRE(dst.rows() == 1);
+  REQUIRE(dst.cols() == 1);
+  REQUIRE(dst(0,0) == Catch::Approx(123.456));
 
-    // dst has the data
-    REQUIRE(dst.rows() == 1);
-    REQUIRE(dst.cols() == 1);
-    REQUIRE(dst(0,0) == Catch::Approx(123.456));
+  // src has been nulled out
+  REQUIRE(src.rows() == 0);
+  REQUIRE(src.cols() == 0);
+  REQUIRE(src.data() == nullptr);
 
-    // src has been nulled out
-    REQUIRE(src.rows() == 0);
-    REQUIRE(src.cols() == 0);
-    REQUIRE(src.data() == nullptr);
-
-    // dst still uses the same host buffer
-    REQUIRE(dst.data() == old_host_ptr);
+  // dst still uses the same host buffer
+  REQUIRE(dst.data() == old_host_ptr);
 }
+
+// copy and swap assignment
+TEST_CASE("matrix: copy and swap assignment deep copies", "[matrix][assign]") {
+  constexpr std::size_t R = 2, C = 2;
+  Matrix<double> a(R,C), b(R,C);
+  a(0,0)=1; a(0,1)=2; a(1,0)=3; a(1,1)=4;
+  b(0,0)=5; b(0,1)=6; b(1,0)=7; b(1,1)=8;
+
+  // assign a -> b
+  b = a;
+
+  for (std::size_t i = 0; i < R; ++i) {
+    for (std::size_t j = 0; j < C; ++j) {
+      double expect = double(i*C + j + 1);
+      REQUIRE(b(i,j) == Catch::Approx(expect));
+    }
+  }
+}
+
 
