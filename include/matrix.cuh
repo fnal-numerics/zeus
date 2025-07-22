@@ -44,6 +44,11 @@ public:
     cudaMemcpy(device_data_, o.device_data_, sz, cudaMemcpyDeviceToDevice);
   }
 
+  // copy and swap assignment
+  Matrix& operator=(Matrix o) noexcept {
+    swap(*this, o);
+    return *this;
+  }
   // move constructor, null the source out
   Matrix(Matrix&& o) noexcept
     : host_data_(o.host_data_),
@@ -54,6 +59,15 @@ public:
     o.host_data_   = nullptr;
     o.device_data_ = nullptr;
     o.rows_ = o.cols_ = 0;
+  }
+
+  // swap helper for copy and swap
+  void swap(Matrix& a, Matrix& b) noexcept {
+    using std::swap;
+    swap(a.host_data_,   b.host_data_);
+    swap(a.device_data_, b.device_data_);
+    swap(a.rows_,        b.rows_);
+    swap(a.cols_,        b.cols_);
   }
 
   // picks the right pointer on host vs. device
