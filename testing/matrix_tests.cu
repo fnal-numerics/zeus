@@ -100,4 +100,46 @@ TEST_CASE("matrix: syncHostToDevice and device data()", "[matrix][device]") {
   cudaFree(d_out);
 }
 
+// test copy constructor - should pass with flying colours
+TEST_CASE("matrix: test compilers implicitly generated shallow copy constructor", "[matrix][copy]") {
+  constexpr std::size_t R = 3, C = 2;
+  Matrix<double> m1(R,C);
+  // fill m1
+  for (std::size_t i = 0; i < R; ++i)
+    for (std::size_t j = 0; j < C; ++j)
+      m1(i,j) = double(i * C + j) * 1.5;
+
+  // copy constructor
+  Matrix<double> m2(m1);
+
+  // host readback on m2
+  for (std::size_t i = 0; i < R; ++i) {
+    for (std::size_t j = 0; j < C; ++j) {
+      double expect = double(i * C + j) * 1.5;
+      REQUIRE(m2(i,j) == Catch::Approx(expect));
+    }
+  }
+}
+
+// test copy constructor deep -- should fail without explicit copy constructor
+TEST_CASE("matrix: copy constructor deep‑copies, no aliasing!", "[matrix][copy][deep]") {
+  constexpr std::size_t R = 2, C = 2;
+  Matrix<double> a(R,C);
+  // fill 'a' with 0,1,2,3
+  for (std::size_t i = 0; i < R; ++i)
+    for (std::size_t j = 0; j < C; ++j)
+       a(i,j) = double(i*C + j);
+
+  // make the copy
+  Matrix<double> b(a);
+
+  // mutate the original
+  a(0,0) = 999.0;
+  a(1,1) = -123.0;
+
+  // the copy must NOT see those changes
+  REQUIRE(b(0,0) == Catch::Approx(0.0));
+  REQUIRE(b(1,1) == Catch::Approx(3.0));
+}
+
 
