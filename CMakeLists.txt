@@ -58,6 +58,7 @@ add_executable(unit_test
   testing/pso_tests.cu
   testing/bfgs_tests.cu
   testing/dual_tests.cu
+  testing/matrix_tests.cu
 )
 
 set_target_properties(unit_test PROPERTIES
