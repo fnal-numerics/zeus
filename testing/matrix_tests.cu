@@ -143,3 +143,30 @@ TEST_CASE("matrix: copy constructor deep‑copies, no aliasing!", "[matrix][copy
 }
 
 
+// move constructor (old object releases ownership)
+TEST_CASE("matrix: move constructor transfers ownership and nulls source", "[matrix][move]") {
+    Matrix<double> src(1,1);
+    src(0,0) = 123.456;
+
+    // sync so that host_data_ and device_data_ are consistent
+    src.syncHostToDevice();
+
+    // capture the host pointer before move
+    double* old_host_ptr = src.data();
+
+    Matrix<double> dst(std::move(src));
+
+    // dst has the data
+    REQUIRE(dst.rows() == 1);
+    REQUIRE(dst.cols() == 1);
+    REQUIRE(dst(0,0) == Catch::Approx(123.456));
+
+    // src has been nulled out
+    REQUIRE(src.rows() == 0);
+    REQUIRE(src.cols() == 0);
+    REQUIRE(src.data() == nullptr);
+
+    // dst still uses the same host buffer
+    REQUIRE(dst.data() == old_host_ptr);
+}
+
