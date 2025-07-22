@@ -188,4 +188,26 @@ TEST_CASE("matrix: copy and swap assignment deep copies", "[matrix][assign]") {
   }
 }
 
+// test for the swap fucntion
+TEST_CASE("swap(Matrix,Matrix) test for swapping correctly", "[matrix][swap]") {
+  Matrix<double> a(1,2), b(2,1);
+  a(0,0)=11; a(0,1)=12;
+  b(0,0)=21; b(1,0)=22;
+
+  using std::swap;
+  swap(a,b);
+
+  // now a has the old b
+  REQUIRE(a.rows() == 2);
+  REQUIRE(a.cols() == 1);
+  REQUIRE(a(0,0) == Catch::Approx(21));
+  REQUIRE(a(1,0) == Catch::Approx(22));
+
+  // and b has the old a
+  REQUIRE(b.rows() == 1);
+  REQUIRE(b.cols() == 2);
+  REQUIRE(b(0,0) == Catch::Approx(11));
+  REQUIRE(b(0,1) == Catch::Approx(12));
+}
+
 
