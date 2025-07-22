@@ -80,7 +80,7 @@ TEST_CASE("matrix: syncHostToDevice and device data()", "[matrix][device]") {
       m(i,j) = double(i * C + j + 10);
 
   // push to GPU
-  m.syncHostToDevice();
+  m.syncHost2Device();
 
   // allocate output
   double* d_out = nullptr;
@@ -149,7 +149,7 @@ TEST_CASE("matrix: move constructor transfers ownership and nulls source", "[mat
   src(0,0) = 123.456;
 
   // sync so that host_data_ and device_data_ are consistent
-  src.syncHostToDevice();
+  src.syncHost2Device();
 
   // capture the host pointer before move
   double* old_host_ptr = src.data();

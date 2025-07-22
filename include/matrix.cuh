@@ -103,7 +103,7 @@ public:
   std::size_t cols() const noexcept { return cols_; }
 
   // after user fill host_data_ they need to call this function once to push host_data_ to device_data_
-  void syncHostToDevice() {
+  void syncHost2Device() {
     std::size_t sz = rows_*cols_*sizeof(T);
     cudaMemcpy(device_data_, host_data_, sz, cudaMemcpyHostToDevice);
   }
