@@ -280,4 +280,47 @@ TEST_CASE("matrix: operator() read/write on device", "[matrix][device][read/writ
   cudaFree(d_out);
 }
 
+// Reset the global counter to zero.
+__global__ void reset_dtor_count() {
+  matrix_destructor_count = 0;
+}
+
+// In a single thread, create and immediately destroy Matrix<double> objects
+template<int M>
+__global__ void create_and_destroy_matrices() {
+  for (int i = 0; i < M; ++i) {
+    Matrix<double> tmp(2, 2);
+  }
+}
+
+// Read out the counter into device‐allocated memory
+__global__ void read_dtor_count(unsigned* out) {
+  out[0] = matrix_destructor_count;
+}
+
+TEST_CASE("matrix: device destructor is called exactly once per Matrix","[matrix][device][destructor]") {
+  constexpr int M = 17;
+
+  // reset counter
+  reset_dtor_count<<<1,1>>>();
+  REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
+
+  // create & destroy M matrices on the device
+  create_and_destroy_matrices<M><<<1,1>>>();
+  REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
+
+  // copy the counter back
+  unsigned* d_out;
+  cudaMalloc(&d_out, sizeof(unsigned));
+  read_dtor_count<<<1,1>>>(d_out);
+  REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
+
+  unsigned host_count = 0;
+  cudaMemcpy(&host_count, d_out, sizeof(unsigned), cudaMemcpyDeviceToHost);
+
+  // we should have seen exactly M destructions
+  REQUIRE(host_count == M);
+
+  cudaFree(d_out);
+}
 
