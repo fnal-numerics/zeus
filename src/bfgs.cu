@@ -1,5 +1,3 @@
-#pragma once
-
 // definition for global variables
 namespace bfgs {
   __device__ int d_stopFlag       = 0;
