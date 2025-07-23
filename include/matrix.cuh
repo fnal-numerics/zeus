@@ -8,6 +8,8 @@
 
 #include <cstring> // needed for
 
+inline __device__ unsigned matrix_destructor_count = 0;
+
 template<typename T>
 class Matrix {
 private:
@@ -78,8 +80,10 @@ public:
   __host__ __device__
   ~Matrix() {
 #ifdef __CUDA_ARCH__
-    if (device_data_)
+    if (device_data_) {
       free(device_data_);
+      atomicAdd(&matrix_destructor_count, 1); // destructor counter for testing
+    }
 #else
     if (host_data_)
       std::free(host_data_);
