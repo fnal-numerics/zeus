@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <cstring> // needed for
+
 template<typename T>
 class Matrix {
 private:
@@ -18,9 +20,15 @@ public:
   Matrix() noexcept = default;
 
   // allocate separate host & device buffers
+  __host__ __device__
   Matrix(std::size_t rows, std::size_t cols)
     : rows_(rows), cols_(cols)
   {
+#ifdef __CUDA_ARCH__
+    // device allocate from GPU heap
+    size_t sz = rows_*cols_*sizeof(T);
+    device_data_ = (T*)malloc(sz);
+#else
     if (!rows_ || !cols_)
       throw std::invalid_argument("Matrix dimensions must be > 0");
 
@@ -33,6 +41,7 @@ public:
       throw std::runtime_error("cudaMalloc failed");
 
     printf("Matrix: allocated host & device memory\n");
+#endif
   }
 
   // copy constructor: allocate new buffers and copy on both host + device
@@ -56,9 +65,27 @@ public:
       rows_(o.rows_),
       cols_(o.cols_)
   {
+#ifdef __CUDA_ARCH__
+    // not expected to be used, but we shall see..
+    printf("no device move constructor for Matrix<T> \n");
+#else
     o.host_data_   = nullptr;
     o.device_data_ = nullptr;
     o.rows_ = o.cols_ = 0;
+#endif
+  }
+
+  __host__ __device__
+  ~Matrix() {
+#ifdef __CUDA_ARCH__
+    if (device_data_)
+      free(device_data_);
+#else
+    if (host_data_)
+      std::free(host_data_);
+    if (device_data_)
+      cudaFree(device_data_);
+#endif
   }
 
   // swap helper for copy and swap
