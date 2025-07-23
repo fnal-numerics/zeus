@@ -136,15 +136,6 @@ namespace util {
 
   } // end extern C
 
-  __device__ void
-  initialize_identity_matrix(double* H, int dim)
-  {
-    for (int i = 0; i < dim; ++i) {
-      for (int j = 0; j < dim; ++j) {
-        H[i * dim + j] = (i == j) ? 1.0 : 0.0;
-      }
-    }
-  }
 
   __device__ bool
   valid(double x)
@@ -162,16 +153,6 @@ namespace util {
   pow2(double x)
   {
     return x * x;
-  }
-
-  __device__ void
-  initialize_identity_matrix_device(double* H, int n)
-  {
-    for (int i = 0; i < n; ++i) {
-      for (int j = 0; j < n; ++j) {
-        H[i * n + j] = (i == j) ? 1.0 : 0.0;
-      }
-    }
   }
 
   template <int DIM>
