@@ -211,3 +211,73 @@ TEST_CASE("swap(Matrix,Matrix) test for swapping correctly", "[matrix][swap]") {
 }
 
 
+template<int R, int C>
+__global__ void test_matrix_ctor(bool* flag_out) {
+    // construct on the GPU heap, not the stack
+    Matrix<double> m(R, C);
+    // record whether malloc succeeded
+    flag_out[0] = (m.data() != nullptr);
+}
+
+// This kernel construct a Matrix<R,C> on the device, write into it via
+// operator(), read back via operator(), and store into out[].
+// This exercises data(), operator(), and the __device__ heap allocation.
+template<int R, int C>
+__global__ void test_matrix_write_read(double* out) {
+    Matrix<double> m(R, C);
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int N = R * C;
+    if (idx < N) {
+      int i = idx / C;
+      int j = idx % C;
+      // some test pattern
+      double v = double(idx * 3 + 1);
+      m(i,j) = v;
+      out[idx] = m(i,j);
+    }
+}
+
+// Did the device constructor actually malloc()?
+TEST_CASE("matrix: device ctor allocates heap memory", "[matrix][device][constructor]") {
+  constexpr int R = 4, C = 5;
+  bool* d_flag = nullptr;
+  cudaMalloc(&d_flag, sizeof(bool));
+  
+  // launch a single thread to make the Matrix and set d_flag[0]
+  test_matrix_ctor<R,C><<<1,1>>>(d_flag);
+  REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
+
+  bool host_flag = false;
+  cudaMemcpy(&host_flag, d_flag, sizeof(bool), cudaMemcpyDeviceToHost);
+  REQUIRE(host_flag == true);
+
+  cudaFree(d_flag);
+}
+
+// round‑trip write/read via operator() on the device
+TEST_CASE("matrix: operator() read/write on device", "[matrix][device][read/write]") {
+  constexpr int R = 3, C = 4;
+  constexpr int N = R*C;
+
+  // allocate output buffer on device
+  double* d_out = nullptr;
+  cudaMalloc(&d_out, N * sizeof(double));
+  
+  // launch N threads in one block
+  test_matrix_write_read<R,C><<<1, N>>>(d_out);
+  REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
+
+  // copy back
+  std::vector<double> host_out(N);
+  cudaMemcpy(host_out.data(), d_out, N * sizeof(double), cudaMemcpyDeviceToHost);
+
+  // verify the same pattern we wrote in the kernel
+  for (int idx = 0; idx < N; ++idx) {
+    double expect = double(idx * 3 + 1);
+    REQUIRE(host_out[idx] == Catch::Approx(expect));
+  }
+
+  cudaFree(d_out);
+}
+
+
