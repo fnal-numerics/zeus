@@ -7,17 +7,19 @@
 // Square matrix host element access & dims tests
 //   Create an NxN matrix, fill with values and verify rows()==cols()==N
 //   and operator()(i,j) retrieving exactly what was stored
-TEST_CASE("matrix:square host element access & dims", "[matrix][host][square]") {
+TEST_CASE("matrix:square host element access & dims", "[matrix][host][square]")
+{
   constexpr std::size_t N = 4;
 
   // squre NxN matrixi
   Matrix<double> m(N, N);
 
   // fill host buffer: m(i,j) = i*N + j
-  // This yields the flattened sequence [0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15]
+  // This yields the flattened sequence [0,1,2,3, 4,5,6,7, 8,9,10,11,
+  // 12,13,14,15]
   for (std::size_t i = 0; i < N; ++i) {
     for (std::size_t j = 0; j < N; ++j) {
-      m(i,j) = static_cast<double>(i * N + j);
+      m(i, j) = static_cast<double>(i * N + j);
     }
   }
 
@@ -29,22 +31,22 @@ TEST_CASE("matrix:square host element access & dims", "[matrix][host][square]") 
   for (std::size_t i = 0; i < N; ++i) {
     for (std::size_t j = 0; j < N; ++j) {
       double expect = double(i * N + j);
-      REQUIRE(m(i,j) == Catch::Approx(expect));
+      REQUIRE(m(i, j) == Catch::Approx(expect));
     }
   }
 }
 
 // host element access, rows(), cols()
-TEST_CASE("matrix: not square host element access & dims", "[matrix][host]") {
+TEST_CASE("matrix: not square host element access & dims", "[matrix][host]")
+{
   constexpr std::size_t R = 2, C = 3;
-  Matrix<double> m(R,C);
-  
+  Matrix<double> m(R, C);
 
-  // fill on host  m(i,j) = 1 + i*C + j 
+  // fill on host  m(i,j) = 1 + i*C + j
   // so that the flattened sequence is [1,2,3,4,5,6]
   for (std::size_t i = 0; i < R; ++i)
     for (std::size_t j = 0; j < C; ++j)
-      m(i,j) = static_cast<double>(i * C + j + 1.0);
+      m(i, j) = static_cast<double>(i * C + j + 1.0);
 
   // dim
   REQUIRE(m.rows() == R);
@@ -54,30 +56,34 @@ TEST_CASE("matrix: not square host element access & dims", "[matrix][host]") {
   for (std::size_t i = 0; i < R; ++i) {
     for (std::size_t j = 0; j < C; ++j) {
       double expect = double(i * C + j + 1);
-      REQUIRE(m(i,j) == Catch::Approx(expect));
+      REQUIRE(m(i, j) == Catch::Approx(expect));
     }
   }
 }
 
-// kernel to read back every entry with Matrix<double>::operator() from the device
-template<int R,int C>
-__global__ void matrix_device_access(Matrix<double> m, double* out) {
+// kernel to read back every entry with Matrix<double>::operator() from the
+// device
+template <int R, int C>
+__global__ void
+matrix_device_access(Matrix<double> m, double* out)
+{
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < R*C) {
+  if (idx < R * C) {
     int i = idx / C;
     int j = idx % C;
-    out[idx] = m(i,j);
+    out[idx] = m(i, j);
   }
 }
 
-TEST_CASE("matrix: syncHostToDevice and device data()", "[matrix][device]") {
-  constexpr int R = 2, C = 3, N = R*C;
-  Matrix<double> m(R,C);
+TEST_CASE("matrix: syncHostToDevice and device data()", "[matrix][device]")
+{
+  constexpr int R = 2, C = 3, N = R * C;
+  Matrix<double> m(R, C);
 
   // fill host buffer
   for (int i = 0; i < R; ++i)
     for (int j = 0; j < C; ++j)
-      m(i,j) = double(i * C + j + 10);
+      m(i, j) = double(i * C + j + 10);
 
   // push to GPU
   m.syncHost2Device();
@@ -86,12 +92,13 @@ TEST_CASE("matrix: syncHostToDevice and device data()", "[matrix][device]") {
   double* d_out = nullptr;
   cudaMalloc(&d_out, N * sizeof(double));
   // launch 1 block of N threads
-  matrix_device_access<R,C><<<1, N>>>(m, d_out);
+  matrix_device_access<R, C><<<1, N>>>(m, d_out);
   REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
 
   // copy back and check
   std::vector<double> host_out(N);
-  cudaMemcpy(host_out.data(), d_out, N*sizeof(double), cudaMemcpyDeviceToHost);
+  cudaMemcpy(
+    host_out.data(), d_out, N * sizeof(double), cudaMemcpyDeviceToHost);
 
   for (int idx = 0; idx < N; ++idx) {
     double expect = double(idx + 10);
@@ -101,13 +108,16 @@ TEST_CASE("matrix: syncHostToDevice and device data()", "[matrix][device]") {
 }
 
 // test copy constructor - should pass with flying colours
-TEST_CASE("matrix: test compilers implicitly generated shallow copy constructor", "[matrix][copy]") {
+TEST_CASE(
+  "matrix: test compilers implicitly generated shallow copy constructor",
+  "[matrix][copy]")
+{
   constexpr std::size_t R = 3, C = 2;
-  Matrix<double> m1(R,C);
+  Matrix<double> m1(R, C);
   // fill m1
   for (std::size_t i = 0; i < R; ++i)
     for (std::size_t j = 0; j < C; ++j)
-      m1(i,j) = double(i * C + j) * 1.5;
+      m1(i, j) = double(i * C + j) * 1.5;
 
   // copy constructor
   Matrix<double> m2(m1);
@@ -116,50 +126,53 @@ TEST_CASE("matrix: test compilers implicitly generated shallow copy constructor"
   for (std::size_t i = 0; i < R; ++i) {
     for (std::size_t j = 0; j < C; ++j) {
       double expect = double(i * C + j) * 1.5;
-      REQUIRE(m2(i,j) == Catch::Approx(expect));
+      REQUIRE(m2(i, j) == Catch::Approx(expect));
     }
   }
 }
 
 // test copy constructor deep -- should fail without explicit copy constructor
-TEST_CASE("matrix: copy constructor deep‑copies, no aliasing!", "[matrix][copy][deep]") {
+TEST_CASE("matrix: copy constructor deep‑copies, no aliasing!",
+          "[matrix][copy][deep]")
+{
   constexpr std::size_t R = 2, C = 2;
-  Matrix<double> a(R,C);
+  Matrix<double> a(R, C);
   // fill 'a' with 0,1,2,3
   for (std::size_t i = 0; i < R; ++i)
     for (std::size_t j = 0; j < C; ++j)
-       a(i,j) = double(i*C + j);
+      a(i, j) = double(i * C + j);
 
   // make the copy
   Matrix<double> b(a);
 
   // mutate the original
-  a(0,0) = 999.0;
-  a(1,1) = -123.0;
+  a(0, 0) = 999.0;
+  a(1, 1) = -123.0;
 
   // the copy must NOT see those changes
-  REQUIRE(b(0,0) == Catch::Approx(0.0));
-  REQUIRE(b(1,1) == Catch::Approx(3.0));
+  REQUIRE(b(0, 0) == Catch::Approx(0.0));
+  REQUIRE(b(1, 1) == Catch::Approx(3.0));
 }
 
-
 // move constructor (old object releases ownership)
-TEST_CASE("matrix: move constructor transfers ownership and nulls source", "[matrix][move]") {
-  Matrix<double> src(1,1);
-  src(0,0) = 123.456;
+TEST_CASE("matrix: move constructor transfers ownership and nulls source",
+          "[matrix][move]")
+{
+  Matrix<double> src(1, 1);
+  src(0, 0) = 123.456;
 
   // sync so that host_data_ and device_data_ are consistent
   src.syncHost2Device();
 
   // capture the host pointer before move
   double* old_host_ptr = src.data();
- 
- Matrix<double> dst(std::move(src));
+
+  Matrix<double> dst(std::move(src));
 
   // dst has the data
   REQUIRE(dst.rows() == 1);
   REQUIRE(dst.cols() == 1);
-  REQUIRE(dst(0,0) == Catch::Approx(123.456));
+  REQUIRE(dst(0, 0) == Catch::Approx(123.456));
 
   // src has been nulled out
   REQUIRE(src.rows() == 0);
@@ -171,80 +184,95 @@ TEST_CASE("matrix: move constructor transfers ownership and nulls source", "[mat
 }
 
 // copy and swap assignment
-TEST_CASE("matrix: copy and swap assignment deep copies", "[matrix][assign]") {
+TEST_CASE("matrix: copy and swap assignment deep copies", "[matrix][assign]")
+{
   constexpr std::size_t R = 2, C = 2;
-  Matrix<double> a(R,C), b(R,C);
-  a(0,0)=1; a(0,1)=2; a(1,0)=3; a(1,1)=4;
-  b(0,0)=5; b(0,1)=6; b(1,0)=7; b(1,1)=8;
+  Matrix<double> a(R, C), b(R, C);
+  a(0, 0) = 1;
+  a(0, 1) = 2;
+  a(1, 0) = 3;
+  a(1, 1) = 4;
+  b(0, 0) = 5;
+  b(0, 1) = 6;
+  b(1, 0) = 7;
+  b(1, 1) = 8;
 
   // assign a -> b
   b = a;
 
   for (std::size_t i = 0; i < R; ++i) {
     for (std::size_t j = 0; j < C; ++j) {
-      double expect = double(i*C + j + 1);
-      REQUIRE(b(i,j) == Catch::Approx(expect));
+      double expect = double(i * C + j + 1);
+      REQUIRE(b(i, j) == Catch::Approx(expect));
     }
   }
 }
 
 // test for the swap fucntion
-TEST_CASE("swap(Matrix,Matrix) test for swapping correctly", "[matrix][swap]") {
-  Matrix<double> a(1,2), b(2,1);
-  a(0,0)=11; a(0,1)=12;
-  b(0,0)=21; b(1,0)=22;
+TEST_CASE("swap(Matrix,Matrix) test for swapping correctly", "[matrix][swap]")
+{
+  Matrix<double> a(1, 2), b(2, 1);
+  a(0, 0) = 11;
+  a(0, 1) = 12;
+  b(0, 0) = 21;
+  b(1, 0) = 22;
 
   using std::swap;
-  swap(a,b);
+  swap(a, b);
 
   // now a has the old b
   REQUIRE(a.rows() == 2);
   REQUIRE(a.cols() == 1);
-  REQUIRE(a(0,0) == Catch::Approx(21));
-  REQUIRE(a(1,0) == Catch::Approx(22));
+  REQUIRE(a(0, 0) == Catch::Approx(21));
+  REQUIRE(a(1, 0) == Catch::Approx(22));
 
   // and b has the old a
   REQUIRE(b.rows() == 1);
   REQUIRE(b.cols() == 2);
-  REQUIRE(b(0,0) == Catch::Approx(11));
-  REQUIRE(b(0,1) == Catch::Approx(12));
+  REQUIRE(b(0, 0) == Catch::Approx(11));
+  REQUIRE(b(0, 1) == Catch::Approx(12));
 }
 
-
-template<int R, int C>
-__global__ void test_matrix_ctor(bool* flag_out) {
-    // construct on the GPU heap, not the stack
-    Matrix<double> m(R, C);
-    // record whether malloc succeeded
-    flag_out[0] = (m.data() != nullptr);
+template <int R, int C>
+__global__ void
+test_matrix_ctor(bool* flag_out)
+{
+  // construct on the GPU heap, not the stack
+  Matrix<double> m(R, C);
+  // record whether malloc succeeded
+  flag_out[0] = (m.data() != nullptr);
 }
 
 // This kernel construct a Matrix<R,C> on the device, write into it via
 // operator(), read back via operator(), and store into out[].
 // This exercises data(), operator(), and the __device__ heap allocation.
-template<int R, int C>
-__global__ void test_matrix_write_read(double* out) {
-    Matrix<double> m(R, C);
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int N = R * C;
-    if (idx < N) {
-      int i = idx / C;
-      int j = idx % C;
-      // some test pattern
-      double v = double(idx * 3 + 1);
-      m(i,j) = v;
-      out[idx] = m(i,j);
-    }
+template <int R, int C>
+__global__ void
+test_matrix_write_read(double* out)
+{
+  Matrix<double> m(R, C);
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int N = R * C;
+  if (idx < N) {
+    int i = idx / C;
+    int j = idx % C;
+    // some test pattern
+    double v = double(idx * 3 + 1);
+    m(i, j) = v;
+    out[idx] = m(i, j);
+  }
 }
 
 // Did the device constructor actually malloc()?
-TEST_CASE("matrix: device ctor allocates heap memory", "[matrix][device][constructor]") {
+TEST_CASE("matrix: device ctor allocates heap memory",
+          "[matrix][device][constructor]")
+{
   constexpr int R = 4, C = 5;
   bool* d_flag = nullptr;
   cudaMalloc(&d_flag, sizeof(bool));
-  
+
   // launch a single thread to make the Matrix and set d_flag[0]
-  test_matrix_ctor<R,C><<<1,1>>>(d_flag);
+  test_matrix_ctor<R, C><<<1, 1>>>(d_flag);
   REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
 
   bool host_flag = false;
@@ -255,21 +283,24 @@ TEST_CASE("matrix: device ctor allocates heap memory", "[matrix][device][constru
 }
 
 // round‑trip write/read via operator() on the device
-TEST_CASE("matrix: operator() read/write on device", "[matrix][device][read/write]") {
+TEST_CASE("matrix: operator() read/write on device",
+          "[matrix][device][read/write]")
+{
   constexpr int R = 3, C = 4;
-  constexpr int N = R*C;
+  constexpr int N = R * C;
 
   // allocate output buffer on device
   double* d_out = nullptr;
   cudaMalloc(&d_out, N * sizeof(double));
-  
+
   // launch N threads in one block
-  test_matrix_write_read<R,C><<<1, N>>>(d_out);
+  test_matrix_write_read<R, C><<<1, N>>>(d_out);
   REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
 
   // copy back
   std::vector<double> host_out(N);
-  cudaMemcpy(host_out.data(), d_out, N * sizeof(double), cudaMemcpyDeviceToHost);
+  cudaMemcpy(
+    host_out.data(), d_out, N * sizeof(double), cudaMemcpyDeviceToHost);
 
   // verify the same pattern we wrote in the kernel
   for (int idx = 0; idx < N; ++idx) {
@@ -281,38 +312,46 @@ TEST_CASE("matrix: operator() read/write on device", "[matrix][device][read/writ
 }
 
 // Reset the global counter to zero.
-__global__ void reset_dtor_count() {
+__global__ void
+reset_dtor_count()
+{
   matrix_destructor_count = 0;
 }
 
 // In a single thread, create and immediately destroy Matrix<double> objects
-template<int M>
-__global__ void create_and_destroy_matrices() {
+template <int M>
+__global__ void
+create_and_destroy_matrices()
+{
   for (int i = 0; i < M; ++i) {
     Matrix<double> tmp(2, 2);
   }
 }
 
 // Read out the counter into device‐allocated memory
-__global__ void read_dtor_count(unsigned* out) {
+__global__ void
+read_dtor_count(unsigned* out)
+{
   out[0] = matrix_destructor_count;
 }
 
-TEST_CASE("matrix: device destructor is called exactly once per Matrix","[matrix][device][destructor]") {
+TEST_CASE("matrix: device destructor is called exactly once per Matrix",
+          "[matrix][device][destructor]")
+{
   constexpr int M = 17;
 
   // reset counter
-  reset_dtor_count<<<1,1>>>();
+  reset_dtor_count<<<1, 1>>>();
   REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
 
   // create & destroy M matrices on the device
-  create_and_destroy_matrices<M><<<1,1>>>();
+  create_and_destroy_matrices<M><<<1, 1>>>();
   REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
 
   // copy the counter back
   unsigned* d_out;
   cudaMalloc(&d_out, sizeof(unsigned));
-  read_dtor_count<<<1,1>>>(d_out);
+  read_dtor_count<<<1, 1>>>(d_out);
   REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
 
   unsigned host_count = 0;
@@ -323,4 +362,3 @@ TEST_CASE("matrix: device destructor is called exactly once per Matrix","[matrix
 
   cudaFree(d_out);
 }
-

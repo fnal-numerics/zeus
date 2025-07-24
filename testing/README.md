@@ -1,4 +1,4 @@
-# Zeus Testing Suite
+#Zeus Testing Suite
 
 Our test suite is using catch2 to test to carry out integral, and unit testing for the Zeus library
 
@@ -16,4 +16,3 @@ Our test suite is using catch2 to test to carry out integral, and unit testing f
 - algorithmic tests
   - pso
   - bfgs
-

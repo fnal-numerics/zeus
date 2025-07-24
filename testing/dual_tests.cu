@@ -151,10 +151,10 @@ test_atan2(const double* y,
 __global__ void
 test_neg(const double* a, double* r, double* d)
 {
-  DualNumber A{a[0], a[1]};  // load A = 1.5 + 2.5e
-  DualNumber R = -A;         // compute R = –1.5 + –2.5e
-  r[0] = R.real;             // store real part = –1.5
-  d[0] = R.dual;             // store dual part = –2.5
+  DualNumber A{a[0], a[1]}; // load A = 1.5 + 2.5e
+  DualNumber R = -A;        // compute R = –1.5 + –2.5e
+  r[0] = R.real;            // store real part = –1.5
+  d[0] = R.dual;            // store dual part = –2.5
 }
 
 // --- TEST CASES ----------------------------------------------------------
@@ -170,7 +170,7 @@ TEST_CASE("operator-(): -(1.5+2.5e) = -1.5-2.5e", "[dual][neg]")
   cudaMalloc(&dD, sizeof(double));
 
   // launch and sync
-  test_neg<<<1,1>>>(dA, dR, dD);
+  test_neg<<<1, 1>>>(dA, dR, dD);
   cudaDeviceSynchronize();
 
   // copy results back
@@ -182,7 +182,7 @@ TEST_CASE("operator-(): -(1.5+2.5e) = -1.5-2.5e", "[dual][neg]")
   REQUIRE(outD == Approx(-2.5).margin(1e-12));
 
   // cleanup
-  FREE4(dA, dA, dR, dD);  // note: FREE4(a,b,c,d) frees four pointers
+  FREE4(dA, dA, dR, dD); // note: FREE4(a,b,c,d) frees four pointers
 }
 
 TEST_CASE("operator+(): (1+2e)+(3+4e)=4+6e", "[dual][add]")
