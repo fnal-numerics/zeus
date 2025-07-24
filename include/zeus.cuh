@@ -18,8 +18,8 @@ namespace zeus {
 
   template <typename F, typename Arg> // F is callable type, Arg is element-type
                                       // inside vector
-                                      auto
-                                      fmap(F f, std::vector<Arg> const& xs)
+  auto
+  fmap(F f, std::vector<Arg> const& xs)
   {
     using R = std::invoke_result_t<F, Arg>; // std trait that yields the type
                                             // F(Arg) returns
@@ -35,17 +35,17 @@ namespace zeus {
     template <typename Function, size_t DIM>
     Result<DIM>
     Zeus(Function const& f,
-             double lower,
-             double upper,
-             double* hostResults,
-             int N,
-             int MAX_ITER,
-             int PSO_ITER,
-             int requiredConverged,
-             std::string fun_name,
-             double tolerance,
-             int seed,
-             int run)
+         double lower,
+         double upper,
+         double* hostResults,
+         int N,
+         int MAX_ITER,
+         int PSO_ITER,
+         int requiredConverged,
+         std::string fun_name,
+         double tolerance,
+         int seed,
+         int run)
     {
       float ms_rand = 0.0f;
       curandState* states = bfgs::initialize_states(N, seed, ms_rand);
@@ -78,9 +78,8 @@ namespace zeus {
                                                 states,
                                                 run,
                                                 f);
-      if (PSO_ITER >
-          0) { // optimzation routine is finished, so we can free that
-               // array on the device
+      if (PSO_ITER > 0) { // optimzation routine is finished, so we can free
+                          // that array on the device
         cudaFree(pso_results_device);
       }
 
@@ -115,9 +114,8 @@ namespace zeus {
     } // end Zeus
   } // namespace impl
 
-
-  //template <objective_array Function>
-  template<typename Function, std::size_t DIM>
+  // template <objective_array Function>
+  template <typename Function, std::size_t DIM>
   auto
   Zeus(Function const& f,
        const std::array<double, DIM>&,
@@ -134,27 +132,28 @@ namespace zeus {
        int run)
   {
     static_assert(
-    std::is_same_v<
-      decltype(f(std::declval<const std::array<double,DIM>&>())),
-      double
-    >,
-    "Your objective must be callable as f(std::array<double,DIM>) -> double"
-  );
-    static_assert(std::is_same_v<decltype(std::declval<Function>()(
-               std::declval<std::array<dual::DualNumber,DIM>>()
-             )),dual::DualNumber>, "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
+      std::is_same_v<decltype(f(
+                       std::declval<const std::array<double, DIM>&>())),
+                     double>,
+      "Your objective must be callable as f(std::array<double,DIM>) -> double");
+    static_assert(
+      std::is_same_v<decltype(std::declval<Function>()(
+                       std::declval<std::array<dual::DualNumber, DIM>>())),
+                     dual::DualNumber>,
+      "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T "
+      "fun(const std::array<T,N>) { ... }\n");
     return impl::Zeus<Function, DIM>(f,
-                                           lower,
-                                           upper,
-                                           hostResults,
-                                           N,
-                                           MAX_ITER,
-                                           PSO_ITER,
-                                           requiredConverged,
-                                           std::move(fun_name),
-                                           tolerance,
-                                           seed,
-                                           run);
+                                     lower,
+                                     upper,
+                                     hostResults,
+                                     N,
+                                     MAX_ITER,
+                                     PSO_ITER,
+                                     requiredConverged,
+                                     std::move(fun_name),
+                                     tolerance,
+                                     seed,
+                                     run);
   }
 
 } // end zeus namespace

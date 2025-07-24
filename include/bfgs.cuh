@@ -57,18 +57,21 @@ namespace bfgs {
     extern __device__ int d_threadsRemaining;
     extern __device__ int d_convergedCount;
 
-    static_assert(std::is_same_v<decltype(std::declval<Function>()(
-               std::declval<std::array<dual::DualNumber,DIM>>()
-             )),dual::DualNumber>, "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T fun(const std::array<T,N>) { ... }\n");
+    static_assert(
+      std::is_same_v<decltype(std::declval<Function>()(
+                       std::declval<std::array<dual::DualNumber, DIM>>())),
+                     dual::DualNumber>,
+      "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T "
+      "fun(const std::array<T,N>) { ... }\n");
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N)
       return;
 
     curandState localState = states[idx];
 
-    std::array<double, DIM> x_arr, x_new, g_arr,g_new, p_arr;
+    std::array<double, DIM> x_arr, x_new, g_arr, g_new, p_arr;
 
-    Matrix<double> H(DIM,DIM);
+    Matrix<double> H(DIM, DIM);
     double delta_x[DIM], delta_g[DIM];
 
     Result<DIM> r;
@@ -87,9 +90,9 @@ namespace bfgs {
     // initialize x either from PSO array or fallback by RNG
 #pragma unroll
     for (int d = 0; d < DIM; ++d) {
-      x_raw[d] = pso_array
-               ? pso_array[idx*DIM + d]
-               : util::generate_random_double(&states[idx], lower, upper);
+      x_raw[d] = pso_array ?
+                   pso_array[idx * DIM + d] :
+                   util::generate_random_double(&states[idx], lower, upper);
       x_arr[d] = x_raw[d];
       g_arr[d] = 0.0;
       states[idx] = localState;
@@ -102,7 +105,8 @@ namespace bfgs {
     for (iter = 0; iter < MAX_ITER; ++iter) {
       // printf("inside BeeG File System");
       //  check if somebody already asked to stop
-      if (atomicAdd(&d_stopFlag, 0) !=  0) { // atomicAdd here just to get a strong read-barrier
+      if (atomicAdd(&d_stopFlag, 0) !=
+          0) { // atomicAdd here just to get a strong read-barrier
         // CUDA will fetch a coherent copy of the integer from global memory.
         // as soon as one thread writes 1 into d_stopFlag via atomicExch,
         // the next time any thread does atomicAdd(&d_stopFlag, 0) it’ll see 1
@@ -118,17 +122,19 @@ namespace bfgs {
         break;
       }
       num_steps++;
-       
+
       util::compute_search_direction<DIM>(p_arr, &H, g_arr); // p = -H * g
 
       // use the alpha obtained from the line search
-      double alpha = util::line_search<Function, DIM>(bestVal, x_arr, p_arr, g_arr, f);
+      double alpha =
+        util::line_search<Function, DIM>(bestVal, x_arr, p_arr, g_arr, f);
       if (alpha == 0.0) {
         printf("Alpha is zero, no movement in iteration=%d\n", iter);
         alpha = 1e-3;
       }
 
-      // update current point x by taking a step size of alpha in the direction p
+      // update current point x by taking a step size of alpha in the direction
+      // p
       for (int i = 0; i < DIM; ++i) {
         x_new[i] = x_arr[i] + alpha * p_arr[i];
         delta_x[i] = x_new[i] - x_arr[i];
@@ -140,7 +146,9 @@ namespace bfgs {
 
       // calculate new delta_x and delta_g
       for (int i = 0; i < DIM; ++i) {
-        delta_g[i] = g_new[i] - g_arr[i]; // difference in gradient at the new point vs old point
+        delta_g[i] =
+          g_new[i] -
+          g_arr[i]; // difference in gradient at the new point vs old point
       }
 
       // calculate the the dot product between the change in x and change in
@@ -208,7 +216,7 @@ namespace bfgs {
       r.status = 0; // surrender
       r.iter = iter;
       for (int d = 0; d < DIM; ++d) {
-        r.coordinates[d] = x_raw[d];  
+        r.coordinates[d] = x_raw[d];
         x_arr[d] = x_raw[d];
       }
       r.gradientNorm = util::calculate_gradient_norm<DIM>(g_arr);
@@ -338,13 +346,15 @@ namespace bfgs {
                                 states);
     }
     cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) 
-      std::fprintf(stderr, "bfgs kernel launch error: %s\n", cudaGetErrorString(err));
+    if (err != cudaSuccess)
+      std::fprintf(
+        stderr, "bfgs kernel launch error: %s\n", cudaGetErrorString(err));
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
-      std::fprintf(stderr, "bfgs kernel runtime error: %s\n",cudaGetErrorString(err));
+      std::fprintf(
+        stderr, "bfgs kernel runtime error: %s\n", cudaGetErrorString(err));
       std::exit(1);
-    }    
+    }
     cudaEventRecord(stopOpt);
     cudaEventSynchronize(stopOpt);
     cudaEventElapsedTime(&ms_opt, startOpt, stopOpt);

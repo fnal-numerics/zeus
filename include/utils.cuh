@@ -45,23 +45,25 @@ namespace util {
     for (int i = 0; i < DIM; i++) {
       double sum = 0.0;
       for (int j = 0; j < DIM; j++) {
-        sum += (*H)(i,j) * g[j]; // i * dim + j since H is flattened arr[]
+        sum += (*H)(i, j) * g[j]; // i * dim + j since H is flattened arr[]
       }
       p[i] = -sum;
     }
   }
 
   // overload to take arrays
-  template<int DIM>
+  template <int DIM>
   __device__ double
-  calculate_gradient_norm(const std::array<double,DIM>& g_arr)
+  calculate_gradient_norm(const std::array<double, DIM>& g_arr)
   {
     return calculate_gradient_norm<DIM>(g_arr.data());
   }
 
   template <int DIM>
   __device__ void
-  compute_search_direction(std::array<double, DIM>& p_arr, const Matrix<double>* H, const std::array<double,DIM>& g_arr)
+  compute_search_direction(std::array<double, DIM>& p_arr,
+                           const Matrix<double>* H,
+                           const std::array<double, DIM>& g_arr)
   {
     compute_search_direction<DIM>(p_arr.data(), H, g_arr.data());
   }
@@ -80,11 +82,12 @@ namespace util {
                                int dim);
   } // end extern C
 
-  __device__ inline void initialize_identity_matrix(Matrix<double>* H, int dim)
+  __device__ inline void
+  initialize_identity_matrix(Matrix<double>* H, int dim)
   {
     for (int i = 0; i < dim; ++i) {
       for (int j = 0; j < dim; ++j) {
-        (*H)(i,j) = (i == j ? 1.0 : 0.0);
+        (*H)(i, j) = (i == j ? 1.0 : 0.0);
       }
     }
   }
@@ -103,8 +106,6 @@ namespace util {
     }
   }
 
-
-
   template <int DIM>
   __device__ void matrix_multiply_device(const double* A,
                                          const double* B,
@@ -121,7 +122,7 @@ namespace util {
 
     // Compute H_new element-wise without allocating large temporary matrices.
     // H_new = (I - rho * s * y^T) * H * (I - rho * y * s^T) + rho * s * s^T
-    Matrix<double> H_new(DIM,DIM); // Temporary array (DIM^2 elements)
+    Matrix<double> H_new(DIM, DIM); // Temporary array (DIM^2 elements)
 
     for (int i = 0; i < DIM; i++) {
       for (int j = 0; j < DIM; j++) {
@@ -133,75 +134,75 @@ namespace util {
           for (int m = 0; m < DIM; m++) {
             // Compute element (m,j) of (I - rho * y * s^T)
             double B_mj = ((m == j) ? 1.0 : 0.0) - rho * y[m] * s[j];
-            inner += (*H)(k,m) * B_mj;
+            inner += (*H)(k, m) * B_mj;
           }
           sum += A_ik * inner;
         }
         // Add the rho * s * s^T term
-        H_new(i,j) = sum + rho * s[i] * s[j];
+        H_new(i, j) = sum + rho * s[i] * s[j];
       }
     }
 
     // Copy H_new back into H
-    for (int i=0; i < DIM; i++) {
-      for(int j=0; j < DIM; j++) {
-        (*H)(i,j) = H_new(i,j);
+    for (int i = 0; i < DIM; i++) {
+      for (int j = 0; j < DIM; j++) {
+        (*H)(i, j) = H_new(i, j);
       }
     }
   }
 
-// overloaded identity fill
-__device__ inline void initialize_identity_matrix(double* H, int dim)
-{
-  for (int i = 0; i < dim; ++i)
-    for (int j = 0; j < dim; ++j)
-      H[i*dim + j] = (i==j ? 1.0 : 0.0);
-}
-
-// overloaded search direction
-template<int DIM>
-__device__ inline void compute_search_direction(double* p,
-                                                const double* H,
-                                                const double* g) {
-  for (int i = 0; i < DIM; ++i) {
-    double sum = 0.0;
-    for (int j = 0; j < DIM; ++j) {
-      sum += H[i*DIM + j] * g[j];
-    }
-    p[i] = -sum;
+  // overloaded identity fill
+  __device__ inline void
+  initialize_identity_matrix(double* H, int dim)
+  {
+    for (int i = 0; i < dim; ++i)
+      for (int j = 0; j < dim; ++j)
+        H[i * dim + j] = (i == j ? 1.0 : 0.0);
   }
-}
+
+  // overloaded search direction
+  template <int DIM>
+  __device__ inline void
+  compute_search_direction(double* p, const double* H, const double* g)
+  {
+    for (int i = 0; i < DIM; ++i) {
+      double sum = 0.0;
+      for (int j = 0; j < DIM; ++j) {
+        sum += H[i * DIM + j] * g[j];
+      }
+      p[i] = -sum;
+    }
+  }
 
   // overloaded BFGS‐update
-  template<int DIM>
-  __device__ inline void bfgs_update(double* H,
-                                    const double* s,
-                                    const double* y,
-                                    double sTy) {
-  if (fabs(sTy) < 1e-14) return;
-  double rho = 1.0 / sTy;
-  double H_new[DIM*DIM];
+  template <int DIM>
+  __device__ inline void
+  bfgs_update(double* H, const double* s, const double* y, double sTy)
+  {
+    if (fabs(sTy) < 1e-14)
+      return;
+    double rho = 1.0 / sTy;
+    double H_new[DIM * DIM];
 
-  for (int i = 0; i < DIM; ++i) {
-    for (int j = 0; j < DIM; ++j) {
-      double sum = 0.0;
-      for (int k = 0; k < DIM; ++k) {
-        double Aik = ((i==k)?1.0:0.0) - rho * s[i] * y[k];
-        double inner = 0.0;
-        for (int m = 0; m < DIM; ++m) {
-          double Bmj = ((m==j)?1.0:0.0) - rho * y[m] * s[j];
-          inner += H[k*DIM + m] * Bmj;
+    for (int i = 0; i < DIM; ++i) {
+      for (int j = 0; j < DIM; ++j) {
+        double sum = 0.0;
+        for (int k = 0; k < DIM; ++k) {
+          double Aik = ((i == k) ? 1.0 : 0.0) - rho * s[i] * y[k];
+          double inner = 0.0;
+          for (int m = 0; m < DIM; ++m) {
+            double Bmj = ((m == j) ? 1.0 : 0.0) - rho * y[m] * s[j];
+            inner += H[k * DIM + m] * Bmj;
+          }
+          sum += Aik * inner;
         }
-        sum += Aik * inner;
+        H_new[i * DIM + j] = sum + rho * s[i] * s[j];
       }
-      H_new[i*DIM + j] = sum + rho * s[i] * s[j];
     }
+    // copy back
+    for (int idx = 0; idx < DIM * DIM; ++idx)
+      H[idx] = H_new[idx];
   }
-  // copy back
-  for (int idx = 0; idx < DIM*DIM; ++idx)
-    H[idx] = H_new[idx];
-}
-
 
   // function to calculate scalar directional direvative d = g * p
   __device__ double directional_derivative(const double* grad,
@@ -240,26 +241,19 @@ __device__ inline void compute_search_direction(double* p,
     return alpha;
   }
 
-
-// overload that takes arrays
-template<typename Function, std::size_t DIM>
-__host__ __device__
-double line_search(
-    double                     current_best,
-    const std::array<double,DIM>& x_arr,
-    const std::array<double,DIM>& p_arr,
-    const std::array<double,DIM>& g_arr,
-    Function                 const&  f)
-{
-  // forward to your existing pointer‐based routine
-  return line_search<Function,DIM>(
-    current_best,
-    x_arr.data(),
-    p_arr.data(),
-    g_arr.data(),
-    f
-  );
-}
+  // overload that takes arrays
+  template <typename Function, std::size_t DIM>
+  __host__ __device__ double
+  line_search(double current_best,
+              const std::array<double, DIM>& x_arr,
+              const std::array<double, DIM>& p_arr,
+              const std::array<double, DIM>& g_arr,
+              Function const& f)
+  {
+    // forward to your existing pointer‐based routine
+    return line_search<Function, DIM>(
+      current_best, x_arr.data(), p_arr.data(), g_arr.data(), f);
+  }
 
   __device__ double atomicMinDouble(double* addr, double val);
 

@@ -50,14 +50,14 @@ namespace pso {
       pBestX[i * DIM + d] = rx;
     }
 
-    std::array<double, DIM> xarr; 
+    std::array<double, DIM> xarr;
     double* x = xarr.data();
-    #pragma unroll
+#pragma unroll
     for (int d = 0; d < DIM; ++d)
-      x[d] = X[i*DIM + d]; // pointer indexing is allowed in __device__
-    
+      x[d] = X[i * DIM + d]; // pointer indexing is allowed in __device__
+
     // eval personal best
-    //double fval = func(&X[i * DIM]);
+    // double fval = func(&X[i * DIM]);
     double fval = func(xarr);
     pBestVal[i] = fval;
 
@@ -128,9 +128,9 @@ namespace pso {
 
     std::array<double, DIM> xarr;
     double* x = xarr.data();
-    #pragma unroll
+#pragma unroll
     for (int d = 0; d < DIM; ++d)
-      x[d] = X[i*DIM + d];
+      x[d] = X[i * DIM + d];
     // evaluate at new position
     double fval = func(xarr);
 
@@ -157,6 +157,42 @@ namespace pso {
     states[i] = localState; // next time we draw, we continue where we left off
   }
 
+  // A simple logger function you can call from your launch()
+  template <typename Function, int DIM>
+  void
+  saveIteration(int iter,
+                int N,
+                const double* dX,
+                const double* dV,
+                Function const& f,
+                std::ofstream& out,
+                std::vector<double>& hX,
+                std::vector<double>& hV)
+  {
+    // copy device → host
+    cudaMemcpy(hX.data(), dX, sizeof(double) * N * DIM, cudaMemcpyDeviceToHost);
+    cudaMemcpy(hV.data(), dV, sizeof(double) * N * DIM, cudaMemcpyDeviceToHost);
+
+    // write one iteration’s rows
+    for (int i = 0; i < N; ++i) {
+      out << iter << '\t' << i;
+      // x coords
+      for (int d = 0; d < DIM; ++d)
+        out << std::scientific << '\t' << hX[i * DIM + d];
+      // v coords
+      for (int d = 0; d < DIM; ++d)
+        out << '\t' << hV[i * DIM + d];
+
+      // compute fval on host
+      std::array<double, DIM> xx;
+      for (int d = 0; d < DIM; ++d)
+        xx[d] = hX[i * DIM + d];
+      double fval = f(xx);
+      out << '\t' << fval << '\n';
+    }
+    out.flush();
+  }
+
   template <typename Function, int DIM>
   double*
   launch(const int PSO_ITER,
@@ -171,12 +207,14 @@ namespace pso {
   { //, Result<DIM>& best) {
     // allocate PSO buffers on device
     double *dX, *dV, *dPBestVal, *dGBestX, *dGBestVal, *dPBestX;
+    double* dF;
     cudaMalloc(&dX, N * DIM * sizeof(double));
     cudaMalloc(&dV, N * DIM * sizeof(double));
     cudaMalloc(&dPBestX, N * DIM * sizeof(double));
     cudaMalloc(&dPBestVal, N * sizeof(double));
     cudaMalloc(&dGBestX, DIM * sizeof(double));
     cudaMalloc(&dGBestVal, sizeof(double));
+    cudaMalloc(&dF, N * sizeof(double)); // for pso trajectory saving
     int zero = 0;
     cudaMemcpyToSymbol(bfgs::d_stopFlag, &zero, sizeof(int));
     cudaMemcpyToSymbol(bfgs::d_threadsRemaining, &N, sizeof(int));
@@ -214,17 +252,29 @@ namespace pso {
     cudaEventRecord(t1);
     cudaEventSynchronize(t1);
     cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) 
-      std::fprintf(stderr, "pso::initKernel launch error: %s\n",cudaGetErrorString(err));
+    if (err != cudaSuccess)
+      std::fprintf(
+        stderr, "pso::initKernel launch error: %s\n", cudaGetErrorString(err));
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
-      std::fprintf(stderr, "pso::initKernel runtime error: %s\n",cudaGetErrorString(err));
+      std::fprintf(
+        stderr, "pso::initKernel runtime error: %s\n", cudaGetErrorString(err));
       std::exit(1);
     }
-
     cudaEventElapsedTime(&ms_init, t0, t1);
     // printf("PSO‑Init Kernel execution time = %.4f ms\n", ms_init);
-
+#if (1)
+    std::vector<double> hX(N * DIM), hV(N * DIM);
+    std::ofstream out("pso_log.tsv");
+    assert(out && "failed to open pso_log.tsv");
+    out << "iter\tpid";
+    for (int d = 0; d < DIM; ++d)
+      out << "\tx" << d;
+    for (int d = 0; d < DIM; ++d)
+      out << "\tv" << d;
+    out << "\tfval\n";
+    saveIteration<Function, DIM>(0, N, dX, dV, f, out, hX, hV);
+#endif
     // copy back and print initial global best
     cudaMemcpy(
       &hostGBestVal, dGBestVal, sizeof(double), cudaMemcpyDeviceToHost);
@@ -232,7 +282,8 @@ namespace pso {
       hostGBestX.data(), dGBestX, DIM * sizeof(double), cudaMemcpyDeviceToHost);
 
     printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
-    for(int d=0; d<DIM; ++d) printf(" %.4f", hostGBestX[d]);
+    for (int d = 0; d < DIM; ++d)
+      printf(" %.4f", hostGBestX[d]);
     printf(" ]\n\n");
 
     // PSO iterations
@@ -262,12 +313,16 @@ namespace pso {
       cudaEventSynchronize(t1);
       cudaError_t err = cudaGetLastError();
       if (err != cudaSuccess)
-        std::fprintf(stderr, "pso::iterKernel launch error: %s\n", cudaGetErrorString(err));
+        std::fprintf(stderr,
+                     "pso::iterKernel launch error: %s\n",
+                     cudaGetErrorString(err));
       err = cudaDeviceSynchronize();
       if (err != cudaSuccess) {
-        std::fprintf(stderr, "pso::iterKernel runtime error: %s\n",cudaGetErrorString(err));
+        std::fprintf(stderr,
+                     "pso::iterKernel runtime error: %s\n",
+                     cudaGetErrorString(err));
         std::exit(1);
-      }      
+      }
       float ms_iter = 0;
       cudaEventElapsedTime(&ms_iter, t0, t1);
       cudaMemcpy(
@@ -277,6 +332,7 @@ namespace pso {
                  DIM * sizeof(double),
                  cudaMemcpyDeviceToHost);
 
+      saveIteration<Function, DIM>(iter, N, dX, dV, f, out, hX, hV);
       // printf("PSO‑Iter %2d execution time = %.3f ms   gBestVal = %.6e at
       // [",iter, ms_iter, hostGBestVal); for(int d=0; d<DIM; ++d) printf("
       // %.4f", hostGBestX[d]); printf(" ]\n");

@@ -1,9 +1,9 @@
 #pragma once
 
-//#include "traits.hpp"
+// #include "traits.hpp"
 #include <array>
-//template<typename F>
-//using first_arg_t = typename fn_traits_f<F>::arg0_type;
+// template<typename F>
+// using first_arg_t = typename fn_traits_f<F>::arg0_type;
 
 namespace dual {
 
@@ -18,8 +18,9 @@ namespace dual {
     {}
 
     // unary minus
-    __host__ __device__
-    DualNumber operator-() const {
+    __host__ __device__ DualNumber
+    operator-() const
+    {
       return DualNumber(-real, -dual);
     }
     __host__ __device__ DualNumber&
@@ -118,21 +119,21 @@ namespace dual {
              exponent * powf(base.real, exponent - 1) * base.dual);
   }
 
-
   // can we call F with std::array<Scalar,DIM>?
 
   // only enabled if f takes std::array<dual,DIM> -> dual
-  template<class Function, std::size_t DIM,
-         class = std::enable_if_t<
-           std::is_same_v<decltype(std::declval<Function>()(
-               std::declval<std::array<dual::DualNumber,DIM>>()
-             )),
-             dual::DualNumber>>>
-   
-  __device__ void calculateGradientUsingAD(
+  template <class Function,
+            std::size_t DIM,
+            class = std::enable_if_t<std::is_same_v<
+              decltype(std::declval<Function>()(
+                std::declval<std::array<dual::DualNumber, DIM>>())),
+              dual::DualNumber>>>
+
+  __device__ void
+  calculateGradientUsingAD(
     Function const& f,
-    const std::array<double,DIM>& x_arr,  // input point
-    std::array<double,DIM>& grad)     // output derivative vector
+    const std::array<double, DIM>& x_arr, // input point
+    std::array<double, DIM>& grad)        // output derivative vector
   {
     // build dual‐array on stack
     std::array<dual::DualNumber, DIM> xDual;
@@ -145,12 +146,11 @@ namespace dual {
     // partials
 #pragma unroll
     for (std::size_t i = 0; i < DIM; ++i) {
-      xDual[i].dual = 1.0;  // derivative w.r.t. dimension i
+      xDual[i].dual = 1.0;                // derivative w.r.t. dimension i
       dual::DualNumber result = f(xDual); // evaluate the function using AD
-      grad[i] = result.dual; // store derivative
-      xDual[i].dual = 0.0; 
+      grad[i] = result.dual;              // store derivative
+      xDual[i].dual = 0.0;
     }
   }
-
 
 } // end of dual
