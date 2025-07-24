@@ -56,7 +56,6 @@ namespace util {
     return cudaSuccess;
   }
 
-
   // https://xorshift.di.unimi.it/splitmix64.c
   // Very fast 64-bit mixer — returns a new 64-bit value each time.
   __device__ inline uint64_t
@@ -135,7 +134,6 @@ namespace util {
   }
 
   } // end extern C
-
 
   __device__ bool
   valid(double x)
