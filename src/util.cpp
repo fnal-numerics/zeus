@@ -39,10 +39,10 @@ namespace util {
       double dx = coordinates[0] - 0.0;
       double dy = coordinates[1] - (-1.0);
       sum_sq = dx * dx + dy * dy;
-    } else if (fun_name == "rastrigin" ||
-               fun_name ==
-                 "ackley") { // both rastrigin and ackley have the same
-                             // coordinates for the global minimum
+    } else {//if (fun_name == "rastrigin" ||
+           //    fun_name ==
+           //      "ackley") { // both rastrigin and ackley have the same
+           //                  // coordinates for the global minimum
       for (int i = 0; i < dim; ++i) {
         sum_sq += coordinates[i] * coordinates[i];
       }
