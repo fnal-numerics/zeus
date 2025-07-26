@@ -30,6 +30,7 @@ public:
     // device allocate from GPU heap
     size_t sz = rows_ * cols_ * sizeof(T);
     device_data_ = (T*)malloc(sz);
+    assert(!device_data_);
 #else
     if (!rows_ || !cols_)
       throw std::invalid_argument("Matrix dimensions must be > 0");
