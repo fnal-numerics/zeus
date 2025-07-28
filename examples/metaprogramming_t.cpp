@@ -4,7 +4,7 @@
 #include "duals.cuh"
 
 #include "gaussian.hpp"
-#include "mlp.hpp"
+#include "nn.hpp"
 
 #include <cstdlib>    // for rand(), srand()
 #include <cmath>      // for exp()
@@ -88,7 +88,7 @@ main(int argc, char* argv[])
   auto res5 = zeus::Zeus(Rast{},x5, -5.12, 5.12, host, N, 10000, 10, 100, "rastrigin", 1e-8, 42, 0);
   std::cout << "global minimum for 5d rastrigin: " << res5.fval << std::endl;
 #endif
-#if(1)
+#if(0)
   // positive symmetric matrix
   // matrix of random numbers -> transpose to itself, divide by 2.
   //   
@@ -111,4 +111,35 @@ main(int argc, char* argv[])
   auto res150 = zeus::Zeus(g,x150, -5.00, 5.00, host, N, 10000, 10, 100, "gaussian", 1e-8, 42, run); 
   std::cout << "global minimum for " << D << "d Gaussian: " << res150.fval << std::endl;
 #endif  
+#if(1)
+  constexpr size_t In = 5;
+  constexpr size_t H = 20;
+  constexpr size_t Out = 5;
+  constexpr size_t P = NeuralNet<In,H,Out>::P;
+
+  // toy training example
+  std::array<double,In> x0;
+  std::array<double,Out> y0;
+  for(size_t i = 0; i < In; ++i)
+    x0[i] = double(i);
+  for(size_t k = 0; k < Out; ++k)
+    y0[k] = (std::rand()/double(RAND_MAX) - 0.5) * 0.1;
+
+  //construct the objective 
+  // copies x0, y0 to device
+  NeuralNet<In,H,Out> objective{x0,y0};
+
+  std::cout << "training " << P << "d neural net..\n";
+  // initialize theta0 on the host
+  std::array<double,P> theta0;
+  for(auto &v : theta0)
+    v = (std::rand()/double(RAND_MAX) - 0.5) * 0.1;
+
+  int PSOiters = 10;
+  int requiredConverged = 10;
+  double tol = 1e-8;
+
+  auto res = zeus::Zeus(objective, theta0 ,-2.0, 2.0,host,N, 10000, PSOiters, requiredConverged,"neural_net",tol, 42, run);
+  std::cout<<"final loss: "<<res.fval<<"\n";
+#endif
 }
