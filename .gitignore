@@ -5,4 +5,4 @@ particledata
 *.tar.gz
 *.tsv
 *.swp
-./experiments/gauss/
+experiments/gauss/
