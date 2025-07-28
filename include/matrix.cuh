@@ -30,7 +30,10 @@ public:
     // device allocate from GPU heap
     size_t sz = rows_ * cols_ * sizeof(T);
     device_data_ = (T*)malloc(sz);
-    assert(!device_data_);
+    if(device_data_ == nullptr) {
+      printf("reached the max heap size limit when trying to allocate %zu bytes", sz);
+      asm("trap;"); // halt execution if user wants to allocate too much memory
+    }
 #else
     if (!rows_ || !cols_)
       throw std::invalid_argument("Matrix dimensions must be > 0");
