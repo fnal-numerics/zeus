@@ -45,8 +45,6 @@ public:
     cudaError_t err = cudaMalloc(&device_data_, rows_ * cols_ * sizeof(T));
     if (err != cudaSuccess)
       throw std::runtime_error("cudaMalloc failed");
-
-    printf("Matrix: allocated host & device memory\n");
 #endif
   }
 
