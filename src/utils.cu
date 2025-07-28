@@ -13,16 +13,15 @@ namespace util {
     cudaError_t err = cudaDeviceSetLimit(cudaLimitStackSize, newStackSize);
     if (err != cudaSuccess) {
       printf("cudaDeviceSetLimit Stack error: %s\n", cudaGetErrorString(err));
-      // return 1;
     }
     size_t currentHeap = 0;
     cudaDeviceGetLimit(&currentHeap, cudaLimitMallocHeapSize);
-    size_t newHeap = 64 * 1024 * 1024;  // e.g. 64 MB
     printf("Current heap size: %zu bytes\n", currentHeap);
+    // size_t newHeap = 4 * 1024 * 1024 * 1024;  //  4 GB
+    size_t newHeap = 8ULL * 1024ULL * 1024ULL * 1024ULL; // unsigned long long 4 GB
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
     if (err != cudaSuccess) {
-      printf("cudaDeviceSetLimit Heap error: %s\n", cudaGetErrorString(err));
-      // return 1;
+      printf("Failed to set heap to %zu bytes: %s\n",newHeap, cudaGetErrorString(err));
     }
   }
 
