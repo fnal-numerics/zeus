@@ -18,7 +18,7 @@ namespace util {
     cudaDeviceGetLimit(&currentHeap, cudaLimitMallocHeapSize);
     printf("Current heap size: %zu bytes\n", currentHeap);
     // size_t newHeap = 4 * 1024 * 1024 * 1024;  //  4 GB
-    size_t newHeap = 8ULL * 1024ULL * 1024ULL * 1024ULL; // unsigned long long 4 GB
+    size_t newHeap = 80ULL * 1024ULL * 1024ULL * 1024ULL; // unsigned long long 4 GB
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
     if (err != cudaSuccess) {
       printf("Failed to set heap to %zu bytes: %s\n",newHeap, cudaGetErrorString(err));
