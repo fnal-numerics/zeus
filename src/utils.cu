@@ -14,14 +14,30 @@ namespace util {
     if (err != cudaSuccess) {
       printf("cudaDeviceSetLimit Stack error: %s\n", cudaGetErrorString(err));
     }
-    size_t currentHeap = 0;
-    cudaDeviceGetLimit(&currentHeap, cudaLimitMallocHeapSize);
-    printf("Current heap size: %zu bytes\n", currentHeap);
-    // size_t newHeap = 4 * 1024 * 1024 * 1024;  //  4 GB
-    size_t newHeap = 80ULL * 1024ULL * 1024ULL * 1024ULL; // unsigned long long 4 GB
+    
+    // get current device ID
+    int device;
+    err = cudaGetDevice(&device);
+    if (err != cudaSuccess) {
+      printf("cudaGetDevice error: %s\n", cudaGetErrorString(err));
+      return;
+    }
+
+    // Get device properties (including total global memory)
+    cudaDeviceProp deviceProp;
+    err = cudaGetDeviceProperties(&deviceProp, device);
+    if (err != cudaSuccess) {
+      printf("cudaGetDeviceProperties error: %s\n", cudaGetErrorString(err));
+      return;
+    }
+
+    // Use total global memory as heap size
+    size_t newHeap = deviceProp.totalGlobalMem;
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
     if (err != cudaSuccess) {
       printf("Failed to set heap to %zu bytes: %s\n",newHeap, cudaGetErrorString(err));
+    } else {
+      printf("Successfully set heap size to %zu bytes (%.2f GB)\n", newHeap, newHeap / (1024.0 * 1024.0 * 1024.0));
     }
   }
 
