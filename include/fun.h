@@ -227,7 +227,7 @@ namespace util {
     }
   };
 
-template<int D>
+template<size_t D>
 struct Rosenbrock {
   template<class T, std::size_t N, class = std::enable_if_t<N == D>>
   __host__ __device__
@@ -237,7 +237,7 @@ struct Rosenbrock {
 };
 
 
-template<int D>
+template<size_t D>
 struct Rastrigin {
   template<class T, std::size_t N, class = std::enable_if_t<N == D>>
   __host__ __device__
@@ -246,7 +246,7 @@ struct Rastrigin {
   }
 };
 
-template<int D>
+template<size_t D>
 struct Ackley {
   template<class T, std::size_t N,
            class = std::enable_if_t<N == D>>
