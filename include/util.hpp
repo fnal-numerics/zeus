@@ -21,8 +21,12 @@ struct Convergence {
 template <int DIM>
 struct Result {
   int idx;
-  int status; // 1 if converged, else if stopped_bc_someone_flipped_the_flag: 2,
-              // else 0
+  // 0 surrender (reached max iterations)
+  // 1 if converged
+  // 2 stopped_bc_someone_flipped_the_flag
+  // 3 cudamemoryallocation failure
+  // 4 cudaruntime error
+  int status; 
   double fval; // function value
   double gradientNorm;
   double coordinates[DIM];
@@ -60,11 +64,10 @@ namespace util {
                             const int surrendered,
                             const int stopped);
 
-  template <int DIM>
+  template <size_t DIM>
   Convergence
-  dump_data_2_file(const Result<DIM>* h_results,
-                   const std::string fun_name,
-                   const int N,
+  dump_data_2_file(size_t N, Result<DIM>* h_results,
+                   std::string fun_name,
                    const int PSO_ITER,
                    const int run)
   {
