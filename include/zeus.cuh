@@ -37,12 +37,11 @@ namespace zeus {
     Zeus(Function const& f,
          double lower,
          double upper,
-         double* hostResults,
-         int N,
+         size_t N,
          int MAX_ITER,
          int PSO_ITER,
          int requiredConverged,
-         std::string fun_name,
+         std::string const& fun_name,
          double tolerance,
          int seed,
          int run)
@@ -68,7 +67,6 @@ namespace zeus {
                                                 upper,
                                                 lower,
                                                 pso_results_device,
-                                                hostResults,
                                                 deviceTrajectory,
                                                 requiredConverged,
                                                 tolerance,
@@ -114,15 +112,40 @@ namespace zeus {
     } // end Zeus
   } // namespace impl
 
-  // template <objective_array Function>
-  template <typename Function, std::size_t DIM>
+
+  // primary, left undefined
+  template<typename F>
+  struct fn_traits;
+
+  // class‐template functor: any `template<std::size_t> class Foo`
+  template< template<std::size_t> class Functor, std::size_t N >
+  struct fn_traits< Functor<N> > {
+    static constexpr std::size_t arity = N;
+    using arg = std::array<double, N>;
+  };
+
+  // free/static function pointer
+  //    R (*)( std::array<double,N> const& )
+  template<typename R, std::size_t N>
+  struct fn_traits< R (*)( std::array<double, N> const& ) > {
+    static constexpr std::size_t arity = N;
+    using arg = std::array<double, N>;
+  };
+
+  // scalar free functions R(*)(R)
+  template<typename R>
+  struct fn_traits< R (*)(R) > {
+    static constexpr std::size_t arity = 1;
+    using arg = std::array<R,1>;
+  };
+
+
+  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   auto
   Zeus(Function const& f,
-       const std::array<double, DIM>&,
        double lower,
        double upper,
-       double* hostResults,
-       int N,
+       size_t N,
        int MAX_ITER,
        int PSO_ITER,
        int requiredConverged,
@@ -145,7 +168,6 @@ namespace zeus {
     return impl::Zeus<Function, DIM>(f,
                                      lower,
                                      upper,
-                                     hostResults,
                                      N,
                                      MAX_ITER,
                                      PSO_ITER,
