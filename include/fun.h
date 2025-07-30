@@ -229,9 +229,10 @@ namespace util {
 
 template<size_t D>
 struct Rosenbrock {
-  template<class T, std::size_t N, class = std::enable_if_t<N == D>>
+  template<typename T>
+  //template<class T, std::size_t N, class = std::enable_if_t<N == D>>
   __host__ __device__
-  T operator()(const std::array<T,N>& x) const {
+  T operator()(const std::array<T,D>& x) const {
     return rosenbrock<D>(x.data());
   }
 };
@@ -239,25 +240,25 @@ struct Rosenbrock {
 
 template<size_t D>
 struct Rastrigin {
-  template<class T, std::size_t N, class = std::enable_if_t<N == D>>
+  template<typename T>
+  //template<class T, std::size_t N, class = std::enable_if_t<N == D>>
   __host__ __device__
-  T operator()(const std::array<T,N>& x) const {
+  T operator()(const std::array<T,D>& x) const {
     return rastrigin<D>(x.data());
   }
 };
 
 template<size_t D>
 struct Ackley {
-  template<class T, std::size_t N,
-           class = std::enable_if_t<N == D>>
+  template<typename T>
+  //template<class T, std::size_t N,
+  //         class = std::enable_if_t<N == D>>
   __host__ __device__
-  T operator()(const std::array<T,N>& x) const {
+  T operator()(const std::array<T,D>& x) const {
     return ackley<D>(x.data());
   }
 };
-
-
-  
+ 
   template <int DIM>
   struct Himmelblau {
     __host__ __device__ static dual::DualNumber
