@@ -38,7 +38,7 @@ namespace bfgs {
 
   template <typename Function, int DIM, unsigned int blockSize>
   __global__ void
-  optimizeKernel(
+  optimize(
     Function f,
     const double lower,
     const double upper,
@@ -228,7 +228,7 @@ namespace bfgs {
 
   template <int DIM>
   Result<DIM>
-  launch_reduction(int N, double* deviceResults, Result<DIM>* h_results)
+  launch_reduction(int N, double* deviceResults,Result<DIM> const* h_results)
   {
     // ArgMin & final print
     cub::KeyValuePair<int, double>* deviceArgMin;
@@ -261,21 +261,19 @@ namespace bfgs {
     }
     printf(" ]\n");
 
-    cudaFree(deviceResults);
     cudaFree(deviceArgMin);
     cudaFree(d_temp_storage);
     return best;
   }
 
-  template <typename Function, int DIM>
+  template <typename Function, size_t DIM>
   Result<DIM>
-  launch(const int N,
-         const int pso_iter,
+  launch(size_t N,
+	 const int pso_iter,
          const int MAX_ITER,
          const double upper,
          const double lower,
          double* pso_results_device,
-         double* hostResults,
          double* deviceTrajectory,
          const int requiredConverged,
          const double tolerance,
@@ -288,15 +286,17 @@ namespace bfgs {
   {
     int blockSize, minGridSize;
     cudaOccupancyMaxPotentialBlockSize(
-      &minGridSize, &blockSize, optimizeKernel<Function, DIM, 128>, 0, N);
+      &minGridSize, &blockSize, optimize<Function, DIM, 128>, 0, N);
     // printf("\nRecommended block size: %d\n", blockSize);
 
-    // prepare optimizer buffers & copy hostResults --> device
     double* deviceResults;
     cudaMalloc(&deviceResults, N * sizeof(double));
-    cudaMemcpy(
-      deviceResults, hostResults, N * sizeof(double), cudaMemcpyHostToDevice);
-
+    if(deviceResults == nullptr) 
+    { 
+         Result<DIM> result;
+         result.status = 3;
+         return result;
+    }
     dim3 optBlock(blockSize);
     dim3 optGrid((N + blockSize - 1) / blockSize);
 
@@ -306,17 +306,17 @@ namespace bfgs {
     cudaEventCreate(&stopOpt);
     cudaEventRecord(startOpt);
 
-    Result<DIM>* h_results = new Result<DIM>[N]; // host copy
     Result<DIM>* d_results = nullptr;
     cudaMalloc(&d_results, N * sizeof(Result<DIM>));
-    /*
-    for(int i=0;i<DIM;i++){
-        std::cout << hPBestX[i] << " ";
-    }*/
-    std::cout << std::endl;
+    if(d_results == nullptr) {
+        Result<DIM> result;
+        result.status = 3;
+        cudaFree(deviceResults);
+        return result;
+    }   
     if (save_trajectories) {
       cudaMalloc(&deviceTrajectory, N * MAX_ITER * DIM * sizeof(double));
-      optimizeKernel<Function, DIM, 128>
+      optimize<Function, DIM, 128>
         <<<optGrid, optBlock>>>(f,
                                 lower,
                                 upper,
@@ -331,7 +331,7 @@ namespace bfgs {
                                 states,
                                 /*saveTraj=*/true);
     } else {
-      optimizeKernel<Function, DIM, 128>
+      optimize<Function, DIM, 128>
         <<<optGrid, optBlock>>>(f,
                                 lower,
                                 upper,
@@ -353,7 +353,11 @@ namespace bfgs {
     if (err != cudaSuccess) {
       std::fprintf(
         stderr, "bfgs kernel runtime error: %s\n", cudaGetErrorString(err));
-      std::exit(1);
+      Result<DIM> result;
+      result.status = 4;
+      cudaFree(d_results);
+      // free rest of memory allocated by cudamalloc 
+      return result;
     }
     cudaEventRecord(stopOpt);
     cudaEventSynchronize(stopOpt);
@@ -362,25 +366,15 @@ namespace bfgs {
     cudaEventDestroy(startOpt);
     cudaEventDestroy(stopOpt);
 
+    std::vector<Result<DIM>> h_results(N);
     cudaMemcpy(
-      h_results, d_results, N * sizeof(Result<DIM>), cudaMemcpyDeviceToHost);
-    Convergence c =
-      util::dump_data_2_file(h_results, fun_name, N, pso_iter, run);
-    /*int countConverged = 0, surrender = 0, stopped = 0;
-    for (int i = 0; i < N; ++i) {
-        if (h_results[i].status == 1) {
-            countConverged++;
-        } else if(h_results[i].status == 2) { // particle was stopped early
-            stopped++;
-        } else {
-            surrender++;
-        }
-    }*/
-    // printf("\n%d converged, %d stopped early, %d
-    // surrendered\n",countConverged, stopped, surrender);
+      h_results.data(), d_results, N * sizeof(Result<DIM>), cudaMemcpyDeviceToHost);
+    Convergence c = util::dump_data_2_file<DIM>(N, h_results.data(), fun_name, pso_iter, run);
 
-    Result best = launch_reduction<DIM>(N, deviceResults, h_results);
+    Result best = launch_reduction<DIM>(N, deviceResults, h_results.data());
     best.c = c;
+    cudaFree(deviceResults);
+    
     return best;
   }
 
