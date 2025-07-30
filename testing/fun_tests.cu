@@ -10,7 +10,7 @@
 using Catch::Approx;
 
 // Value Test Kernel + Launcher
-template <template <int> class F, int D>
+template <template <std::size_t> class F, int D>
 __global__ void
 valueKernel(const double* x, double* out, F<D> f)
 {
@@ -20,7 +20,7 @@ valueKernel(const double* x, double* out, F<D> f)
   out[0] = f(xa);
 }
 
-template <template <int> class F, int D>
+template <template <std::size_t> class F, int D>
 double
 run_value(const double x[D])
 {
@@ -38,7 +38,7 @@ run_value(const double x[D])
 }
 
 // Gradient Test Kernel + Launcher
-template <template <int> class F, int D>
+template <template <std::size_t> class F, int D>
 __global__ void
 gradKernel(const double* x, double* g)
 {
@@ -53,7 +53,7 @@ gradKernel(const double* x, double* g)
     g[i] = ga[i];
 }
 
-template <template <int> class F, int D>
+template <template <std::size_t> class F, size_t D>
 void
 run_grad(const double x[D], double out[D])
 {
@@ -74,21 +74,21 @@ run_grad(const double x[D], double out[D])
 // Value tests
 TEST_CASE("Rastrigin@origin", "[fun][value]")
 {
-  constexpr int D = 2;
+  constexpr size_t D = 2;
   double x[D] = {0.0, 0.0};
   REQUIRE(run_value<util::Rastrigin, D>(x) == Approx(0.0));
 }
 
 TEST_CASE("Ackley@origin", "[fun][value]")
 {
-  constexpr int D = 2;
+  constexpr size_t D = 2;
   double x[D] = {0.0, 0.0};
   REQUIRE(run_value<util::Ackley, D>(x) == Approx(0.0).margin(1e-6));
 }
 
 TEST_CASE("Rosenbrock@min", "[fun][value]")
 {
-  constexpr int D = 2;
+  constexpr size_t D = 2;
   double x[D] = {1.0, 1.0};
   REQUIRE(run_value<util::Rosenbrock, D>(x) == Approx(0.0));
 }
@@ -96,7 +96,7 @@ TEST_CASE("Rosenbrock@min", "[fun][value]")
 // Gradient tests
 TEST_CASE("grad_Rastrigin@origin", "[fun][grad]")
 {
-  constexpr int D = 2;
+  constexpr size_t D = 2;
   double x[D] = {0.0, 0.0};
   double expect[D] = {0.0, 0.0}, got[D];
   run_grad<util::Rastrigin, D>(x, got);
@@ -106,7 +106,7 @@ TEST_CASE("grad_Rastrigin@origin", "[fun][grad]")
 
 TEST_CASE("grad_Ackley@origin", "[fun][grad]")
 {
-  constexpr int D = 2;
+  constexpr size_t D = 2;
   double x[D] = {-1e-17, 1e-17};
   double expect[D] = {-2.0, 2.0}, got[D];
   run_grad<util::Ackley, D>(x, got);
@@ -119,7 +119,7 @@ TEST_CASE("grad_Ackley@origin", "[fun][grad]")
 
 TEST_CASE("grad_Rosenbrock@min", "[fun][grad]")
 {
-  constexpr int D = 2;
+  constexpr size_t D = 2;
   double x[D] = {1.0, 1.0};
   double expect[D] = {0.0, 0.0}, got[D];
   run_grad<util::Rosenbrock, D>(x, got);

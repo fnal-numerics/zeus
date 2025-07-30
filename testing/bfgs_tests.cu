@@ -236,7 +236,6 @@ TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
     /*upper*/ upper,
     /*lower*/ lower,
     /*pso_results_device*/ dPSOInit,
-    /*hostResults*/ hostResults,
     /*deviceTrajectory*/ deviceTrajectory,
     /*requiredConverged*/ requiredConverged,
     /*tolerance*/ tolerance,
@@ -291,7 +290,6 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
     /*upper*/ 10.0,
     /*lower*/ -10.0,
     /*pso_results_device*/ dInit,
-    /*hostResults*/ hostResults,
     /*deviceTrajectory*/ deviceTrajectory,
     /*requiredConverged*/ 1,
     /*tolerance*/ 1e-6,
@@ -347,7 +345,6 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
     /*upper*/ upper,
     /*lower*/ lower,
     /*pso_results_device*/ dPSOInit,
-    /*hostResults*/ hostResults,
     /*deviceTrajectory*/ deviceTrajectory,
     /*requiredConverged*/ requiredConverged,
     /*tolerance*/ tolerance,
@@ -407,7 +404,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
   Result<DIM>* d_out = nullptr;
 
   // This **should compile** without error:
-  bfgs::optimizeKernel<GoodObjective, DIM, 128><<<1, 128>>>(GoodObjective(),
+  bfgs::optimize<GoodObjective, DIM, 128><<<1, 128>>>(GoodObjective(),
                                                             lower,
                                                             upper,
                                                             d_pso,
@@ -422,7 +419,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
 
   // This **must fail** to compile, triggering static_assert:
 #if (0)
-  bfgs::optimizeKernel<BadObjective, DIM, 128><<<1, 128>>>(BadObjective(),
+  bfgs::optimize<BadObjective, DIM, 128><<<1, 128>>>(BadObjective(),
                                                            lower,
                                                            upper,
                                                            d_pso,
