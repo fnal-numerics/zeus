@@ -6,6 +6,13 @@
 #include "util.hpp"
 #include "matrix.cuh"
 
+
+inline constexpr double malloc_error = 3.0;   // value 3.0
+inline constexpr double kernel_error = 4.0;      // value 4.0
+
+inline double *const MALLOC_ERROR = const_cast<double*>(&malloc_error);
+inline double *const KERNEL_ERROR = const_cast<double*>(&kernel_error);
+
 namespace util {
 
   extern "C" {
@@ -17,6 +24,12 @@ namespace util {
                                             double,
                                             double*,
                                             int);
+  }
+
+  template<class... Ptrs>
+  inline void freeCudaPtrs(Ptrs... ptrs)
+  {
+    (cudaFree(ptrs), ...);
   }
 
   void set_stack_size();
