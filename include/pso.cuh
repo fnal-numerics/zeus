@@ -1,6 +1,5 @@
 #pragma once
 #include <curand_kernel.h>
-
 #include "utils.cuh"
 
 namespace bfgs {
@@ -11,7 +10,8 @@ namespace bfgs {
 
 namespace pso {
 
-  // kernel #1: initialize X, V, pBest; atomically seed gBestVal/gBestX
+  // pso initialization kernel: initialize X, V, pBest;
+  //                            atomically seed gBestVal/gBestX
   template <typename Function, int DIM>
   __global__ void
   initKernel(Function func,
@@ -33,12 +33,6 @@ namespace pso {
 
     curandState localState = states[i];
     const double vel_range = (upper - lower) * 0.1;
-    // const unsigned int seed = 1234u;
-    // uint64_t counter = seed ^ (uint64_t)i;
-    // uint64_t state = seed * 0x9e3779b97f4a7c15ULL + (uint64_t)i;
-    // if (i==0) {
-    //  printf(">> initKernel sees seed = %llu\n", (unsigned long long)seed);
-    //}
     // init position & velocity
     for (int d = 0; d < DIM; ++d) {
       double rx = util::generate_random_double(&localState, lower, upper);
@@ -57,7 +51,6 @@ namespace pso {
       x[d] = X[i * DIM + d]; // pointer indexing is allowed in __device__
 
     // eval personal best
-    // double fval = func(&X[i * DIM]);
     double fval = func(xarr);
     pBestVal[i] = fval;
 
@@ -71,8 +64,7 @@ namespace pso {
     states[i] = localState; // next time we draw, we continue where we left off
   }
 
-  // kernel #2: one PSO iteration (velocity+position update, personal & global
-  // best)
+  // one PSO iteration kernel 
   template <typename Function, int DIM>
   __global__ void
   iterKernel(Function func,
@@ -92,8 +84,7 @@ namespace pso {
              int N,
              int iter,
              uint64_t seed,
-             curandState* states) //,
-  // Result<DIM>&        best) // store the best particle's results at each
+             curandState* states)
   // iteration
   {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -147,13 +138,6 @@ namespace pso {
       for (int d = 0; d < DIM; ++d)
         gBestX[d] = X[i * DIM + d];
     }
-    // best.coordinates = gBestX;
-    // best.fval = gBestVal;
-    /*printf("it %d gBestVal = %.6f  at gBestX = [",i,fval);
-    for (int d = 0; d < DIM; ++d)
-        printf(" %8.4f", gBestX[d]);
-    printf(" ]\n");
-    */
     states[i] = localState; // next time we draw, we continue where we left off
   }
 
@@ -215,6 +199,9 @@ namespace pso {
     cudaMalloc(&dGBestX, DIM * sizeof(double));
     cudaMalloc(&dGBestVal, sizeof(double));
     cudaMalloc(&dF, N * sizeof(double)); // for pso trajectory saving
+    if(dX == nullptr || dV == nullptr || dPBestX == nullptr || dPBestVal == nullptr || dGBestX == nullptr || dGBestVal == nullptr || dF == nullptr) {
+      return MALLOC_ERROR;
+    }
     int zero = 0;
     cudaMemcpyToSymbol(bfgs::d_stopFlag, &zero, sizeof(int));
     cudaMemcpyToSymbol(bfgs::d_threadsRemaining, &N, sizeof(int));
@@ -252,18 +239,22 @@ namespace pso {
     cudaEventRecord(t1);
     cudaEventSynchronize(t1);
     cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess)
+    if (err != cudaSuccess) {
       std::fprintf(
         stderr, "pso::initKernel launch error: %s\n", cudaGetErrorString(err));
+        util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal, dF);
+        return KERNEL_ERROR;
+    }  
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
       std::fprintf(
         stderr, "pso::initKernel runtime error: %s\n", cudaGetErrorString(err));
-      std::exit(1);
+        util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal, dF);       
+        return KERNEL_ERROR;
     }
     cudaEventElapsedTime(&ms_init, t0, t1);
     // printf("PSO‑Init Kernel execution time = %.4f ms\n", ms_init);
-#if (1)
+#if (0)
     std::vector<double> hX(N * DIM), hV(N * DIM);
     std::ofstream out("pso_log.tsv");
     assert(out && "failed to open pso_log.tsv");
@@ -276,11 +267,13 @@ namespace pso {
     saveIteration<Function, DIM>(0, N, dX, dV, f, out, hX, hV);
 #endif
     // copy back and print initial global best
-    cudaMemcpy(
-      &hostGBestVal, dGBestVal, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaMemcpy(
-      hostGBestX.data(), dGBestX, DIM * sizeof(double), cudaMemcpyDeviceToHost);
-
+    cudaMemcpy(&hostGBestVal, dGBestVal, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(hostGBestX.data(), dGBestX, DIM * sizeof(double), cudaMemcpyDeviceToHost);
+    err = cudaGetLastError();
+    if(err != cudaSuccess) { 
+     util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal, dF);
+     return MALLOC_ERROR;
+    }
     printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
     for (int d = 0; d < DIM; ++d)
       printf(" %.4f", hostGBestX[d]);
@@ -311,17 +304,21 @@ namespace pso {
                                                        states); //, best);
       cudaEventRecord(t1);
       cudaEventSynchronize(t1);
-      cudaError_t err = cudaGetLastError();
-      if (err != cudaSuccess)
+      err = cudaGetLastError();
+      if (err != cudaSuccess) { 
         std::fprintf(stderr,
                      "pso::iterKernel launch error: %s\n",
                      cudaGetErrorString(err));
+        util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal, dF);
+        return KERNEL_ERROR;
+      } 
       err = cudaDeviceSynchronize();
       if (err != cudaSuccess) {
         std::fprintf(stderr,
                      "pso::iterKernel runtime error: %s\n",
                      cudaGetErrorString(err));
-        std::exit(1);
+         util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal, dF);
+         return KERNEL_ERROR;
       }
       float ms_iter = 0;
       cudaEventElapsedTime(&ms_iter, t0, t1);
@@ -331,23 +328,19 @@ namespace pso {
                  dGBestX,
                  DIM * sizeof(double),
                  cudaMemcpyDeviceToHost);
-
-      saveIteration<Function, DIM>(iter, N, dX, dV, f, out, hX, hV);
-      // printf("PSO‑Iter %2d execution time = %.3f ms   gBestVal = %.6e at
-      // [",iter, ms_iter, hostGBestVal); for(int d=0; d<DIM; ++d) printf("
-      // %.4f", hostGBestX[d]); printf(" ]\n");
+      err = cudaGetLastError();
+      if(err != cudaSuccess) {
+         util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal, dF);
+         return MALLOC_ERROR;
+      }
+      //saveIteration<Function, DIM>(iter, N, dX, dV, f, out, hX, hV);
       ms_pso += ms_iter;
     } // end pso loop
     // printf("total pso time = %.3f\n", ms_pso+ms_init);
     cudaEventDestroy(t0);
     cudaEventDestroy(t1);
-    cudaFree(dX);
-    cudaFree(dV);
-    // cudaFree(dPBestX);
-    cudaFree(dPBestVal);
-    cudaFree(dGBestX);
-    cudaFree(dGBestVal);
-    return dPBestX;
+    util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal, dF);    
+    return dPBestX; // return the personal best for each particle
   }
 
 } // end namespace pso
