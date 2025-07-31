@@ -3,7 +3,6 @@
 #include <cub/cub.cuh>
 #include <cuda_runtime.h>
 
-#include "fun.h"
 #include "duals.cuh"
 #include "utils.cuh"
 #include "pso.cuh"
@@ -312,10 +311,17 @@ namespace bfgs {
         Result<DIM> result;
         result.status = 3;
         cudaFree(deviceResults);
+        cudaFree(d_results);
         return result;
     }   
     if (save_trajectories) {
       cudaMalloc(&deviceTrajectory, N * MAX_ITER * DIM * sizeof(double));
+      if(deviceTrajectory == nullptr) {
+        Result<DIM> result;
+        result.status = 3;
+        cudaFree(deviceResults);
+        cudaFree(d_results);
+      }
       optimize<Function, DIM, 128>
         <<<optGrid, optBlock>>>(f,
                                 lower,
@@ -346,9 +352,15 @@ namespace bfgs {
                                 states);
     }
     cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess)
+    if (err != cudaSuccess) {
       std::fprintf(
         stderr, "bfgs kernel launch error: %s\n", cudaGetErrorString(err));
+      Result<DIM> result;
+      result.status = 4;
+      cudaFree(d_results);
+      cudaFree(deviceResults);
+      return result;
+    }
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
       std::fprintf(
@@ -356,7 +368,7 @@ namespace bfgs {
       Result<DIM> result;
       result.status = 4;
       cudaFree(d_results);
-      // free rest of memory allocated by cudamalloc 
+      cudaFree(deviceResults);
       return result;
     }
     cudaEventRecord(stopOpt);
