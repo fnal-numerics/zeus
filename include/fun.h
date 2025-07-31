@@ -1,19 +1,7 @@
 #pragma once
-#include <cassert>
 #include "duals.cuh"
 
 namespace util {
-
-  extern "C" {
-  __device__ __noinline__ void vector_add(const double*,
-                                          const double*,
-                                          double*,
-                                          int);
-  __device__ __noinline__ void vector_scale(const double*,
-                                            double,
-                                            double*,
-                                            int);
-  }
 
   template <int DIM>
   __device__ dual::DualNumber
@@ -166,71 +154,13 @@ namespace util {
     return term1 * term2;
   }
 
-  template <int DIM>
-  struct GoldsteinPrice {
-    __device__ static dual::DualNumber
-    evaluate(const dual::DualNumber* x)
-    {
-      return goldstein_price<DIM>(x);
-    }
-    __host__ __device__ static double
-    evaluate(const double* x)
-    {
-      return goldstein_price<DIM>(x);
-    }
-  };
-
   // Eggholder Function
   //   f(x,y) = -(y+47) sin\Bigl(\sqrt{\Bigl|x/2+y+47\Bigr|}\Bigr)
   //            - x sin\Bigl(\sqrt{\Bigl|x-(y+47)\Bigr|}\Bigr)
 
-  template <int DIM>
-  __device__ dual::DualNumber
-  eggholder(const dual::DualNumber* x)
-  {
-    static_assert(DIM == 2, "Eggholder is defined for 2 dimensions only.");
-    dual::DualNumber x1 = x[0], x2 = x[1];
-    // Use (0 - value) in place of unary minus
-    dual::DualNumber term1 =
-      (dual::DualNumber(0.0) - (x2 + dual::DualNumber(47.0))) *
-      dual::sin(dual::sqrt(
-        dual_abs(x1 / dual::DualNumber(2.0) + x2 + dual::DualNumber(47.0))));
-    dual::DualNumber term2 =
-      (dual::DualNumber(0.0) - x1) *
-      dual::sin(dual::sqrt(dual_abs(x1 - (x2 + dual::DualNumber(47.0)))));
-    return term1 + term2;
-  }
-
-  template <int DIM>
-  __device__ double
-  eggholder(const double* x)
-  {
-    static_assert(DIM == 2, "Eggholder is defined for 2 dimensions only.");
-    double x1 = x[0];
-    double x2 = x[1];
-    double term1 = -(x2 + 47.0) * sin(sqrt(fabs(x1 / 2.0 + x2 + 47.0)));
-    double term2 = -x1 * sin(sqrt(fabs(x1 - (x2 + 47.0))));
-    return term1 + term2;
-  }
-
-  template <int DIM>
-  struct Eggholder {
-    __host__ __device__ static dual::DualNumber
-    evaluate(const dual::DualNumber* x)
-    {
-      return eggholder<DIM>(x);
-    }
-    __host__ __device__ static double
-    evaluate(const double* x)
-    {
-      return eggholder<DIM>(x);
-    }
-  };
-
 template<size_t D>
 struct Rosenbrock {
   template<typename T>
-  //template<class T, std::size_t N, class = std::enable_if_t<N == D>>
   __host__ __device__
   T operator()(const std::array<T,D>& x) const {
     return rosenbrock<D>(x.data());
@@ -241,9 +171,8 @@ struct Rosenbrock {
 template<size_t D>
 struct Rastrigin {
   template<typename T>
-  //template<class T, std::size_t N, class = std::enable_if_t<N == D>>
   __host__ __device__
-  T operator()(const std::array<T,D>& x) const {
+  T operator()(std::array<T,D> const& x) const {
     return rastrigin<D>(x.data());
   }
 };
@@ -251,26 +180,29 @@ struct Rastrigin {
 template<size_t D>
 struct Ackley {
   template<typename T>
-  //template<class T, std::size_t N,
-  //         class = std::enable_if_t<N == D>>
   __host__ __device__
-  T operator()(const std::array<T,D>& x) const {
+  T operator()(std::array<T,D> const& x) const {
     return ackley<D>(x.data());
   }
 };
  
-  template <int DIM>
-  struct Himmelblau {
-    __host__ __device__ static dual::DualNumber
-    evaluate(const dual::DualNumber* x)
-    {
-      return himmelblau<DIM>(x);
-    }
-    __host__ __device__ static double
-    evaluate(const double* x)
-    {
-      return himmelblau<DIM>(x);
-    }
-  };
+template <size_t D>
+struct Himmelblau {
+  template<typename T>
+  __host__ __device__ 
+  T operator()(std::array<T,D> const& x) const {   
+    return himmelblau<D>(x.data());
+  }
+};
+
+template <size_t D>
+struct GoldsteinPrice {
+  template<typename T>
+  __host__ __device__
+  T operator()(std::array<T,D> const& x) const
+  {
+    return goldstein_price<D>(x.data());
+  }
+};
 
 } // namespace util
