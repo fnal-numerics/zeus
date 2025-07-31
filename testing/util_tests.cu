@@ -4,7 +4,7 @@
 #include "catch2/catch_template_test_macros.hpp"
 #include "catch2/catch_test_macros.hpp"
 // #include "catch2/matchers/catch_matchers_floating_point.hpp"
-#include "fun.h"
+#include "utils.cuh"
 
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -68,4 +68,60 @@ TEST_CASE("vector_scale works for small arrays", "[utils][vector]")
 
   cudaFree(dA);
   cudaFree(dR);
+}
+
+
+__host__ double* cleanupAndFail(double* a, double* b, double* c,
+                                double* d, double* e, double* f)
+{
+    util::freeCudaPtrs(a, b, c, d, e, f);
+    return KERNEL_ERROR;
+}
+
+TEST_CASE("Sentinel pointers are unique and stable")
+{
+    REQUIRE(MALLOC_ERROR  != nullptr);
+    REQUIRE(KERNEL_ERROR  != nullptr);
+    REQUIRE(MALLOC_ERROR  != KERNEL_ERROR);
+
+    // Same addresses we expect:
+    REQUIRE(MALLOC_ERROR  == const_cast<double*>(&malloc_error));
+    REQUIRE(KERNEL_ERROR  == const_cast<double*>(&kernel_error));
+}
+
+TEST_CASE("freeCudaPtrs actually frees device allocations")
+{
+    double *p1 = nullptr, *p2 = nullptr, *p3 = nullptr;
+
+    REQUIRE(cudaMalloc(&p1, sizeof(double)) == cudaSuccess);
+    REQUIRE(cudaMalloc(&p2, sizeof(double)) == cudaSuccess);
+    REQUIRE(cudaMalloc(&p3, sizeof(double)) == cudaSuccess);
+
+    util::freeCudaPtrs(p1, p2, p3);
+
+    // Second free must fail because the pointer was already released.
+    REQUIRE(cudaFree(p1) != cudaSuccess);
+    REQUIRE(cudaFree(p2) != cudaSuccess);
+    REQUIRE(cudaFree(p3) != cudaSuccess);
+
+    // Clear last error so it doesn’t bleed into other tests
+    cudaGetLastError();
+}
+
+TEST_CASE("cleanupAndFail returns the kernel-error sentinel")
+{
+    double *d1 = nullptr, *d2 = nullptr, *d3 = nullptr,
+           *d4 = nullptr, *d5 = nullptr, *d6 = nullptr;
+
+    // Allocate six tiny buffers
+    cudaMalloc(&d1, sizeof(double));
+    cudaMalloc(&d2, sizeof(double));
+    cudaMalloc(&d3, sizeof(double));
+    cudaMalloc(&d4, sizeof(double));
+    cudaMalloc(&d5, sizeof(double));
+    cudaMalloc(&d6, sizeof(double));
+
+    double* result = cleanupAndFail(d1, d2, d3, d4, d5, d6);
+
+    REQUIRE(result == KERNEL_ERROR);
 }
