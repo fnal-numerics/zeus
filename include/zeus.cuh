@@ -4,7 +4,6 @@
 #include <type_traits>
 #include <functional>
 
-#include "fun.h"
 #include "duals.cuh"
 #include "pso.cuh"
 #include "utils.cuh"
