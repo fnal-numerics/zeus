@@ -56,6 +56,15 @@ namespace zeus {
         pso_results_device = pso::launch<Function, DIM>(
           PSO_ITER, N, lower, upper, ms_init, ms_pso, seed, states, f);
         // printf("pso init: %.2f main loop: %.2f", ms_init, ms_pso);
+         if(pso_results_device == MALLOC_ERROR) {
+           Result<DIM> r;
+           r.status = 3;
+           return r;
+         } else if(pso_results_device == KERNEL_ERROR) {
+           Result<DIM> r;
+           r.status = 4;
+           return r; 
+         }          
       } // end if pso_iter > 0
       if (!pso_results_device)
         std::cout << "still null" << std::endl;
