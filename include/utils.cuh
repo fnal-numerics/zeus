@@ -1,11 +1,23 @@
 #pragma once
 
 #include <curand_kernel.h> // for curandState
+#include <cassert>
 
 #include "util.hpp"
 #include "matrix.cuh"
 
 namespace util {
+
+  extern "C" {
+  __device__ __noinline__ void vector_add(const double*,
+                                          const double*,
+                                          double*,
+                                          int);
+  __device__ __noinline__ void vector_scale(const double*,
+                                            double,
+                                            double*,
+                                            int);
+  }
 
   void set_stack_size();
 
