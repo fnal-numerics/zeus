@@ -29,11 +29,11 @@ TEST_CASE("pso::initKernel sets pBest & gBest for util::Rastrigin<2>",
   const double lower = -5.0, upper = 5.0;
   const uint64_t seed = 42;
 
-  // 1) curand states
+  // curand states
   float ms_rand;
   curandState* d_states = bfgs::initialize_states(N, int(seed), ms_rand);
 
-  // 2) allocate PSO buffers
+  // allocate PSO buffers
   double *dX, *dV, *dPBestX, *dPBestVal, *dGBestX, *dGBestVal;
   cudaMalloc(&dX, N * DIM * sizeof(double));
   cudaMalloc(&dV, N * DIM * sizeof(double));
@@ -46,7 +46,7 @@ TEST_CASE("pso::initKernel sets pBest & gBest for util::Rastrigin<2>",
     cudaMemcpy(dGBestVal, &inf, sizeof(double), cudaMemcpyHostToDevice);
   }
 
-  // 3) run initKernel<Function,DIM>
+  // run initKernel<Function,DIM>
   pso::initKernel<util::Rastrigin<DIM>, DIM><<<1, N>>>(util::Rastrigin<DIM>(),
                                                        lower,
                                                        upper,
@@ -61,7 +61,7 @@ TEST_CASE("pso::initKernel sets pBest & gBest for util::Rastrigin<2>",
                                                        d_states);
   cudaDeviceSynchronize();
 
-  // 4) copy back
+  // copy back
   double hPVal, hGVal;
   double hPX[DIM], hGX[DIM];
   copyDevice(dPBestVal, &hPVal, 1);
@@ -69,7 +69,7 @@ TEST_CASE("pso::initKernel sets pBest & gBest for util::Rastrigin<2>",
   copyDevice(dPBestX, hPX, DIM);
   copyDevice(dGBestX, hGX, DIM);
 
-  // 5) compute expected f(pBestX) on host
+  // compute expected f(pBestX) on host
   std::array<double, DIM> arr;
   std::copy(hPX, hPX + DIM, arr.begin());
   double expected = util::Rastrigin<DIM>()(arr);
@@ -96,11 +96,11 @@ TEST_CASE("pso::iterKernel inertia‐only updates X and V for 4 particles in 1D"
   const double lower = 0.0, upper = 1.0;
   const uint64_t seed = 0;
 
-  // 1) init curand states (not actually used when c1=c2=0)
+  // init curand states (not actually used when c1=c2=0)
   float ms_rand;
   curandState* d_states = bfgs::initialize_states(N, int(seed), ms_rand);
 
-  // 2) allocate everything
+  // allocate everything
   double *dX, *dV, *dPBestX, *dPBestVal, *dGBestX, *dGBestVal;
   cudaMalloc(&dX, N * DIM * sizeof(double));
   cudaMalloc(&dV, N * DIM * sizeof(double));
@@ -109,7 +109,7 @@ TEST_CASE("pso::iterKernel inertia‐only updates X and V for 4 particles in 1D"
   cudaMalloc(&dGBestX, DIM * sizeof(double));
   cudaMalloc(&dGBestVal, sizeof(double));
 
-  // 3) host‐side initial values
+  // host‐side initial values
   double hX[N] = {0.0, 1.0, 2.0, 3.0};
   double hV[N] = {10.0, 20.0, 30.0, 40.0};
   // personal & global bests start out large so they won't interfere
@@ -127,7 +127,7 @@ TEST_CASE("pso::iterKernel inertia‐only updates X and V for 4 particles in 1D"
   cudaMemcpy(dGBestX, hGBX, DIM * sizeof(double), cudaMemcpyHostToDevice);
   cudaMemcpy(dGBestVal, &hGBV, sizeof(double), cudaMemcpyHostToDevice);
 
-  // 4) launch one iteration: w=0.5, c1=c2=0
+  // launch one iteration: w=0.5, c1=c2=0
   pso::iterKernel<util::Rastrigin<DIM>, DIM><<<1, N>>>(util::Rastrigin<DIM>(),
                                                        lower,
                                                        upper,
@@ -177,7 +177,7 @@ TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
   const double lower = -5.0, upper = 5.0;
   const uint64_t seed = 42;
 
-  // 1) curand states & buffers
+  // curand states & buffers
   float ms_rand;
   curandState* d_states = bfgs::initialize_states(N, int(seed), ms_rand);
 
@@ -189,7 +189,7 @@ TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
   cudaMalloc(&dGBestX, DIM * sizeof(double));
   cudaMalloc(&dGBestVal, sizeof(double));
 
-  // 2) init
+  // init
   pso::initKernel<util::Rastrigin<DIM>, DIM><<<1, N>>>(util::Rastrigin<DIM>(),
                                                        lower,
                                                        upper,
@@ -262,3 +262,87 @@ TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
   cudaFree(dGBestVal);
   cudaFree(d_states);
 }
+
+inline int pointerStatus(double* p)
+{
+    if (p == MALLOC_ERROR)  return 3;
+    if (p == KERNEL_ERROR)  return 4;
+    return 0;                               // success
+}
+
+TEST_CASE("pso::launch returns 4: KERNEL_ERROR when overflowing the memory")
+{
+    // exhaust almost all free memory on the device ──────────────
+    std::vector<void*> scraps;
+    size_t freeB  = 0, totalB = 0;
+    cudaMemGetInfo(&freeB, &totalB);
+
+    // Keep at least 16 MiB so the runtime itself can breathe
+    const size_t CHUNK = (freeB > 32ull << 20) ? (freeB - (16ull << 20)) : freeB / 2;
+
+    while (true) {
+        void* p = nullptr;
+        if (cudaMalloc(&p, CHUNK) != cudaSuccess) break;
+        scraps.push_back(p);
+    }
+
+    // now launch PSO with a 'normal' problem size
+    using Fn  = util::Rosenbrock<2>;
+    constexpr int DIM = 2;
+    float ms0 = 0.0f, ms1 = 0.0f;
+    curandState* states = nullptr;
+
+    double* ptr = pso::launch<Fn, DIM>(/*PSO_ITER*/ 10,
+                                       /*N*/         512,
+                                       /*lower*/    -2.0,
+                                       /*upper*/     2.0,
+                                       ms0, ms1,
+                                       42, states,
+                                       Fn{});
+
+    REQUIRE(ptr == KERNEL_ERROR);
+
+    // clean up the scrap buffers so the rest of the suite runs ‐─
+    for (void* p : scraps) cudaFree(p);
+}
+
+TEST_CASE("pso::launch returns 3 (MALLOC_ERROR) when cudaMalloc fails",
+          "[pso][malloc-error]")
+{
+    using Fn  = util::Rosenbrock<2>;
+    constexpr int DIM       = 2;
+    constexpr int PSO_ITER  = 10;
+
+    // pick an absurdly large N so that at least one cudaMalloc fails
+    const int N = std::numeric_limits<int>::max() / DIM;   // ≈1 G x DIM doubles
+
+    float ms_init = 0.0f, ms_pso = 0.0f;
+    curandState* states = nullptr;
+
+    double* ptr = pso::launch<Fn, DIM>(PSO_ITER, N, -2.0, 2.0,
+                                       ms_init, ms_pso, 42, states, Fn{});
+
+    REQUIRE(pointerStatus(ptr) == 3);
+}
+
+TEST_CASE("pso::launch returns 4 (KERNEL_ERROR) when the kernel launch fails",
+          "[pso][kernel-error]")
+{
+    using Fn  = util::Rosenbrock<2>;
+    constexpr int DIM       = 2;
+    constexpr int PSO_ITER  = 10;
+
+    // This deliberately supplies no RNG state array.
+    // the kernel dereferences it, so the first launch triggers an invalid-device-pointer
+    // error which `pso::launch` must translate to KERNEL_ERROR.
+    curandState* states = nullptr;
+
+    float ms_init = 0.0f, ms_pso = 0.0f;
+    const int N = 512;
+
+    double* ptr = pso::launch<Fn, DIM>(PSO_ITER, N, -2.0, 2.0,
+                                       ms_init, ms_pso, 99, states, Fn{});
+
+    REQUIRE(pointerStatus(ptr) == 4);
+}
+
