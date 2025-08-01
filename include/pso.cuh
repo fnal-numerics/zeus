@@ -178,7 +178,7 @@ namespace pso {
   }
 
   template <typename Function, int DIM>
-  double*
+  double const*
   launch(const int PSO_ITER,
          const int N,
          const double lower,
@@ -190,17 +190,32 @@ namespace pso {
          Function const& f)
   { //, Result<DIM>& best) {
     // allocate PSO buffers on device
-    double *dX, *dV, *dPBestVal, *dGBestX, *dGBestVal, *dPBestX;
+    double *dX=nullptr, *dV=nullptr, *dPBestVal=nullptr, *dGBestX=nullptr, *dGBestVal=nullptr, *dPBestX=nullptr;
     double* dF;
-    cudaMalloc(&dX, N * DIM * sizeof(double));
-    cudaMalloc(&dV, N * DIM * sizeof(double));
-    cudaMalloc(&dPBestX, N * DIM * sizeof(double));
-    cudaMalloc(&dPBestVal, N * sizeof(double));
-    cudaMalloc(&dGBestX, DIM * sizeof(double));
-    cudaMalloc(&dGBestVal, sizeof(double));
-    cudaMalloc(&dF, N * sizeof(double)); // for pso trajectory saving
-    if(dX == nullptr || dV == nullptr || dPBestX == nullptr || dPBestVal == nullptr || dGBestX == nullptr || dGBestVal == nullptr || dF == nullptr) {
-      return MALLOC_ERROR;
+    size_t freeBytes = 0, total = 0;
+    cudaMemGetInfo(&freeBytes, &total);
+    size_t sizeX        = static_cast<size_t>(N) * DIM * sizeof(double);
+    size_t sizePBestVal = static_cast<size_t>(N) * sizeof(double);
+    size_t sizeF        = sizePBestVal;                    // same size as N doubles
+    size_t sizeGBestX   = static_cast<size_t>(DIM) * sizeof(double);
+ 
+   size_t need = sizeX * 3   // X, V, PBestX
+            + sizePBestVal * 2         // PBestVal, F
+            + sizeGBestX + sizeof(double);              // GBestX + Val
+   if (need > freeBytes) return MALLOC_ERROR;
+    // once we know we have enough memory, we can allocate it
+    if (cudaMalloc(&dX,        sizeX)        != cudaSuccess ||
+        cudaMalloc(&dV,        sizeX)        != cudaSuccess ||
+        cudaMalloc(&dPBestX,   sizeX)        != cudaSuccess ||
+        cudaMalloc(&dPBestVal, sizePBestVal) != cudaSuccess ||
+        cudaMalloc(&dGBestX,   sizeGBestX)   != cudaSuccess ||
+        cudaMalloc(&dGBestVal, sizeof(double)) != cudaSuccess ||
+        cudaMalloc(&dF,        sizeF)        != cudaSuccess)
+    {
+        // Free anything that might have succeeded before the failure
+        util::freeCudaPtrs(dX, dV, dPBestX, dPBestVal,
+                           dGBestX, dGBestVal, dF);
+        return MALLOC_ERROR;                 // ← sentinel value (3)
     }
     int zero = 0;
     cudaMemcpyToSymbol(bfgs::d_stopFlag, &zero, sizeof(int));
@@ -242,7 +257,7 @@ namespace pso {
     if (err != cudaSuccess) {
       std::fprintf(
         stderr, "pso::initKernel launch error: %s\n", cudaGetErrorString(err));
-        util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal, dF);
+        util::freeCudaPtrs(dX, dV, dPBestVal, dGBestX, dGBestVal,dF);
         return KERNEL_ERROR;
     }  
     err = cudaDeviceSynchronize();
