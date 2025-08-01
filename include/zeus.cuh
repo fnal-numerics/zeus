@@ -1,13 +1,13 @@
 #pragma once
 
 #include <tuple>
-#include <type_traits>
 #include <functional>
 
 #include "duals.cuh"
 #include "pso.cuh"
 #include "utils.cuh"
 #include "bfgs.cuh"
+#include "traits.hpp"
 
 __device__ int d_stopFlag = 0;
 __device__ int d_convergedCount = 0;
@@ -31,7 +31,7 @@ namespace zeus {
   }
 
   namespace impl {
-    template <typename Function, size_t DIM>
+    template <typename Function, std::size_t DIM=fn_traits<Function>::arity>
     Result<DIM>
     Zeus(Function const& f,
          double lower,
@@ -50,7 +50,7 @@ namespace zeus {
       // printf("Recommended block size: %d\n", blockSize);
       bool save_trajectories = util::askUser2saveTrajectories();
       double* deviceTrajectory = nullptr;
-      double* pso_results_device = nullptr;
+      double const* pso_results_device = nullptr;
       float ms_init = 0.0f, ms_pso = 0.0f;
       if (PSO_ITER >= 0) {
         pso_results_device = pso::launch<Function, DIM>(
@@ -121,33 +121,6 @@ namespace zeus {
   } // namespace impl
 
 
-  // primary, left undefined
-  template<typename F>
-  struct fn_traits;
-
-  // class‐template functor: any `template<std::size_t> class Foo`
-  template< template<std::size_t> class Functor, std::size_t N >
-  struct fn_traits< Functor<N> > {
-    static constexpr std::size_t arity = N;
-    using arg = std::array<double, N>;
-  };
-
-  // free/static function pointer
-  //    R (*)( std::array<double,N> const& )
-  template<typename R, std::size_t N>
-  struct fn_traits< R (*)( std::array<double, N> const& ) > {
-    static constexpr std::size_t arity = N;
-    using arg = std::array<double, N>;
-  };
-
-  // scalar free functions R(*)(R)
-  template<typename R>
-  struct fn_traits< R (*)(R) > {
-    static constexpr std::size_t arity = 1;
-    using arg = std::array<R,1>;
-  };
-
-
   template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   auto
   Zeus(Function const& f,
@@ -173,7 +146,7 @@ namespace zeus {
                      dual::DualNumber>,
       "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T "
       "fun(const std::array<T,N>) { ... }\n");
-    return impl::Zeus<Function, DIM>(f,
+    return impl::Zeus(f,
                                      lower,
                                      upper,
                                      N,
