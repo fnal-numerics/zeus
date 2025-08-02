@@ -16,34 +16,49 @@ cuda_buffer::~cuda_buffer() {
 }
 
 // copy ctor
-cuda_buffer::cuda_buffer(cuda_buffer const& o)
-  : d(nullptr), sz(o.sz)
+cuda_buffer::cuda_buffer(cuda_buffer const& u)
+  : d(nullptr), sz(u.sz)
 {
   cudaError_t st = cudaMalloc(&d, sz * sizeof(double));
   if (st != cudaSuccess) {
     throw cuda_exception<3>("cudaMalloc failed in copy ctor");
   }
-  st = cudaMemcpy(d, o.d, sz * sizeof(double),
+  st = cudaMemcpy(d, u.d, sz * sizeof(double),
                   cudaMemcpyDeviceToDevice);
   if (st != cudaSuccess) {
     throw cuda_exception<4>("cudaMemcpy D→D failed in copy ctor");
   }
 }
 
-// swap helper
-void cuda_buffer::swap(cuda_buffer& o) noexcept {
-  std::swap(d, o.d);
-  std::swap(sz, o.sz);
-}
-
 // copy-assign (copy-and-swap)
-cuda_buffer& cuda_buffer::operator=(cuda_buffer const& o) {
-  if (this != &o) {
-    cuda_buffer tmp(o);
+cuda_buffer& cuda_buffer::operator=(cuda_buffer const& u) {
+  if (this != &u) {
+    cuda_buffer tmp(u);
     swap(tmp);
   }
   return *this;
 }
+
+// move ctor
+cuda_buffer::cuda_buffer(cuda_buffer&& u) noexcept
+  : d(u.d), sz(u.sz)
+{
+  u.d = nullptr;
+  u.sz = 0;
+}
+
+//  move-assign
+cuda_buffer& cuda_buffer::operator=(cuda_buffer&& u) noexcept {
+  if (this != &u) {
+    if (d) cudaFree(d);
+    d    = u.d;
+    sz   = u.sz;
+    u.d  = nullptr;
+    u.sz = 0;
+  }
+  return *this;
+}
+
 
 // vector-return overload (throws on failure)
 std::vector<double> cuda_buffer::copy_to_host() const {
