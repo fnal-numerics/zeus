@@ -73,7 +73,7 @@ TEST_CASE("raw-pointer copy_to_host size-mismatch yields error", "[cuda_buffer]"
     REQUIRE(buf.copy_to_host(small, 1) != 0);
 }
 
-TEST_CASE("Move constructor transfers ownership", "[cuda_buffer]") {
+TEST_CASE("move constructor transfers ownership", "[cuda_buffer]") {
     std::array<double,3> host = {{1.0,2.0,3.0}};
     cuda_buffer a(host);
     cuda_buffer b(std::move(a));
@@ -86,7 +86,7 @@ TEST_CASE("Move constructor transfers ownership", "[cuda_buffer]") {
     REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("Move assignment transfers ownership", "[cuda_buffer]") {
+TEST_CASE("move assignment transfers ownership", "[cuda_buffer]") {
     std::array<double,2> host = {{5.5,6.6}};
     cuda_buffer a(host);
     cuda_buffer b(10);
@@ -98,5 +98,36 @@ TEST_CASE("Move assignment transfers ownership", "[cuda_buffer]") {
 
     auto out = b.copy_to_host();
     REQUIRE(out == std::vector<double>(host.begin(), host.end()));
+}
+
+TEST_CASE("repeated allocate/free does not crash", "[cuda_buffer][destructor]") {
+    // Create and destroy a buffer 1000 times
+    for(int i = 0; i < 1000; ++i) {
+        cuda_buffer buf(1024);
+        REQUIRE(buf.size() == 1024);
+        REQUIRE(buf.data() != nullptr);
+        // destructor runs at end of each iteration
+    }
+}
+
+TEST_CASE("destructor actually frees device memory", "[cuda_buffer][destructor]") {
+    size_t free_before, total;
+    // query free/total device memory before
+    auto st = cudaMemGetInfo(&free_before, &total);
+    REQUIRE(st == cudaSuccess);
+
+    {
+        // allocate ~8 MB
+        cuda_buffer buf(1024 * 1024);
+        REQUIRE(buf.data() != nullptr);
+        // destructor will run at the end of this scope
+    }
+
+    size_t free_after;
+    st = cudaMemGetInfo(&free_after, &total);
+    REQUIRE(st == cudaSuccess);
+
+    // after destruction, free memory should be at least as large as before
+    REQUIRE(free_after >= free_before);
 }
 
