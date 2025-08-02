@@ -9,6 +9,24 @@ TEST_CASE("Allocation of small buffer succeeds", "[cuda_buffer]") {
     REQUIRE(buf.data() != nullptr);
 }
 
+TEST_CASE("Zero-length buffer behaves correctly", "[cuda_buffer]") {
+    cuda_buffer buf(0);
+    REQUIRE(buf.size() == 0);
+    REQUIRE(buf.data() == nullptr);
+
+    // vector-return
+    auto v = buf.copy_to_host();
+    REQUIRE(v.empty());
+
+    // vector& overload
+    std::vector<double> out;
+    REQUIRE(buf.copy_to_host(out) == 0);
+    REQUIRE(out.empty());
+
+    // raw-pointer overload with n=0
+    REQUIRE(buf.copy_to_host(nullptr, 0) == 0);
+}
+
 TEST_CASE("Constructor from host array + copy_to_host round-trips", "[cuda_buffer]") {
     std::array<double,3> host = {{1.1,2.2,3.3}};
     cuda_buffer buf(host);
@@ -47,4 +65,13 @@ TEST_CASE("Copy assignment (self and distinct) is safe", "[cuda_buffer]") {
     REQUIRE(b.size() == 5);
     REQUIRE(a.size() == 5);
 }
+
+TEST_CASE("raw-pointer copy_to_host size-mismatch yields error", "[cuda_buffer]") {
+    std::array<double,2> host = {{8.8,9.9}};
+    cuda_buffer buf(host);
+    double small[1];
+    REQUIRE(buf.copy_to_host(small, 1) != 0);
+}
+
+
 
