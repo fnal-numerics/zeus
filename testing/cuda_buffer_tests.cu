@@ -73,5 +73,30 @@ TEST_CASE("raw-pointer copy_to_host size-mismatch yields error", "[cuda_buffer]"
     REQUIRE(buf.copy_to_host(small, 1) != 0);
 }
 
+TEST_CASE("Move constructor transfers ownership", "[cuda_buffer]") {
+    std::array<double,3> host = {{1.0,2.0,3.0}};
+    cuda_buffer a(host);
+    cuda_buffer b(std::move(a));
 
+    REQUIRE(b.size() == 3);
+    REQUIRE(a.size() == 0);
+    REQUIRE(a.data() == nullptr);
+
+    auto out = b.copy_to_host();
+    REQUIRE(out == std::vector<double>(host.begin(), host.end()));
+}
+
+TEST_CASE("Move assignment transfers ownership", "[cuda_buffer]") {
+    std::array<double,2> host = {{5.5,6.6}};
+    cuda_buffer a(host);
+    cuda_buffer b(10);
+    b = std::move(a);
+
+    REQUIRE(b.size() == 2);
+    REQUIRE(a.size() == 0);
+    REQUIRE(a.data() == nullptr);
+
+    auto out = b.copy_to_host();
+    REQUIRE(out == std::vector<double>(host.begin(), host.end()));
+}
 
