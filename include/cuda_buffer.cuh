@@ -1,74 +1,167 @@
 #pragma once
 
 #include <cstddef>
-#include <array>
 #include <vector>
+#include <array> 
+#include <cuda_runtime.h>
+#include "exception.hpp"   // cuda_exception<3>/<4>
 
-#include "exception.hpp"
-// our own exception template class that would return either status 3 or 4 depending on which failure occured
-// 3 is for cudamalloc failure, and 4 is for kernel failure 
+template <std::size_t DIM>
+struct Result;
 
+namespace zeus {
+
+template<typename T>
 struct cuda_buffer {
-  double * d = nullptr;
-  size_t sz = 0;
- 
-  // allocate uninitialized device buffer 
-  explicit cuda_buffer(std::size_t n);
+  T*     d   = nullptr;
+  size_t sz  = 0;
 
-  // build from host array, copying contents
-  //    defined inline so the definition is visible at instantiation time
+  // default ctor (zero‐length)
+  cuda_buffer() noexcept = default;
+
+  // allocate n elements
+  explicit cuda_buffer(std::size_t n)
+    : d(nullptr), sz(n)
+  {
+    if (sz > 0) {
+      auto st = cudaMalloc(&d, sz * sizeof(T));
+      if (st != cudaSuccess)
+        throw cuda_exception<3>("cudaMalloc failed");
+    }
+  }
+
+  // ctor from host std::array<T,N>
   template <std::size_t N>
-  explicit cuda_buffer(const std::array<double, N>& h)
+  explicit cuda_buffer(const std::array<T, N>& host)
     : d(nullptr), sz(N)
   {
     if (sz > 0) {
-      cudaError_t st = cudaMalloc(&d, sz * sizeof(double));
+      cudaError_t st = cudaMalloc(&d, sz * sizeof(T));
       if (st != cudaSuccess)
-        throw cuda_exception<3>("cudaMalloc failed");
-      st = cudaMemcpy(d, h.data(), sz * sizeof(double),
+        throw cuda_exception<3>("cudaMalloc failed in array ctor");
+      st = cudaMemcpy(d,
+                      host.data(),
+                      sz * sizeof(T),
                       cudaMemcpyHostToDevice);
+      if (st != cudaSuccess) {
+        cudaFree(d);
+        throw cuda_exception<4>("cudaMemcpy H->D failed in array ctor");
+      }
+     }
+  }
+
+
+  // deep‐copy copy‐ctor
+  cuda_buffer(cuda_buffer const& o)
+    : d(nullptr), sz(o.sz)
+  {
+    if (sz > 0) {
+      auto st = cudaMalloc(&d, sz * sizeof(T));
       if (st != cudaSuccess)
-        throw cuda_exception<4>("cudaMemcpy H→D failed");
+        throw cuda_exception<3>("cudaMalloc failed in copy ctor");
+      st = cudaMemcpy(d, o.d, sz * sizeof(T), cudaMemcpyDeviceToDevice);
+      if (st != cudaSuccess) {
+        cudaFree(d);
+        throw cuda_exception<4>("cudaMemcpy D->D failed in copy ctor");
+      }
     }
   }
-  // what about:
-  //  1) copy ctor
-  //  2) copy assignment
-  //  3) move ctor
-  //  4) move assignment
-  ~cuda_buffer();
-  // we could also have a copy_to_host member function something like:
-  //int copy_to_host(double* buffer, size_t n) const;
-  // and overloaded sets:
-  //int copy_to_host(std::vector<double> & out) const;
-  // or
-  //std::vector<double> copy_to_host() const;
 
-  // copy ctor / assignment
-  cuda_buffer(cuda_buffer const& other);
-  cuda_buffer& operator=(cuda_buffer const& other);
+  // copy‐assign via copy‐and‐swap
+  cuda_buffer& operator=(cuda_buffer const& o) {
+    cuda_buffer temp(o);
+    swap(temp);
+    return *this;
+  }
 
-  // host-copy helpers
-  std::vector<double> copy_to_host() const;
-  int copy_to_host(double* out, std::size_t n) const;
-  int copy_to_host(std::vector<double>& out) const;
+  // move‐ctor
+  cuda_buffer(cuda_buffer&& o) noexcept
+    : d(o.d), sz(o.sz)
+  {
+    o.d = nullptr;
+    o.sz = 0;
+  }
 
-  // move ctor
-  cuda_buffer(cuda_buffer&& other) noexcept;
+  // move‐assign
+  cuda_buffer& operator=(cuda_buffer&& o) noexcept {
+    if (this != &o) {
+      if (d) cudaFree(d);
+      d    = o.d;
+      sz   = o.sz;
+      o.d  = nullptr;
+      o.sz = 0;
+    }
+    return *this;
+  }
 
-  // move-assign
-  cuda_buffer& operator=(cuda_buffer&& other) noexcept;
+  // destructor
+  ~cuda_buffer() {
+    if (d) cudaFree(d);
+    d = nullptr;
+  }
 
-  // accessors
-  double* data() const noexcept { return d; }
-  std::size_t size() const noexcept { return sz; }
-
-  // swap for copy-and-swap and move
+  // swap utility
   void swap(cuda_buffer& o) noexcept {
     using std::swap;
     swap(d,  o.d);
     swap(sz, o.sz);
   }
 
+  // raw pointer accessor
+  T* data() const noexcept { return d; }
+  operator T*() const noexcept { return d; } // implicit conversion to T*
+  size_t size() const noexcept { return sz; }
+
+  // host copy helper
+  std::vector<T> copy_to_host() const {
+    std::vector<T> out(sz);
+    if (sz > 0) {
+      auto st = cudaMemcpy(out.data(), d, sz * sizeof(T),
+                           cudaMemcpyDeviceToHost);
+      if (st != cudaSuccess)
+        throw cuda_exception<4>("cudaMemcpy D→H failed");
+    }
+    return out;
+  }
+
+  // vector& overload returning int status
+  int copy_to_host(std::vector<T>& out) const {
+    out.resize(sz);
+    if (sz > 0) {
+      cudaError_t st = cudaMemcpy(
+        out.data(), d, sz * sizeof(T), cudaMemcpyDeviceToHost);
+      if (st != cudaSuccess) return 4;
+    }
+    return 0;
+  }
+
+  // raw‐pointer overload returning int status
+  int copy_to_host(T* out, size_t n) const {
+    if (n != sz) return 1;
+    if (sz > 0) {
+      cudaError_t st = cudaMemcpy(
+        out, d, sz * sizeof(T), cudaMemcpyDeviceToHost);
+      if (st != cudaSuccess) return 4;
+    }
+    return 0;
+  }
+
 };
 
+template<typename T>
+bool operator==(cuda_buffer<T> const& a, cuda_buffer<T> const& b) {
+  return true;
+}
+
+
+
+// template alieses
+template<typename T>
+using tbuf = cuda_buffer<T>;
+
+using dbuf = tbuf<double>;
+
+template<std::size_t DIM>
+using result_buffer = tbuf<Result<DIM>>;
+
+}
