@@ -15,7 +15,7 @@ You'll learn how to:
 Here's a basic `double`-only function:
 
 ```cpp
-double my_function(double x) {
+double foo(double x) {
     return 0.5 * x * x;
 }
 ```
@@ -47,9 +47,14 @@ This works with any `T` that supports basic arithmetic: `float`, `double`, `Dual
 Now you can use the templated callable with `Zeus`:
 
 ```cpp
+#include "zeus.cuh"
+using namespace zeus;
+
 Foo f;
-auto result = zeus::Zeus(f, -5.0, 5.0, /*optimization=*/1024, /*bfgs_iterations=*/10000, /*pso_iterations=*/10,
-                         /*required_convergences=*/100,/*function_namei=*/"foo",/*tolerance=*/1e-8, /*seed=*/42, run);
+auto result = Zeus(f,/*lower_bound=*/-5.0,/*upper_bound=*/5.0,/*optimization=*/1024,
+              /*bfgs_iterations=*/10000,/*pso_iterations=*/10,/*required_convergences=*/100,
+             /*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run);
+std::cout<< "best result: " result.fval <<  
 ```
 
 ---
@@ -66,6 +71,7 @@ If your objective requires structured data like a covariance matrix, use our cus
 #include <array>
 #include <cuda_runtime.h>
 #include "matrix.cuh"
+#include "zeus.cuh"
 
 template <std::size_t N>
 class Gaussian {
@@ -119,9 +125,8 @@ for (std::size_t i = 0; i < D; ++i)
 Gaussian<D> g{C};
 
 std::cout << "Running " << D << "D Gaussian minimization" << std::endl;
-using namespace std::literals;
 
-auto res = zeus::Zeus(g, -5.00, 5.00, D, 10000, 10, 100, "gaussian"s, 1e-8, 42, run);
+auto res = zeus::Zeus(g, -5.00, 5.00, D, 10000, 10, 100, "gaussian", 1e-8, 42, run);
 std::cout << "Global minimum for " << D << "D Gaussian: " << res.fval << std::endl;
 ```
 
