@@ -14,6 +14,8 @@ using Catch::Approx;
 #include "fun.h"
 #include "bfgs.cuh"
 
+using namespace zeus;
+
 // helper to copy device→host
 template <typename T>
 void

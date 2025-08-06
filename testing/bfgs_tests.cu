@@ -10,6 +10,8 @@ using Catch::Approx;
 #include "fun.h"
 #include "utils.cuh"
 
+using namespace zeus;
+
 // 1D quadratic function for testing
 struct Quadratic {
   __device__ double
