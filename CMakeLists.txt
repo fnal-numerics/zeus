@@ -24,7 +24,7 @@ add_library(util
     src/util.cpp
     include/util.hpp
     include/utils.cuh
-    src/cuda_buffer.cu
+    include/cuda_buffer.cuh
 )
 
 set_source_files_properties(benchmarks/stateless_funs.cpp PROPERTIES LANGUAGE CUDA)

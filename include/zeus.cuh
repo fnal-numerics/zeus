@@ -8,6 +8,7 @@
 #include "utils.cuh"
 #include "bfgs.cuh"
 #include "traits.hpp"
+#include "cuda_buffer.cuh"
 
 __device__ int d_stopFlag = 0;
 __device__ int d_convergedCount = 0;
@@ -45,36 +46,39 @@ namespace zeus {
          int seed,
          int run)
     {
-      float ms_rand = 0.0f;
+    float ms_rand = 0.0f;
       curandState* states = bfgs::initialize_states(N, seed, ms_rand);
-      // printf("Recommended block size: %d\n", blockSize);
+      // save trajectories?
       bool save_trajectories = util::askUser2saveTrajectories();
       double* deviceTrajectory = nullptr;
-      double const* pso_results_device = nullptr;
+      // dbuf is cuda_buffer<double>
+      dbuf trajBuffer(0);
+      if (save_trajectories) {
+        trajBuffer = dbuf(size_t(N) * MAX_ITER * DIM);
+        deviceTrajectory = trajBuffer.data();
+      }
+
+      dbuf pso_results_device(0);
       float ms_init = 0.0f, ms_pso = 0.0f;
       if (PSO_ITER >= 0) {
+        try {
         pso_results_device = pso::launch<Function, DIM>(
           PSO_ITER, N, lower, upper, ms_init, ms_pso, seed, states, f);
         // printf("pso init: %.2f main loop: %.2f", ms_init, ms_pso);
-         if(pso_results_device == MALLOC_ERROR) {
-           Result<DIM> r;
-           r.status = 3;
-           return r;
-         } else if(pso_results_device == KERNEL_ERROR) {
-           Result<DIM> r;
-           r.status = 4;
-           return r; 
+        } catch (cuda_exception<3>&) {
+           Result<DIM> r; r.status = 3; return r;
+         } catch (cuda_exception<4>&){ 
+           Result<DIM> r; r.status = 4; return r; 
          }          
       } // end if pso_iter > 0
-      if (!pso_results_device)
-        std::cout << "still null" << std::endl;
+
       float ms_opt = 0.0f;
       Result best = bfgs::launch<Function, DIM>(N,
                                                 PSO_ITER,
                                                 MAX_ITER,
                                                 upper,
                                                 lower,
-                                                pso_results_device,
+                                                pso_results_device.data(),
                                                 deviceTrajectory,
                                                 requiredConverged,
                                                 tolerance,
@@ -84,11 +88,6 @@ namespace zeus {
                                                 states,
                                                 run,
                                                 f);
-      if (PSO_ITER > 0) { // optimzation routine is finished, so we can free
-                          // that array on the device
-        cudaFree(pso_results_device);
-      }
-
       double error =
         util::calculate_euclidean_error(fun_name, best.coordinates, DIM);
       util::append_results_2_tsv(DIM,

@@ -6,7 +6,8 @@
 #include "duals.cuh"
 #include "utils.cuh"
 #include "pso.cuh"
-// #include "zeus.cuh"
+
+using namespace zeus;
 
 namespace bfgs {
   extern __device__ int d_stopFlag;
@@ -284,17 +285,23 @@ namespace bfgs {
          Function const& f)
   {
     int blockSize, minGridSize;
-    cudaOccupancyMaxPotentialBlockSize(
+
+    cudaDeviceProp prop;
+   cudaOccupancyMaxPotentialBlockSize(
       &minGridSize, &blockSize, optimize<Function, DIM, 128>, 0, N);
     // printf("\nRecommended block size: %d\n", blockSize);
-
-    double* deviceResults;
-    cudaMalloc(&deviceResults, N * sizeof(double));
-    if(deviceResults == nullptr) 
-    { 
-         Result<DIM> result;
-         result.status = 3;
-         return result;
+    /*cudaGetDeviceProperties(&prop,0);
+    if (blockSize > prop.maxThreadsPerBlock) {
+       blockSize = prop.maxThreadsPerBlock;
+    }*/
+   dbuf deviceResults;
+    try {
+      deviceResults = dbuf(N);
+    } catch (const cuda_exception<3>& e)  {
+       Result<DIM> result;
+       result.status = 3;
+       return result;
+       //throw cuda_exception<3>(std::string("bfgs::launch: failed to cudaMalloc deviceResults (") + e.what() + ")\n"); //allocation failed
     }
     dim3 optBlock(blockSize);
     dim3 optGrid((N + blockSize - 1) / blockSize);
@@ -305,35 +312,28 @@ namespace bfgs {
     cudaEventCreate(&stopOpt);
     cudaEventRecord(startOpt);
 
-    Result<DIM>* d_results = nullptr;
-    cudaMalloc(&d_results, N * sizeof(Result<DIM>));
-    if(d_results == nullptr) {
-        Result<DIM> result;
-        result.status = 3;
-        cudaFree(deviceResults);
-        cudaFree(d_results);
-        return result;
-    }   
+    result_buffer<DIM> d_results;
+    try { 
+      d_results = result_buffer<DIM>(N);
+    } catch (const cuda_exception<3>& e) {
+      Result<DIM> result;
+       result.status = 3;
+       return result;
+      //throw; // allocation failed
+    }
     if (save_trajectories) {
-      cudaMalloc(&deviceTrajectory, N * MAX_ITER * DIM * sizeof(double));
-      if(deviceTrajectory == nullptr) {
-        Result<DIM> result;
-        result.status = 3;
-        cudaFree(deviceResults);
-        cudaFree(d_results);
-      }
       optimize<Function, DIM, 128>
         <<<optGrid, optBlock>>>(f,
                                 lower,
                                 upper,
                                 pso_results_device,
-                                deviceResults,
+                                deviceResults.data(),
                                 deviceTrajectory,
                                 N,
                                 MAX_ITER,
                                 requiredConverged,
                                 tolerance,
-                                d_results,
+                                d_results.data(),
                                 states,
                                 /*saveTraj=*/true);
     } else {
@@ -342,23 +342,20 @@ namespace bfgs {
                                 lower,
                                 upper,
                                 pso_results_device,
-                                deviceResults,
+                                deviceResults.data(),
                                 /*traj=*/nullptr,
                                 N,
                                 MAX_ITER,
                                 requiredConverged,
                                 tolerance,
-                                d_results,
+                                d_results.data(),
                                 states);
     }
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
-      std::fprintf(
-        stderr, "bfgs kernel launch error: %s\n", cudaGetErrorString(err));
+      std::fprintf(stderr,"BFGS kernel launch failed: %s\n",cudaGetErrorString(err));
       Result<DIM> result;
       result.status = 4;
-      cudaFree(d_results);
-      cudaFree(deviceResults);
       return result;
     }
     err = cudaDeviceSynchronize();
@@ -367,8 +364,6 @@ namespace bfgs {
         stderr, "bfgs kernel runtime error: %s\n", cudaGetErrorString(err));
       Result<DIM> result;
       result.status = 4;
-      cudaFree(d_results);
-      cudaFree(deviceResults);
       return result;
     }
     cudaEventRecord(stopOpt);
@@ -383,10 +378,8 @@ namespace bfgs {
       h_results.data(), d_results, N * sizeof(Result<DIM>), cudaMemcpyDeviceToHost);
     Convergence c = util::dump_data_2_file<DIM>(N, h_results.data(), fun_name, pso_iter, run);
 
-    Result best = launch_reduction<DIM>(N, deviceResults, h_results.data());
+    Result best = launch_reduction<DIM>(N, deviceResults.data(), h_results.data());
     best.c = c;
-    cudaFree(deviceResults);
-    
     return best;
   }
 
