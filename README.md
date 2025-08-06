@@ -20,7 +20,7 @@ double foo(double x) {
 }
 ```
 
-This is simple, but inflexible. You can't easily run it on the GPU or with autodiff types.
+This is simple, but inflexible. You can't run it on the GPU or with autodiff types.
 
 ---
 
@@ -29,12 +29,15 @@ This is simple, but inflexible. You can't easily run it on the GPU or with autod
 To make it compatible with `Zeus`, convert it into a class with a templated call operator:
 
 ```cpp
+// dimension of the objective
+template <std::size_t DIM>
 struct Foo {
-    template <typename T>
-    __host__ __device__
-    T operator()(T x) const {
-        return T(0.5) * x * x;
-    }
+  // templated call‐operator over any scalar type T
+  template <typename T>
+  __host__ __device__
+  T operator()(const std::array<T, DIM>& a) const {
+    return T(0.5) * a[0] * a[0];
+  }
 };
 ```
 
@@ -50,11 +53,11 @@ Now you can use the templated callable with `Zeus`:
 #include "zeus.cuh"
 using namespace zeus;
 
-Foo f;
+Foo<1> f;
 auto result = Zeus(f,/*lower_bound=*/-5.0,/*upper_bound=*/5.0,/*optimization=*/1024,
               /*bfgs_iterations=*/10000,/*pso_iterations=*/10,/*required_convergences=*/100,
              /*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run);
-std::cout<< "best result: " result.fval <<  
+std::cout<< "best result: " result.fval << std::endl;
 ```
 
 ---
@@ -141,3 +144,4 @@ std::cout << "Global minimum for " << D << "D Gaussian: " << res.fval << std::en
 - You can add conditional compilation based on `__CUDA_ARCH__` to handle host/device behavior if needed.
 - Zeus expects callables to accept `T` or `std::array<T, N>`.
 
+🇭🇺
