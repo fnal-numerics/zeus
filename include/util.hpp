@@ -18,7 +18,7 @@ struct Convergence {
   int stopped;
 };
 
-template <int DIM>
+template <std::size_t DIM>
 struct Result {
   int idx;
   // 0 surrender (reached max iterations)
