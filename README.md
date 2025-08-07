@@ -26,13 +26,13 @@ std::cout<< "best result: " << result.fval <<  " with status: " << result.status
 
 Zeus returns a status code that has a following meaning:
 | Status code | Meaning    | Description      |
-| ------------- | ------------- |
+| ------------- | ------------- | ------------- |
 | 0 | surrendered | reached maximum iterations without satisfying the convergence criterion |
 | 1 | converged  | satisfied both norm of the gradient & number of required convergences |
 | 2 | stopped early | the best result was stopped early, because other optimizations hit the norm of the gradient flag |
 | 3 | malloc | an error occurred while allocating memory on the GPU |
 | 4 | kernel | an error occurred while launching the kernel |
-| 5 | non-finite | the function value or the gradient norm has non-finite value that is either NaN, inf, -inf, etc.. |
+| 5 | non-finite number | the function value or the gradient norm has non-finite value that is either NaN, inf, -inf, etc.. |
 
 ---
 
