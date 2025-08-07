@@ -31,8 +31,11 @@ namespace util {
       return;
     }
 
-    // Use total global memory as heap size
-    size_t newHeap = deviceProp.totalGlobalMem;
+    // Use total free memory as heap size
+    size_t freeBytes = 0, total = 0;
+    cudaMemGetInfo(&freeBytes, &total);
+    printf("GPU reporting %.2f GB free of %.2f GB total\n",freeBytes/1e9, total/1e9);
+    size_t newHeap = freeBytes/2;
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
     if (err != cudaSuccess) {
       printf("Failed to set heap to %zu bytes: %s\n",newHeap, cudaGetErrorString(err));

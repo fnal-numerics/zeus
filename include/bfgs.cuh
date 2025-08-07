@@ -286,14 +286,9 @@ namespace bfgs {
   {
     int blockSize, minGridSize;
 
-    cudaDeviceProp prop;
    cudaOccupancyMaxPotentialBlockSize(
       &minGridSize, &blockSize, optimize<Function, DIM, 128>, 0, N);
     // printf("\nRecommended block size: %d\n", blockSize);
-    /*cudaGetDeviceProperties(&prop,0);
-    if (blockSize > prop.maxThreadsPerBlock) {
-       blockSize = prop.maxThreadsPerBlock;
-    }*/
    dbuf deviceResults;
     try {
       deviceResults = dbuf(N);
