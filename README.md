@@ -1,51 +1,15 @@
 # Zeus: An Efficient GPU Optimization method integrating PSO, BFGS, and Automatic Differentiation 
 
-This tutorial helps users converting a free function to a templated callable and using Zeus
+Please read the [tutorial](https://github.com/fnal-numerics/global-optimizer-gpu/tree/main/benchmarks/tutorial.md) on how to convert free functions to a templated callable that is acceptable by Zeus.
 
-You'll learn how to:
+This document shows you how to:
 
-- Convert a `double`-only free function into a templated callable.
-- Use it with the `Zeus` global optimization framework.
+- Use templated callable with the `Zeus` global optimization framework.
 - Integrate our custom `Matrix` class with GPU support.
 
 ---
 
-## Step 1: Start with a Free Function
-
-Here's a basic `double`-only function:
-
-```cpp
-double foo(double x) {
-    return 0.5 * x * x;
-}
-```
-
-This is simple, but inflexible. You can't run it on the GPU or with autodiff types.
-
----
-
-## Step 2: Convert to a Templated Callable
-
-To make it compatible with `Zeus`, convert it into a class with a templated call operator:
-
-```cpp
-// dimension of the objective
-template <std::size_t DIM>
-struct Foo {
-  // templated call‐operator over any scalar type T
-  template <typename T>
-  __host__ __device__
-  T operator()(const std::array<T, DIM>& a) const {
-    return T(0.5) * a[0] * a[0];
-  }
-};
-```
-
-This works with any `T` that supports basic arithmetic: `float`, `double`, `DualNumber` types.
-
----
-
-## Step 3: Use With Zeus
+## Step 1: Use With Zeus
 
 Now you can use the templated callable with `Zeus`:
 
@@ -53,16 +17,26 @@ Now you can use the templated callable with `Zeus`:
 #include "zeus.cuh"
 using namespace zeus;
 
-Foo<1> f;
-auto result = Zeus(f,/*lower_bound=*/-5.0,/*upper_bound=*/5.0,/*optimization=*/1024,
+Foo<2> foo;
+auto result = Zeus(foo,/*lower_bound=*/-5.0,/*upper_bound=*/5.0,/*optimization=*/1024,
               /*bfgs_iterations=*/10000,/*pso_iterations=*/10,/*required_convergences=*/100,
              /*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run);
-std::cout<< "best result: " result.fval << std::endl;
+std::cout<< "best result: " << result.fval <<  " with status: " << result.status << std::endl;
 ```
+
+Zeus returns a status code that has a following meaning:
+| Status code | Meaning    | Description      |
+| ------------- | ------------- |
+| 0 | surrendered | reached maximum iterations without satisfying the convergence criterion |
+| 1 | converged  | satisfied both norm of the gradient & number of required convergences |
+| 2 | stopped early | the best result was stopped early, because other optimizations hit the norm of the gradient flag |
+| 3 | malloc | an error occurred while allocating memory on the GPU |
+| 4 | kernel | an error occurred while launching the kernel |
+| 5 | non-finite | the function value or the gradient norm has non-finite value that is either NaN, inf, -inf, etc.. |
 
 ---
 
-## Step 4: Use `Matrix` in Objective Function
+## Step 2: Use `Matrix` in Objective Function
 
 If your objective requires structured data like a covariance matrix, use our custom `Matrix` class with GPU support.
 
@@ -112,7 +86,7 @@ public:
 ```cpp
 #include <array>
 #include <iostream>
-#include "gaussian.cuh"  // Assuming Gaussian is in this header
+#include "gaussian.hpp" 
 
 constexpr std::size_t D = 150;
 using T = double;
@@ -143,5 +117,7 @@ std::cout << "Global minimum for " << D << "D Gaussian: " << res.fval << std::en
   - Indexing via `C(i,j)`
 - You can add conditional compilation based on `__CUDA_ARCH__` to handle host/device behavior if needed.
 - Zeus expects callables to accept `T` or `std::array<T, N>`.
+
+
 
 🇭🇺
