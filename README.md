@@ -1,6 +1,6 @@
 # Zeus: An Efficient GPU Optimization method integrating PSO, BFGS, and Automatic Differentiation 
 
-Please read the [tutorial](https://github.com/fnal-numerics/global-optimizer-gpu/tree/main/benchmarks/tutorial.md) on how to convert free functions to a templated callable that is acceptable by Zeus.
+Please read the [tutorial](https://github.com/fnal-numerics/global-optimizer-gpu/tree/main/examples/tutorial.md) on how to convert free functions to a templated callable that is acceptable by Zeus.
 
 This document shows you how to:
 
