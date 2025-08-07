@@ -33,17 +33,15 @@ target_link_libraries(stateless PUBLIC CUDA::cudart)
 target_link_libraries(stateless PUBLIC util CUDA::cudart)
 target_compile_options(stateless PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
 
-set_source_files_properties(benchmarks/examples/metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
-add_executable(zeus_test benchmarks/examples/metaprogramming_t.cpp)
+set_source_files_properties(benchmarks/metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
+add_executable(zeus_test benchmarks/metaprogramming_t.cpp)
 target_compile_options(zeus_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>)
 target_compile_options(zeus_test PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
 target_include_directories(zeus_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(zeus_test PRIVATE  util  CUDA::cudart)
 target_link_libraries(zeus_test PUBLIC util CUDA::cudart) # build util into zeus
 
-target_compile_options(zeus_test PRIVATE
-  $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>
-)
+#target_compile_options(zeus_test PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>)
 
 ## TESTING SETUP
 include(FetchContent)
