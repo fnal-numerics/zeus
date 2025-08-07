@@ -36,6 +36,18 @@ namespace bfgs {
     return d_states;
   }
 
+  template <int DIM>
+  __device__ void write_result(Result<DIM>& r,int status,double fval,const double* coordinates,double gradientNorm,int iter, int idx) {
+    r.status = status;
+    r.iter = iter;
+    r.fval = fval;
+    r.idx = idx;
+    r.gradientNorm = gradientNorm;
+    for (int d = 0; d < DIM; ++d) {
+      r.coordinates[d] = coordinates[d];
+    }
+  }
+
   template <typename Function, int DIM, unsigned int blockSize>
   __global__ void
   optimize(
@@ -75,14 +87,9 @@ namespace bfgs {
     double delta_x[DIM], delta_g[DIM];
 
     Result<DIM> r;
-    r.status = -1; // assume “not converged” by default
-    r.fval = 333777.0;
-    r.gradientNorm = 69.0;
-    for (int d = 0; d < DIM; ++d) {
-      r.coordinates[d] = 7.0;
-    }
-    r.iter = -1;
-    r.idx = idx;
+    for(int i=0;i<DIM;i++)
+      x_arr[i] = 7.0;
+    write_result<DIM>(r,/*status=*/-1,/*fval=*/333777.0,/*coordinates=*/x_arr.data(),/*norm=*/69.0,/*iter*/0,idx);
     util::initialize_identity_matrix(&H, DIM);
 
     int num_steps = 0, iter;
@@ -112,17 +119,10 @@ namespace bfgs {
         // the next time any thread does atomicAdd(&d_stopFlag, 0) it’ll see 1
         // and break. printf("thread %d get outta dodge cuz we converged...",
         // idx);
-        r.status = 2;
-        r.iter = iter;
-        r.fval = f(x_arr);
-        for (int d = 0; d < DIM; d++) {
-          r.coordinates[d] = x_arr[d];
-        }
-        r.gradientNorm = util::calculate_gradient_norm<DIM>(g_arr);
+	write_result<DIM>(r,2,f(x_arr),x_arr.data(),util::calculate_gradient_norm<DIM>(g_arr),iter,idx);
         break;
       }
       num_steps++;
-
       util::compute_search_direction<DIM>(p_arr, &H, g_arr); // p = -H * g
 
       // use the alpha obtained from the line search
@@ -133,7 +133,7 @@ namespace bfgs {
         alpha = 1e-3;
       }
 
-      // update current point x by taking a step size of alpha in the direction
+      // update current point by taking a step size of alpha in the direction
       // p
       for (int i = 0; i < DIM; ++i) {
         x_new[i] = x_arr[i] + alpha * p_arr[i];
@@ -168,18 +168,17 @@ namespace bfgs {
       }
       // refactor? yes
       double grad_norm = util::calculate_gradient_norm<DIM>(g_arr);
+      // catch not finite gradient norm or function value
+      if(!isfinite(grad_norm) || !isfinite(fnew)) {
+	write_result<DIM>(r,5,fnew,x_arr.data(),grad_norm,iter,idx);
+	break;
+      }
       if (grad_norm < tolerance) {
         // atomically increment the converged counter
         int oldCount = atomicAdd(&d_convergedCount, 1);
         int newCount = oldCount + 1;
         double fcurr = f(x_arr);
-        r.status = 1;
-        r.gradientNorm = grad_norm;
-        r.fval = fcurr;
-        r.iter = iter;
-        for (int d = 0; d < DIM; ++d) {
-          r.coordinates[d] = x_arr[d];
-        }
+	write_result<DIM>(r,1,fcurr,x_arr.data(),grad_norm,iter,idx);
         // if we just hit the threshold set by the user, the VERY FIRST thread
         // to do so sets d_stopFlag=1 so everyone else exits on their next check
         if (newCount == requiredConverged) {
@@ -213,16 +212,9 @@ namespace bfgs {
     // if we broek out because we hit the max numberof iterations, then its a
     // surrender
     if (MAX_ITER == iter) {
-      r.status = 0; // surrender
-      r.iter = iter;
-      for (int d = 0; d < DIM; ++d) {
-        r.coordinates[d] = x_raw[d];
-        x_arr[d] = x_raw[d];
-      }
-      r.gradientNorm = util::calculate_gradient_norm<DIM>(g_arr);
-      r.fval = f(x_arr);
+      write_result<DIM>(r,0,f(x_arr),x_arr.data(),util::calculate_gradient_norm<DIM>(g_arr),iter,idx);
     }
-    deviceResults[idx] = f(x_arr);
+    deviceResults[idx] = r.fval;
     result[idx] = r;
   } // end optimizerKernel
 
