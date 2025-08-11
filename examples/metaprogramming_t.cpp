@@ -60,7 +60,7 @@ T square2(std::array<T,D> const& x) {
 
 template<std::size_t N>
 struct Foo {
-   //static_assert(N >= 2, "Foo<N> requires N >= 2 because it accesses x[1]");
+   static_assert(N >= 2, "Foo<N> requires N >= 2 because it accesses x[1]");
 
    template <typename T>
     __host__ __device__
@@ -104,7 +104,7 @@ main(int argc, char* argv[])
   //   
   //auto result2 = zeus::Zeus(rast,-5.0, 5.0,100,1000,100,10,"square",1e-6,42,0);
 
-Foo<1> f;
+Foo<2> f;
 auto foo = Zeus(f,/*lower_bound=*/-20.0,/*upper_bound=*/20.0,/*optimization=*/1024,
               /*bfgs_iterations=*/10000,/*pso_iterations=*/20,/*required_convergences=*/100,
              /*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run);
