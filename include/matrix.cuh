@@ -8,7 +8,7 @@
 
 #include <cstring> // needed for
 
-inline __device__ unsigned matrix_destructor_count = 0;
+//inline __device__ unsigned matrix_destructor_count = 0;
 
 template <typename T>
 class Matrix {
@@ -43,17 +43,44 @@ public:
       throw std::runtime_error("host malloc failed");
 
     cudaError_t err = cudaMalloc(&device_data_, rows_ * cols_ * sizeof(T));
-    if (err != cudaSuccess)
+    if (err != cudaSuccess) {
+      free(host_data_); 
       throw std::runtime_error("cudaMalloc failed");
+    }
 #endif
   }
 
   // copy constructor: allocate new buffers and copy on both host + device
-  Matrix(Matrix const& o) : Matrix(o.rows_, o.cols_)
+  __host__ __device__ 
+  Matrix(Matrix const& o) : rows_(o.rows_), cols_(o.cols_)
   {
+#ifdef __CUDA_ARCH__
+    if(o.host_data_ != nullptr)
+      asm("trap;");
+    device_data_ = static_cast<T*>(malloc(rows_ * cols_ * sizeof(T)));
+    if (device_data_ == nullptr) 
+      asm("trap;");
+    auto status = memcpy(device_data_, o.device_data_, rows_ * cols_ * sizeof(T));
+    if(status != 0)
+      asm("trap;");
+#else
+    if(o.rows_ * o.cols_ == 0)
+      return;
     std::size_t sz = rows_ * cols_ * sizeof(T);
+    // host_data_ is still uninitialized
+    host_data_ = static_cast<T*>(std::malloc(sz));
+    if (!host_data_)
+      throw std::runtime_error("host malloc failed");
+  
+    cudaError_t err = cudaMalloc(&device_data_, rows_ * cols_ * sizeof(T));
+    if (err != cudaSuccess) {
+      free(host_data_);
+      throw std::runtime_error("cudaMalloc failed");
+    }
+
     std::memcpy(host_data_, o.host_data_, sz);
     cudaMemcpy(device_data_, o.device_data_, sz, cudaMemcpyDeviceToDevice);
+#endif
   }
 
   // copy and swap assignment
@@ -80,12 +107,22 @@ public:
 #endif
   }
 
+
+// device
+// copy-swap idiom should work for the move 
+
+// assignment
+
+// move assignment operator
+// move constructor
+// test for these
+
   __host__ __device__ ~Matrix()
   {
 #ifdef __CUDA_ARCH__
     if (device_data_) {
       free(device_data_);
-      atomicAdd(&matrix_destructor_count, 1); // destructor counter for testing
+      //atomicAdd(&matrix_destructor_count, 1); // destructor counter for testing
     }
 #else
     if (host_data_)
