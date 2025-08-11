@@ -14,6 +14,7 @@ set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
+#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -g -G -Xcompiler=-fsanitize=address,-fno-omit-frame-pointer")
 
 find_package(CUDAToolkit REQUIRED)
 
@@ -27,14 +28,18 @@ add_library(util
     include/cuda_buffer.cuh
 )
 
-set_source_files_properties(benchmarks/stateless_funs.cpp PROPERTIES LANGUAGE CUDA)
-add_executable(stateless benchmarks/stateless_funs.cpp)
+set_source_files_properties(examples/stateless_funs.cpp PROPERTIES LANGUAGE CUDA)
+add_executable(stateless examples/stateless_funs.cpp)
 target_link_libraries(stateless PUBLIC CUDA::cudart)
 target_link_libraries(stateless PUBLIC util CUDA::cudart)
 target_compile_options(stateless PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
+target_compile_options(stateless PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
+  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:Debug>>:-G>
+)
 
-set_source_files_properties(benchmarks/metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
-add_executable(zeus_test benchmarks/metaprogramming_t.cpp)
+set_source_files_properties(examples/metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
+add_executable(zeus_test examples/metaprogramming_t.cpp)
 target_compile_options(zeus_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>)
 target_compile_options(zeus_test PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
 target_include_directories(zeus_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
