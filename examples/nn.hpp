@@ -7,8 +7,10 @@ struct NeuralNet {
   static constexpr size_t P = In*H + H + H*Out + Out;
 
   // host & device buffers
-  Matrix<double> x_host{ In,1 }, x_dev{ In,1 };
-  Matrix<double> y_host{ Out,1 }, y_dev{ Out,1 };
+  Matrix<double> x_host{ In,1 };
+  Matrix<double> x_dev{ In,1 };
+  Matrix<double> y_host{ Out,1};
+  Matrix<double> y_dev{ Out,1};
 
   // build host buffers from std::array, then push to device
   NeuralNet(const std::array<double,In>& x_,
@@ -23,8 +25,10 @@ struct NeuralNet {
       y_host(k,0) = y_[k];
 
     // copy into device buffers
-    x_dev = x_host;  x_dev.syncHost2Device();
-    y_dev = y_host;  y_dev.syncHost2Device();
+    x_dev = x_host;
+    x_dev.syncHost2Device();
+    y_dev = y_host;
+    y_dev.syncHost2Device();
   }
 
   // templated sigmoid, works on double or DualNumber

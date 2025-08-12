@@ -32,7 +32,8 @@ public:
       #pragma unroll
       for (std::size_t j = 0; j < N; ++j) {
         // if cuda_arch
-            auto a = C.data()[i*N + j];
+            auto a = C(i,j);
+	    //.data()[i*N + j];
             q += x[i] * T(a * x[j]);
         // else
         //  use host matrix
