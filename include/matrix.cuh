@@ -8,8 +8,6 @@
 
 #include <cstring> // needed for
 
-//inline __device__ unsigned matrix_destructor_count = 0;
-
 template <typename T>
 class Matrix {
 private:
@@ -50,7 +48,7 @@ public:
 #endif
   }
 
-  // copy constructor: allocate new buffers and copy on both host + device
+  /* copy constructor: allocate new buffers and copy on both host + device
   __host__ __device__ 
   Matrix(Matrix const& o) : rows_(o.rows_), cols_(o.cols_)
   {
@@ -81,11 +79,16 @@ public:
     std::memcpy(host_data_, o.host_data_, sz);
     cudaMemcpy(device_data_, o.device_data_, sz, cudaMemcpyDeviceToDevice);
 #endif
-  }
+  }*/
 
-  // copy and swap assignment
+//#ifdef __CUDA_ARCH__
+Matrix(Matrix const&) = delete; // copy constructor
+Matrix& operator=(Matrix const&) = delete; // delete lvalue assign completely
+//#endif
+
+  // move assignment operator
   Matrix&
-  operator=(Matrix o) noexcept
+  operator=(Matrix&& o) noexcept
   {
     swap(*this, o);
     return *this;
