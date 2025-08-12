@@ -65,7 +65,7 @@ TEST_CASE("matrix: not square host element access & dims", "[matrix][host]")
 // device
 template <int R, int C>
 __global__ void
-matrix_device_access(Matrix<double> m, double* out)
+matrix_device_access(Matrix<double>* m, double* out)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < R * C) {
@@ -92,7 +92,7 @@ TEST_CASE("matrix: syncHostToDevice and device data()", "[matrix][device]")
   double* d_out = nullptr;
   cudaMalloc(&d_out, N * sizeof(double));
   // launch 1 block of N threads
-  matrix_device_access<R, C><<<1, N>>>(m, d_out);
+  matrix_device_access<R, C><<<1, N>>>(&m, d_out);
   REQUIRE(cudaDeviceSynchronize() == cudaSuccess);
 
   // copy back and check
@@ -280,6 +280,43 @@ TEST_CASE("matrix: device ctor allocates heap memory",
   REQUIRE(host_flag == true);
 
   cudaFree(d_flag);
+}
+
+TEST_CASE("matrix: assignment host", "[matrix][host]")
+{
+  Matrix<double> m1(2, 2);
+  for(int i=0;i<2;i++)
+    for(int j=0;j<2;j++)
+      m1(i,j) = 2*i + j;
+   Matrix<double> m2;
+   m2 = m1;
+   for(int i=0;i<2;i++)
+     for(int j=0;j<2;j++)
+       REQUIRE(m2(i,j) == m1(i,j));
+}
+
+__global__ void test_assignment(double* out)
+{
+  Matrix<double> m1(2, 2);
+  for(int i=0;i<2;i++)
+    for(int j=0;j<2;j++)
+      m1(i,j) = 2*i + j;
+   Matrix<double> m2; 
+   m2 = m1;
+   out[0] = m2(0,0);
+   out[1] = m2(0,1);
+   out[2] = m2(1,0);
+   out[3] = m2(1,1);
+}
+
+TEST_CASE("matrix: assignment device","[matrix][device]")
+{
+  double out[4];
+  test_assignment<<<1,1>>>(out);
+  REQUIRE(out[0] == 0);
+  REQUIRE(out[1] == 1);
+  REQUIRE(out[2] == 2);
+  REQUIRE(out[3] == 3);
 }
 
 // round‑trip write/read via operator() on the device
