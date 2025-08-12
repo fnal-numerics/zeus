@@ -139,15 +139,15 @@ namespace util {
   // BFGS update with compile-time dimension
   template <int DIM>
   __device__ void
-  bfgs_update(Matrix<double>* H, const double* s, const double* y, double sTy)
+  bfgs_update(Matrix<double>* H, const double* s, const double* y, double sTy, Matrix<double>* Htmp)
   {
     if (::fabs(sTy) < 1e-14)
       return;
     double rho = 1.0 / sTy;
 
+    initialize_identity_matrix(Htmp,DIM);
     // Compute H_new element-wise without allocating large temporary matrices.
     // H_new = (I - rho * s * y^T) * H * (I - rho * y * s^T) + rho * s * s^T
-    Matrix<double> H_new(DIM, DIM); // Temporary array (DIM^2 elements)
 
     for (int i = 0; i < DIM; i++) {
       for (int j = 0; j < DIM; j++) {
@@ -164,14 +164,14 @@ namespace util {
           sum += A_ik * inner;
         }
         // Add the rho * s * s^T term
-        H_new(i, j) = sum + rho * s[i] * s[j];
+        (*Htmp)(i, j) = sum + rho * s[i] * s[j];
       }
     }
 
     // Copy H_new back into H
     for (int i = 0; i < DIM; i++) {
       for (int j = 0; j < DIM; j++) {
-        (*H)(i, j) = H_new(i, j);
+        (*H)(i, j) = (*Htmp)(i, j);
       }
     }
   }

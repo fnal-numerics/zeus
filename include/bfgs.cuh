@@ -84,6 +84,8 @@ namespace bfgs {
     std::array<double, DIM> x_arr, x_new, g_arr, g_new, p_arr;
 
     Matrix<double> H(DIM, DIM);
+    Matrix<double> Htmp(DIM, DIM);
+
     double delta_x[DIM], delta_g[DIM];
 
     Result<DIM> r;
@@ -156,7 +158,7 @@ namespace bfgs {
       double delta_dot = util::dot_product_device(delta_x, delta_g, DIM);
 
       // bfgs update on H
-      util::bfgs_update<DIM>(&H, delta_x, delta_g, delta_dot);
+      util::bfgs_update<DIM>(&H, delta_x, delta_g, delta_dot, &Htmp);
       // only update x and g for next iteration if the new minima is smaller
       // than previous double min =
       if (fnew < bestVal) {
