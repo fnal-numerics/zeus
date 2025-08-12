@@ -2,6 +2,7 @@
 #include <curand_kernel.h>
 #include "utils.cuh"
 #include "cuda_buffer.cuh"
+#include "traits.hpp"
 
 using namespace zeus;
 
@@ -15,9 +16,9 @@ namespace pso {
 
   // pso initialization kernel: initialize X, V, pBest;
   //                            atomically seed gBestVal/gBestX
-  template <typename Function, int DIM>
+  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   __global__ void
-  initKernel(Function func,
+  initKernel(Function const& func,
              double lower,
              double upper,
              double* X,
@@ -67,10 +68,10 @@ namespace pso {
     states[i] = localState; // next time we draw, we continue where we left off
   }
 
-  // one PSO iteration kernel 
-  template <typename Function, int DIM>
+  // one PSO iteration kernel
+  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   __global__ void
-  iterKernel(Function func,
+  iterKernel(Function const& func,
              double lower,
              double upper,
              double w,  // weight inertia
@@ -145,7 +146,7 @@ namespace pso {
   }
 
   // A simple logger function you can call from your launch()
-  template <typename Function, int DIM>
+  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   void
   saveIteration(int iter,
                 int N,
@@ -180,7 +181,7 @@ namespace pso {
     out.flush();
   }
 
-  template <typename Function, int DIM>
+  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   dbuf
   launch(const int PSO_ITER,
          const int N,
@@ -190,7 +191,7 @@ namespace pso {
          float& ms_pso,
          const int seed,
          curandState* states,
-         Function const& f)
+         Function const& fun)
   { //, Result<DIM>& best) {
     // allocate PSO buffers on device
     size_t freeBytes = 0, total = 0;
@@ -240,7 +241,7 @@ namespace pso {
     cudaEventCreate(&t0);
     cudaEventCreate(&t1);
     cudaEventRecord(t0);
-    initKernel<Function, DIM><<<psoGrid, psoBlock>>>(f,
+    initKernel<Function, DIM><<<psoGrid, psoBlock>>>(fun,
                                                      lower,
                                                      upper,
                                                      dX.data(),
@@ -267,7 +268,7 @@ namespace pso {
     for (int d = 0; d < DIM; ++d)
       out << "\tv" << d;
     out << "\tfval\n";
-    saveIteration<Function, DIM>(0, N, dX.data(), dV.data(), f, out, hX, hV);
+    saveIteration<Function, DIM>(0, N, dX.data(), dV.data(), fun, out, hX, hV);
 #endif
     // copy back and print initial global best
     auto hostGBestVal = dGBestVal.copy_to_host();
@@ -282,7 +283,7 @@ namespace pso {
     const double w = 0.5, c1 = 1.2, c2 = 1.5;
     for (int iter = 1; iter < PSO_ITER + 1; ++iter) {
       cudaEventRecord(t0);
-      iterKernel<Function, DIM><<<psoGrid, psoBlock>>>(f,
+      iterKernel<Function, DIM><<<psoGrid, psoBlock>>>(fun,
                                                        lower,
                                                        upper,
                                                        w,

@@ -32,7 +32,7 @@ namespace zeus {
   }
 
   namespace impl {
-    template <typename Function, std::size_t DIM=fn_traits<Function>::arity>
+    template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
     Result<DIM>
     Zeus(Function const& f,
          double lower,
@@ -46,7 +46,7 @@ namespace zeus {
          int seed,
          int run)
     {
-    float ms_rand = 0.0f;
+      float ms_rand = 0.0f;
       curandState* states = bfgs::initialize_states(N, seed, ms_rand);
       // save trajectories?
       bool save_trajectories = util::askUser2saveTrajectories();
@@ -62,32 +62,38 @@ namespace zeus {
       float ms_init = 0.0f, ms_pso = 0.0f;
       if (PSO_ITER >= 0) {
         try {
-        pso_results_device = pso::launch<Function, DIM>(
-          PSO_ITER, N, lower, upper, ms_init, ms_pso, seed, states, f);
-        // printf("pso init: %.2f main loop: %.2f", ms_init, ms_pso);
-        } catch (cuda_exception<3>&) {
-           Result<DIM> r; r.status = 3; return r;
-         } catch (cuda_exception<4>&){ 
-           Result<DIM> r; r.status = 4; return r; 
-         }          
+          pso_results_device = pso::launch(
+            PSO_ITER, N, lower, upper, ms_init, ms_pso, seed, states, f);
+          // printf("pso init: %.2f main loop: %.2f", ms_init, ms_pso);
+        }
+        catch (cuda_exception<3>&) {
+          Result<DIM> r;
+          r.status = 3;
+          return r;
+        }
+        catch (cuda_exception<4>&) {
+          Result<DIM> r;
+          r.status = 4;
+          return r;
+        }
       } // end if pso_iter > 0
 
       float ms_opt = 0.0f;
-      Result best = bfgs::launch<Function, DIM>(N,
-                                                PSO_ITER,
-                                                MAX_ITER,
-                                                upper,
-                                                lower,
-                                                pso_results_device.data(),
-                                                deviceTrajectory,
-                                                requiredConverged,
-                                                tolerance,
-                                                save_trajectories,
-                                                ms_opt,
-                                                fun_name,
-                                                states,
-                                                run,
-                                                f);
+      Result best = bfgs::launch(N,
+                                 PSO_ITER,
+                                 MAX_ITER,
+                                 upper,
+                                 lower,
+                                 pso_results_device.data(),
+                                 deviceTrajectory,
+                                 requiredConverged,
+                                 tolerance,
+                                 save_trajectories,
+                                 ms_opt,
+                                 fun_name,
+                                 states,
+                                 run,
+                                 f);
       double error =
         util::calculate_euclidean_error(fun_name, best.coordinates, DIM);
       util::append_results_2_tsv(DIM,
@@ -119,7 +125,6 @@ namespace zeus {
     } // end Zeus
   } // namespace impl
 
-
   template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   auto
   Zeus(Function const& f,
@@ -146,16 +151,16 @@ namespace zeus {
       "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T "
       "fun(const std::array<T,N>) { ... }\n");
     return impl::Zeus(f,
-                                     lower,
-                                     upper,
-                                     N,
-                                     MAX_ITER,
-                                     PSO_ITER,
-                                     requiredConverged,
-                                     std::move(fun_name),
-                                     tolerance,
-                                     seed,
-                                     run);
+                      lower,
+                      upper,
+                      N,
+                      MAX_ITER,
+                      PSO_ITER,
+                      requiredConverged,
+                      std::move(fun_name),
+                      tolerance,
+                      seed,
+                      run);
   }
 
 } // end zeus namespace

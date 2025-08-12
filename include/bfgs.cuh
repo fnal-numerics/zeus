@@ -6,6 +6,7 @@
 #include "duals.cuh"
 #include "utils.cuh"
 #include "pso.cuh"
+#include "traits.hpp"
 
 using namespace zeus;
 
@@ -260,7 +261,7 @@ namespace bfgs {
     return best;
   }
 
-  template <typename Function, size_t DIM>
+  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   Result<DIM>
   launch(size_t N,
 	 const int pso_iter,
