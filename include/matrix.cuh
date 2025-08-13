@@ -20,19 +20,9 @@ public:
   Matrix() noexcept = default;
 
   // allocate separate host & device buffers
-  __host__ __device__
   Matrix(std::size_t rows, std::size_t cols)
     : rows_(rows), cols_(cols)
   {
-#ifdef __CUDA_ARCH__
-    // device allocate from GPU heap
-    size_t sz = rows_ * cols_ * sizeof(T);
-    device_data_ = (T*)malloc(sz);
-    if(device_data_ == nullptr) {
-      printf("reached the max heap size limit when trying to allocate %zu bytes", sz);
-      asm("trap;"); // halt execution if user wants to allocate too much memory
-    }
-#else
     if (!rows_ || !cols_)
       throw std::invalid_argument("Matrix dimensions must be > 0");
 
@@ -45,46 +35,10 @@ public:
       free(host_data_); 
       throw std::runtime_error("cudaMalloc failed");
     }
-#endif
   }
 
-  /* copy constructor: allocate new buffers and copy on both host + device
-  __host__ __device__ 
-  Matrix(Matrix const& o) : rows_(o.rows_), cols_(o.cols_)
-  {
-#ifdef __CUDA_ARCH__
-    if(o.host_data_ != nullptr)
-      asm("trap;");
-    device_data_ = static_cast<T*>(malloc(rows_ * cols_ * sizeof(T)));
-    if (device_data_ == nullptr) 
-      asm("trap;");
-    auto status = memcpy(device_data_, o.device_data_, rows_ * cols_ * sizeof(T));
-    if(status != 0)
-      asm("trap;");
-#else
-    if(o.rows_ * o.cols_ == 0)
-      return;
-    std::size_t sz = rows_ * cols_ * sizeof(T);
-    // host_data_ is still uninitialized
-    host_data_ = static_cast<T*>(std::malloc(sz));
-    if (!host_data_)
-      throw std::runtime_error("host malloc failed");
-  
-    cudaError_t err = cudaMalloc(&device_data_, rows_ * cols_ * sizeof(T));
-    if (err != cudaSuccess) {
-      free(host_data_);
-      throw std::runtime_error("cudaMalloc failed");
-    }
-
-    std::memcpy(host_data_, o.host_data_, sz);
-    cudaMemcpy(device_data_, o.device_data_, sz, cudaMemcpyDeviceToDevice);
-#endif
-  }*/
-
-//#ifdef __CUDA_ARCH__
-Matrix(Matrix const&) = delete; // copy constructor
-Matrix& operator=(Matrix const&) = delete; // delete lvalue assign completely
-//#endif
+  Matrix(Matrix const&) = delete; // copy constructor
+  Matrix& operator=(Matrix const&) = delete; // delete lvalue assign completely
 
   // move assignment operator
   Matrix&
@@ -100,14 +54,9 @@ Matrix& operator=(Matrix const&) = delete; // delete lvalue assign completely
     , rows_(o.rows_)
     , cols_(o.cols_)
   {
-#ifdef __CUDA_ARCH__
-    // not expected to be used, but we shall see..
-    printf("no device move constructor for Matrix<T> \n");
-#else
     o.host_data_ = nullptr;
     o.device_data_ = nullptr;
     o.rows_ = o.cols_ = 0;
-#endif
   }
 
 
@@ -120,19 +69,12 @@ Matrix& operator=(Matrix const&) = delete; // delete lvalue assign completely
 // move constructor
 // test for these
 
-  __host__ __device__ ~Matrix()
+  ~Matrix()
   {
-#ifdef __CUDA_ARCH__
-    if (device_data_) {
-      free(device_data_);
-      //atomicAdd(&matrix_destructor_count, 1); // destructor counter for testing
-    }
-#else
     if (host_data_)
       std::free(host_data_);
     if (device_data_)
       cudaFree(device_data_);
-#endif
   }
 
   // swap helper for copy and swap
@@ -146,35 +88,23 @@ Matrix& operator=(Matrix const&) = delete; // delete lvalue assign completely
     swap(a.cols_, b.cols_);
   }
 
-  // picks the right pointer on host vs. device
-  __host__ __device__ T*
-  data()
+  T* data()
   {
-#ifdef __CUDA_ARCH__
-    return device_data_;
-#else
     return host_data_;
-#endif
   }
 
-  __host__ __device__ T const*
+  T const*
   data() const
   {
-#ifdef __CUDA_ARCH__
-    return device_data_;
-#else
     return host_data_;
-#endif
   }
 
-  __host__ __device__ T&
-  operator()(std::size_t i, std::size_t j)
+  T& operator()(std::size_t i, std::size_t j)
   {
     return data()[i * cols_ + j];
   }
 
-  __host__ __device__ T const&
-  operator()(std::size_t i, std::size_t j) const
+  T const& operator()(std::size_t i, std::size_t j) const
   {
     return data()[i * cols_ + j];
   }
@@ -184,6 +114,7 @@ Matrix& operator=(Matrix const&) = delete; // delete lvalue assign completely
   {
     return rows_;
   }
+  
   std::size_t
   cols() const noexcept
   {
