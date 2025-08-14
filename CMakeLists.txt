@@ -67,6 +67,7 @@ add_executable(unit_test
   testing/dual_tests.cu
   testing/matrix_tests.cu
   testing/cuda_buffer_tests.cu
+  testing/device_matrix_tests.cu
 )
 
 set_target_properties(unit_test PROPERTIES
