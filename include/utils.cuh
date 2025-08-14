@@ -4,7 +4,7 @@
 #include <cassert>
 
 #include "util.hpp"
-#include "matrix.cuh"
+#include "device_matrix.cuh"
 
 
 inline constexpr double malloc_error = 3.0;   // value 3.0
@@ -65,7 +65,7 @@ namespace util {
 
   template <int DIM>
   __device__ void
-  compute_search_direction(double* p, const Matrix<double>* H, const double* g)
+  compute_search_direction(double* p, const DeviceMatrix<double>* H, const double* g)
   {
     for (int i = 0; i < DIM; i++) {
       double sum = 0.0;
@@ -87,7 +87,7 @@ namespace util {
   template <int DIM>
   __device__ void
   compute_search_direction(std::array<double, DIM>& p_arr,
-                           const Matrix<double>* H,
+                           const DeviceMatrix<double>* H,
                            const std::array<double, DIM>& g_arr)
   {
     compute_search_direction<DIM>(p_arr.data(), H, g_arr.data());
@@ -108,7 +108,7 @@ namespace util {
   } // end extern C
 
   __device__ inline void
-  initialize_identity_matrix(Matrix<double>* H, int dim)
+  initialize_identity_matrix(DeviceMatrix<double>* H, int dim)
   {
     for (int i = 0; i < dim; ++i) {
       for (int j = 0; j < dim; ++j) {
@@ -139,7 +139,7 @@ namespace util {
   // BFGS update with compile-time dimension
   template <int DIM>
   __device__ void
-  bfgs_update(Matrix<double>* H, const double* s, const double* y, double sTy, Matrix<double>* Htmp)
+  bfgs_update(DeviceMatrix<double>* H, const double* s, const double* y, double sTy, DeviceMatrix<double>* Htmp)
   {
     if (::fabs(sTy) < 1e-14)
       return;

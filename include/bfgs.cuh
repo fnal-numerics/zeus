@@ -84,8 +84,8 @@ namespace bfgs {
 
     std::array<double, DIM> x_arr, x_new, g_arr, g_new, p_arr;
 
-    Matrix<double> H(DIM, DIM);
-    Matrix<double> Htmp(DIM, DIM);
+    DeviceMatrix<double> H(DIM, DIM);
+    DeviceMatrix<double> Htmp(DIM, DIM);
 
     double delta_x[DIM], delta_g[DIM];
 
