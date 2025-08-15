@@ -1,6 +1,6 @@
 #pragma once
 #include <array>
-#include "matrix.cuh"
+#include "matrix.hpp"
 
 template <size_t In, size_t H, size_t Out>
 struct NeuralNet {
@@ -11,6 +11,9 @@ struct NeuralNet {
   Matrix<double> x_dev{ In,1 };
   Matrix<double> y_host{ Out,1};
   Matrix<double> y_dev{ Out,1};
+
+  const double* x_ptr = nullptr;
+  const double* y_ptr = nullptr;
 
   // build host buffers from std::array, then push to device
   NeuralNet(const std::array<double,In>& x_,
@@ -26,9 +29,10 @@ struct NeuralNet {
 
     // copy into device buffers
     x_dev = x_host;
-    x_dev.syncHost2Device();
     y_dev = y_host;
-    y_dev.syncHost2Device();
+  
+    x_ptr = x_dev.device_data();
+    y_ptr = y_dev.device_data();
   }
 
   // templated sigmoid, works on double or DualNumber
@@ -48,6 +52,7 @@ struct NeuralNet {
     for(size_t j=0; j<H; ++j) {
       T sum = T(0);
       for(size_t i=0; i<In; ++i)
+        
         sum += theta[idx++] * T(x_dev.data()[i]);
       sum += theta[idx++];                 // b1[j]
       hidden[j] = sigmoid(sum);
