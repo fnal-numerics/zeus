@@ -277,7 +277,7 @@ namespace bfgs {
          std::string fun_name,
          curandState* states,
          const int run,
-         Function const& f)
+         Function f)
   {
     int blockSize, minGridSize;
 

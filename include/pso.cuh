@@ -18,7 +18,7 @@ namespace pso {
   //                            atomically seed gBestVal/gBestX
   template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   __global__ void
-  initKernel(Function const& func,
+  initKernel(Function func,
              double lower,
              double upper,
              double* X,
@@ -71,7 +71,7 @@ namespace pso {
   // one PSO iteration kernel
   template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   __global__ void
-  iterKernel(Function const& func,
+  iterKernel(Function func,
              double lower,
              double upper,
              double w,  // weight inertia
@@ -191,8 +191,14 @@ namespace pso {
          float& ms_pso,
          const int seed,
          curandState* states,
-         Function const& fun)
+         Function fun)
   { //, Result<DIM>& best) {
+    using Param = decltype(fun);
+    static_assert(!std::is_reference<Param>::value,
+                "ZEUS: functor must be passed by VALUE to kernels (no &).");
+    static_assert(std::is_trivially_copyable<Function>::value,
+                "ZEUS: Function must be trivially copyable for kernel param passing.");
+
     // allocate PSO buffers on device
     size_t freeBytes = 0, total = 0;
     cudaMemGetInfo(&freeBytes, &total);
