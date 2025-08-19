@@ -25,7 +25,6 @@ public:
         q += x[i] * T(Cp[i*N + j]) * x[j];
       }
     }
-    printf("end of function, q=%g\n", T(q));
     return T(0.5) * q;
   }
 };
