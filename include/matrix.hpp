@@ -59,13 +59,13 @@ public:
                           expected*sizeof(T), cudaMemcpyHostToDevice));
   }
 
-  // deep copy ctor
+  // copy ctor
   Matrix(const Matrix& other)
     : rows_(other.rows_), cols_(other.cols_)
   {
 #ifdef __CUDA_ARCH__
-    // device: shallow copy (just copy the pointers and dims)
-    host_data_   = other.host_data_;   // not used on device, but harmless
+    // device copy, just copy the pointers and dims
+    host_data_   = other.host_data_;  
     device_data_ = other.device_data_;
 #else
     if (!rows_ || !cols_) return; // allow copying an empty matrix
@@ -138,6 +138,36 @@ public:
     if (device_data_) cudaFree(device_data_);
 #endif
   }
+
+// set one element and copy just that element to device
+void set(std::size_t i, std::size_t j, const T& x) {
+  boundsCheck(i, j);
+  const std::size_t idx = i*cols_ + j;
+  host_data_[idx] = x;
+  CUDA_CHECK(cudaMemcpy(device_data_ + idx, &x, sizeof(T),cudaMemcpyHostToDevice));
+}
+
+// bulk set from std::array
+// copies entire buffer to device
+template <std::size_t N>
+void set(const std::array<T, N>& arr) {
+  const std::size_t expected = rows_*cols_;
+  if (N != expected)
+    throw std::invalid_argument("std::array size must equal rows*cols");
+  std::memcpy(host_data_, arr.data(), expected*sizeof(T));
+  CUDA_CHECK(cudaMemcpy(device_data_, host_data_,expected*sizeof(T), cudaMemcpyHostToDevice));
+}
+
+// set from raw pointer (host memory)
+void set(const T* host_ptr, std::size_t count) {
+  const std::size_t expected = rows_*cols_;
+  if (count != expected)
+    throw std::invalid_argument("count must equal rows*cols");
+  std::memcpy(host_data_, host_ptr, expected*sizeof(T));
+  CUDA_CHECK(cudaMemcpy(device_data_, host_data_,expected*sizeof(T), cudaMemcpyHostToDevice));
+}
+
+
 
 __host__ __device__
 const T* data() const noexcept {
