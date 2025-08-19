@@ -193,11 +193,7 @@ namespace pso {
          curandState* states,
          Function fun)
   { //, Result<DIM>& best) {
-    using Param = decltype(fun);
-    static_assert(!std::is_reference<Param>::value,
-                "ZEUS: functor must be passed by VALUE to kernels (no &).");
-    static_assert(std::is_trivially_copyable<Function>::value,
-                "ZEUS: Function must be trivially copyable for kernel param passing.");
+    static_assert(!std::is_reference<decltype(fun)>::value,"ZEUS: function must be passed by VALUE to kernels (no &).");
 
     // allocate PSO buffers on device
     size_t freeBytes = 0, total = 0;
