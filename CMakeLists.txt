@@ -42,6 +42,11 @@ set_source_files_properties(examples/metaprogramming_t.cpp PROPERTIES LANGUAGE C
 add_executable(zeus_test examples/metaprogramming_t.cpp)
 target_compile_options(zeus_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda>)
 target_compile_options(zeus_test PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
+
+target_compile_options(zeus_test PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
+  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:Debug>>:-G>
+)
 target_include_directories(zeus_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(zeus_test PRIVATE  util  CUDA::cudart)
 target_link_libraries(zeus_test PUBLIC util CUDA::cudart) # build util into zeus
