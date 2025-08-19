@@ -225,3 +225,93 @@ TEST_CASE("matrix: assignment host (copy-assign)", "[matrix][host][assign]") {
       REQUIRE(m2(i, j) == m1(i, j));
 }
 
+// setter tests 
+// per-element set(i,j, x) performs immediate H->D sync of that element
+TEST_CASE("matrix: set(i,j, x) updates device per element", "[matrix][device][set]") {
+  Matrix<double> m(2, 2);
+  m.set(0, 0, 11.0);
+  m.set(0, 1, 12.0);
+  m.set(1, 0, 13.0);
+  m.set(1, 1, 14.0);
+
+  // host view
+  REQUIRE(m(0, 0) == Catch::Approx(11.0));
+  REQUIRE(m(0, 1) == Catch::Approx(12.0));
+  REQUIRE(m(1, 0) == Catch::Approx(13.0));
+  REQUIRE(m(1, 1) == Catch::Approx(14.0));
+
+  // device view
+  auto dev = read_device(m);
+  REQUIRE(dev.size() == 4);
+  REQUIRE(dev[0] == Catch::Approx(11.0));
+  REQUIRE(dev[1] == Catch::Approx(12.0));
+  REQUIRE(dev[2] == Catch::Approx(13.0));
+  REQUIRE(dev[3] == Catch::Approx(14.0));
+}
+
+// bulk set from std::array copies entire buffer to device
+TEST_CASE("matrix: set(std::array) bulk-updates device", "[matrix][device][set][array]") {
+  constexpr int R = 2, C = 3, N = R * C;
+  Matrix<double> m(R, C);
+
+  std::array<double, N> init{};
+  for (int k = 0; k < N; ++k) init[k] = 100.0 + k;
+
+  m.set(init);
+
+  // host check
+  for (int i = 0; i < R; ++i)
+    for (int j = 0; j < C; ++j)
+      REQUIRE(m(i, j) == Catch::Approx(100.0 + i * C + j));
+
+  // device check
+  auto dev = read_device(m);
+  REQUIRE(dev.size() == N);
+  for (int k = 0; k < N; ++k)
+    REQUIRE(dev[k] == Catch::Approx(100.0 + k));
+}
+
+// bulk set from raw pointer
+TEST_CASE("matrix: set(ptr,count) bulk-updates device", "[matrix][device]") {
+  constexpr int R = 3, C = 2, N = R * C;
+  Matrix<double> m(R, C);
+
+  double buf[N];
+  for (int k = 0; k < N; ++k) buf[k] = -50.0 + k;
+
+  m.set(buf, N);
+
+  // host check
+  for (int i = 0; i < R; ++i)
+    for (int j = 0; j < C; ++j)
+      REQUIRE(m(i, j) == Catch::Approx(-50.0 + i * C + j));
+
+  // device check
+  auto dev = read_device(m);
+  REQUIRE(dev.size() == N);
+  for (int k = 0; k < N; ++k)
+    REQUIRE(dev[k] == Catch::Approx(-50.0 + k));
+}
+
+// error-path tests
+
+// constructor rejects zero dims
+TEST_CASE("matrix: constructor rejects zero dims", "[matrix][errors]") {
+  REQUIRE_THROWS_AS((Matrix<double>(0, 1)), std::invalid_argument);
+  REQUIRE_THROWS_AS((Matrix<double>(1, 0)), std::invalid_argument);
+}
+
+// OOB access throws
+TEST_CASE("matrix: operator() bounds check", "[matrix][errors][bounds]") {
+  Matrix<double> m(2, 2);
+  REQUIRE_THROWS_AS(m(2, 0), std::out_of_range);
+  REQUIRE_THROWS_AS(m(0, 2), std::out_of_range);
+}
+
+// set(std::array) with mismatched size throws
+TEST_CASE("matrix: set(std::array) rejects wrong size", "[matrix][errors][set]") {
+  Matrix<double> m(2, 2);
+  std::array<double, 3> wrong{{1, 2, 3}}; // expected 4
+  REQUIRE_THROWS_AS(m.set(wrong), std::invalid_argument);
+}
+
