@@ -9,8 +9,8 @@ This tutorial helps users converting a free function to a templated callable tha
 Here is a basic `double`-only function:
 
 ```cpp
-double foo(double x) {
-    return 0.5 * x * x;
+double foo(std::array<double,2> x) {
+    return 0.5 * x[0] * x[1];
 }
 ```
 
@@ -34,7 +34,7 @@ struct Foo {
   __host__ __device__
   T operator()(const std::array<T, DIM>& a) const {
     // important not to introduce undefined behavior
-    return T(0.5) * a[0] * a[0];
+    return T(0.5) * a[0] * a[1];
   }
 };
 ```
