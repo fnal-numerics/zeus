@@ -70,7 +70,7 @@ namespace dual {
   };
 
   __host__ __device__ inline dual::DualNumber
-  dual_abs(const dual::DualNumber& a)
+  abs(const dual::DualNumber& a)
   {
     return (a.real < 0.0) ? dual::DualNumber(-a.real, -a.dual) : a;
   }
