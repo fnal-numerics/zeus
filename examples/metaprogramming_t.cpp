@@ -69,6 +69,28 @@ struct Foo {
    }
 };
 
+template<std::size_t N>
+struct BukinN6 {
+  static_assert(N >= 2, "BukinN6<N> requires N >= 2 because it accesses x[1]");
+
+  template <typename T>
+  __host__ __device__
+  T operator()(const std::array<T, N>& x) const {
+    using std::abs;
+    using std::sqrt;
+    const T X  = x[0];
+    const T Y  = x[1];
+    const T X2 = X * X;
+
+    // scores = 100 * sqrt(abs(Y - 0.01 * X^2)) + 0.01 * abs(X + 10)
+    const T term1 = sqrt(abs(Y - T(0.01) * X2));
+    const T term2 = abs(X + T(10));
+
+    return T(100) * term1 + T(0.01) * term2;
+  }
+};
+
+
 int
 main(int argc, char* argv[])
 {
@@ -104,9 +126,14 @@ main(int argc, char* argv[])
   //   
   //auto result2 = zeus::Zeus(rast,-5.0, 5.0,100,1000,100,10,"square",1e-6,42,0);
 
+  BukinN6<2> b;
+
+  auto bukin6 = Zeus(b,-15.0, 3.0, N, bfgs, 20, 100, "bukin6", 1e-8, 42, run);
+  std::cout << "best result for bukin6: " << bukin6.fval  <<"\n";
+
 Foo<2> f;
-auto foo = Zeus(f,/*lower_bound=*/-20.0,/*upper_bound=*/20.0,/*optimization=*/1024,
-              /*bfgs_iterations=*/10000,/*pso_iterations=*/20,/*required_convergences=*/100,
+auto foo = Zeus(f,/*lower_bound=*/-20.0,/*upper_bound=*/20.0,/*optimization=*/N,
+              /*bfgs_iterations=*/bfgs,/*pso_iterations=*/20,/*required_convergences=*/100,
              /*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run);
 std::cout<< "best result: " << foo.fval <<  std::endl;
 
