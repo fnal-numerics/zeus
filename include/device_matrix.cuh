@@ -24,11 +24,18 @@ public:
 
   DeviceMatrix(const DeviceMatrix&) = delete; // delete copy constructor
   DeviceMatrix& operator=(const DeviceMatrix&) = delete; // delete lvalue assign completely
+  __device__ DeviceMatrix(DeviceMatrix&&)      = delete;
+  __device__ DeviceMatrix& operator=(DeviceMatrix&&) = delete;
+
 
   __device__
-  ~DeviceMatrix() {
-    if(data_) free(data_);
+  ~DeviceMatrix() {}
+
+  __device__ void release() {
+    if (data_) { free(data_); data_ = nullptr; rows_ = cols_ = 0; }
   }
+
+
 
   __device__  T* data() { return data_; }
   __device__ const T* data() const { return data_; }
