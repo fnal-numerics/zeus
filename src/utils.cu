@@ -1,5 +1,20 @@
 #include "utils.cuh"
 #include <string>
+
+namespace bfgs {
+namespace sequential {
+   __device__ int d_stopFlag;
+   __device__ int d_convergedCount;
+   __device__ int d_threadsRemaining;
+}
+
+namespace parallel {
+   __device__ int d_stopFlag;
+   __device__ int d_convergedCount;
+   __device__ int d_threadsRemaining;
+}
+}
+
 namespace util {
 
   void
@@ -35,7 +50,7 @@ namespace util {
     size_t freeBytes = 0, total = 0;
     cudaMemGetInfo(&freeBytes, &total);
     printf("GPU reporting %.2f GB free of %.2f GB total\n",freeBytes/1e9, total/1e9);
-    size_t newHeap = freeBytes/2;
+    size_t newHeap = freeBytes;
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
     if (err != cudaSuccess) {
       printf("Failed to set heap to %zu bytes: %s\n",newHeap, cudaGetErrorString(err));

@@ -79,7 +79,7 @@ namespace zeus {
       } // end if pso_iter > 0
 
       float ms_opt = 0.0f;
-      Result best = bfgs::launch(N,
+      Result best = bfgs::parallel::launch(N,
                                  PSO_ITER,
                                  MAX_ITER,
                                  upper,
