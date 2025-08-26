@@ -231,7 +231,7 @@ TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
   std::string fun_name = "rastrigin-bfgs-test";
 
   // invoke bfgs::launch<Function,DIM>
-  auto best = bfgs::launch<util::Rastrigin<DIM>, DIM>(
+  auto best = bfgs::sequential::launch<util::Rastrigin<DIM>, DIM>(
     /*N*/ N,
     /*pso_iter*/ 0,
     /*MAX_ITER*/ MAX_ITER,
@@ -285,7 +285,7 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
   float ms_opt = 0;
   std::string fun_name = "quad-test";
 
-  auto best = bfgs::launch<Quad, DIM>(
+  auto best = bfgs::sequential::launch<Quad, DIM>(
     /*N*/ N,
     /*pso_iter*/ 0,
     /*MAX_ITER*/ 100,
@@ -340,7 +340,7 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
   std::string fun_name = "rosenbrock-bfgs-test";
 
   // invoke bfgs::launch<Function,DIM>
-  auto best = bfgs::launch<util::Rosenbrock<DIM>, DIM>(
+  auto best = bfgs::sequential::launch<util::Rosenbrock<DIM>, DIM>(
     /*N*/ N,
     /*pso_iter*/ 0,
     /*MAX_ITER*/ MAX_ITER,
@@ -406,7 +406,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
   Result<DIM>* d_out = nullptr;
 
   // This **should compile** without error:
-  bfgs::optimize<GoodObjective, DIM, 128><<<1, 128>>>(GoodObjective(),
+  bfgs::sequential::optimize<GoodObjective, DIM, 128><<<1, 128>>>(GoodObjective(),
                                                             lower,
                                                             upper,
                                                             d_pso,
@@ -421,7 +421,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
 
   // This **must fail** to compile, triggering static_assert:
 #if (0)
-  bfgs::optimize<BadObjective, DIM, 128><<<1, 128>>>(BadObjective(),
+  bfgs::sequential::optimize<BadObjective, DIM, 128><<<1, 128>>>(BadObjective(),
                                                            lower,
                                                            upper,
                                                            d_pso,
