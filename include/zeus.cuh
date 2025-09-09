@@ -44,7 +44,8 @@ namespace zeus {
          std::string const& fun_name,
          double tolerance,
          int seed,
-         int run)
+         int run,
+	 bool parallel)
     {
       float ms_rand = 0.0f;
       curandState* states = bfgs::initialize_states(N, seed, ms_rand);
@@ -78,8 +79,11 @@ namespace zeus {
         }
       } // end if pso_iter > 0
 
+      Result<DIM> best; 
       float ms_opt = 0.0f;
-      Result best = bfgs::parallel::launch(N,
+      if(run != 0){
+        std::cout << "parallel" << "\n";
+      best = bfgs::parallel::launch(N,
                                  PSO_ITER,
                                  MAX_ITER,
                                  upper,
@@ -94,6 +98,25 @@ namespace zeus {
                                  states,
                                  run,
                                  f);
+      } else {
+
+        std::cout << "sequential" << "\n";
+      best = bfgs::sequential::launch(N,
+                                 PSO_ITER,
+                                 MAX_ITER,
+                                 upper,
+                                 lower,
+                                 pso_results_device.data(),
+                                 deviceTrajectory,
+                                 requiredConverged,
+                                 tolerance,
+                                 save_trajectories,
+                                 ms_opt,
+                                 fun_name,
+                                 states,
+                                 run,
+                                 f);
+      }
       double error =
         util::calculate_euclidean_error(fun_name, best.coordinates, DIM);
       util::append_results_2_tsv(DIM,
@@ -137,7 +160,8 @@ namespace zeus {
        std::string fun_name,
        double tolerance,
        int seed,
-       int run)
+       int run,
+       bool parallel=true)
   {
     static_assert(
       std::is_same_v<decltype(f(
@@ -160,7 +184,8 @@ namespace zeus {
                       std::move(fun_name),
                       tolerance,
                       seed,
-                      run);
+                      run,
+		      parallel);
   }
 
 } // end zeus namespace

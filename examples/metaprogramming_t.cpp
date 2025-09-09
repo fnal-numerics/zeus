@@ -128,13 +128,13 @@ main(int argc, char* argv[])
 
   BukinN6<2> b;
 
-  auto bukin6 = Zeus(b,-15.0, 3.0, N, bfgs, 20, 100, "bukin6", 1e-8, 42, run);
+  auto bukin6 = Zeus(b,-15.0, 3.0, N, bfgs, 20, 100, "bukin6", 1e-8, 42, run,true);
   std::cout << "best result for bukin6: " << bukin6.fval  <<"\n";
 
 Foo<2> f;
 auto foo = Zeus(f,/*lower_bound=*/-20.0,/*upper_bound=*/20.0,/*optimization=*/N,
               /*bfgs_iterations=*/bfgs,/*pso_iterations=*/20,/*required_convergences=*/100,
-             /*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run);
+             /*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run,/*parallel=*/ true);
 std::cout<< "best result: " << foo.fval <<  std::endl;
 
   constexpr std::size_t D = 4;
