@@ -110,7 +110,9 @@ namespace bfgs {
     const double tolerance,
     Result<DIM>* result,
     curandState* states,
-    bool save_trajectories = false)
+    bool save_trajectories = false,
+    unsigned long long* ad_cycles_out = nullptr,
+    int* ad_calls_out  = nullptr)
   {
     static_assert(
       std::is_same_v<decltype(std::declval<Function>()(
@@ -153,7 +155,17 @@ namespace bfgs {
     double f0 = f(x_arr); // rosenbrock_device(x, DIM);
     deviceResults[idx] = f0;
     double bestVal = f0;
+    
+    unsigned long long ad_cycles = 0ULL;
+    int ad_calls = 0;
+
+    // first gradient
+    unsigned long long t0 = clock64();
     dual::calculateGradientUsingAD(f, x_arr, g_arr);
+    unsigned long long t1 = clock64();
+    ad_cycles += (t1 - t0);
+    ad_calls  += 1;
+
     for (iter = 0; iter < MAX_ITER; ++iter) {
       // printf("inside BeeG File System");
       //  check if somebody already asked to stop
@@ -187,7 +199,11 @@ namespace bfgs {
 
       double fnew = f(x_new);
       //  get the new gradient g_new at x_new
+      t0 = clock64();
       dual::calculateGradientUsingAD(f, x_new, g_new);
+      t1 = clock64();
+      ad_cycles += (t1 - t0);
+      ad_calls  += 1;
 
       // calculate new delta_x and delta_g
       for (int i = 0; i < DIM; ++i) {
@@ -261,7 +277,68 @@ namespace bfgs {
     }
     deviceResults[idx] = r.fval;
     result[idx] = r;
+    if (ad_cycles_out) ad_cycles_out[idx] = ad_cycles;
+    if (ad_calls_out)  ad_calls_out[idx]  = ad_calls;
+ 
+    //if (ad_calls_out) ad_calls_out[idx] = 123;
   } // end optimizerKernel
+
+
+inline void report_ad_metrics_and_cleanup(
+    int N,
+    unsigned long long* d_ad_cycles,
+    int* d_ad_calls,
+    float ms_opt,
+    int device_id = 0)
+{
+  // copy metrics back
+  std::vector<unsigned long long> h_ad_cycles(N);
+  std::vector<int>                h_ad_calls(N);
+  cudaMemcpy(h_ad_cycles.data(), d_ad_cycles, N*sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_ad_calls.data(),  d_ad_calls,  N*sizeof(int),                cudaMemcpyDeviceToHost);
+
+  // compute averages and fraction vs total kernel time
+  cudaDeviceProp prop{};
+  cudaGetDeviceProperties(&prop, device_id); // prop.clockRate is in kHz
+  const double sm_clock_hz = static_cast<double>(prop.clockRate) * 1000.0;
+
+  unsigned long long sum_cycles = 0ULL;
+  long long sum_calls = 0LL;
+  for (int i = 0; i < N; ++i) {
+    sum_cycles += h_ad_cycles[i];
+    sum_calls  += h_ad_calls[i];
+  }
+
+  const double avg_cycles_per_thread = double(sum_cycles) / double(N);
+  const double avg_calls_per_thread  = (sum_calls > 0 ? double(sum_calls)/double(N) : 0.0);
+  const double avg_cycles_per_call   = (avg_calls_per_thread > 0 ? avg_cycles_per_thread / avg_calls_per_thread : 0.0);
+
+  // convert cycles → ms (approx; assumes SM runs near reported clockRate)
+  const double avg_ad_ms_per_thread  = (avg_cycles_per_thread / sm_clock_hz) * 1e3;
+  const double avg_ad_ms_per_call    = (avg_cycles_per_call   / sm_clock_hz) * 1e3;
+
+  // 1) average per-thread AD time ÷ kernel total time (heuristic)
+  const double frac_ad_of_total = (avg_ad_ms_per_thread > 0.0 && ms_opt > 0.0)
+                                ? (avg_ad_ms_per_thread / ms_opt)
+                                : 0.0;
+
+  // 2) sum over threads (serialized view)
+  const double est_total_ad_ms_serialized = (double)sum_cycles / sm_clock_hz * 1e3;
+  const double frac_serialized = (ms_opt > 0.0) ? (est_total_ad_ms_serialized / ms_opt) : 0.0;
+
+  std::printf("Kernel wall time: %.3f ms\n", ms_opt);
+  std::printf("SM clock (nominal): %.3f MHz\n", sm_clock_hz / 1e6);
+  std::printf("AD avg per thread: %.3f ms (calls/thread ≈ %.2f; ms/call ≈ %.6f)\n",
+              avg_ad_ms_per_thread, avg_calls_per_thread, avg_ad_ms_per_call);
+  std::printf("Heuristic AD fraction (avg-per-thread / kernel): %.3f%%\n",
+              100.0 * frac_ad_of_total);
+  std::printf("Serialized AD work (sum over threads): %.3f ms; fraction vs kernel: %.3f%%\n",
+              est_total_ad_ms_serialized, 100.0 * frac_serialized);
+
+  // cleanup
+  cudaFree(d_ad_cycles);
+  cudaFree(d_ad_calls);
+}
 
 
   template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
@@ -299,6 +376,14 @@ namespace bfgs {
     dim3 optBlock(blockSize);
     dim3 optGrid((N + blockSize - 1) / blockSize);
 
+  // metric buffers
+unsigned long long* d_ad_cycles = nullptr;
+int* d_ad_calls = nullptr;
+cudaMalloc(&d_ad_cycles, N * sizeof(unsigned long long));
+cudaMalloc(&d_ad_calls,  N * sizeof(int));
+cudaMemset(d_ad_cycles, 0, N * sizeof(unsigned long long));
+cudaMemset(d_ad_calls,  0, N * sizeof(int));
+
     // optimizeKernel time
     cudaEvent_t startOpt, stopOpt;
     cudaEventCreate(&startOpt);
@@ -328,7 +413,7 @@ namespace bfgs {
                                 tolerance,
                                 d_results.data(),
                                 states,
-                                true);
+                                true, d_ad_cycles, d_ad_calls);
     } else {
       optimize<Function, DIM, 128>
         <<<optGrid, optBlock>>>(f,
@@ -342,7 +427,7 @@ namespace bfgs {
                                 requiredConverged,
                                 tolerance,
                                 d_results.data(),
-                                states);
+                                states, false, d_ad_cycles, d_ad_calls);
     }
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -365,6 +450,12 @@ namespace bfgs {
     // printf("\nOptimization Kernel execution time = %.3f ms\n", ms_opt);
     cudaEventDestroy(startOpt);
     cudaEventDestroy(stopOpt);
+
+
+    int device_id = 0; 
+    cudaGetDevice(&device_id);
+    // calculate the AD timing
+    report_ad_metrics_and_cleanup(N, d_ad_cycles, d_ad_calls, ms_opt, device_id);
 
     std::vector<Result<DIM>> h_results(N);
     cudaMemcpy(
