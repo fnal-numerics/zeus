@@ -1,3 +1,4 @@
+set(CMAKE_BUILD_TYPE Release)
 cmake_minimum_required(VERSION 3.24)
 project(Zeus LANGUAGES CXX CUDA)
 
@@ -33,10 +34,15 @@ add_executable(stateless examples/stateless_funs.cpp)
 target_link_libraries(stateless PUBLIC CUDA::cudart)
 target_link_libraries(stateless PUBLIC util CUDA::cudart)
 target_compile_options(stateless PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
-target_compile_options(stateless PRIVATE
-  $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
-  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:Debug>>:-G>
-)
+target_compile_options(stateless PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 --use_fast_math -Xptxas=-O3 -rdc=true>)
+#target_compile_options(stateless PRIVATE
+#  $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
+#  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:Debug>>:-G>
+#)
+#target_link_options(stateless PRIVATE -dlto)
+target_link_options(stateless PRIVATE $<$<LINK_LANGUAGE:CUDA>:-dlto>)
+# If -dlto crashes with your toolkit, try nvlink spelling:
+# target_link_options(util PRIVATE $<$<LINK_LANGUAGE:CUDA>:-Xnvlink=--lto>)
 
 set_source_files_properties(examples/metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
 add_executable(zeus_test examples/metaprogramming_t.cpp)
