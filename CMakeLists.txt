@@ -39,10 +39,6 @@ target_compile_options(stateless PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-O3 --use_fa
 #  $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
 #  $<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:Debug>>:-G>
 #)
-#target_link_options(stateless PRIVATE -dlto)
-target_link_options(stateless PRIVATE $<$<LINK_LANGUAGE:CUDA>:-dlto>)
-# If -dlto crashes with your toolkit, try nvlink spelling:
-# target_link_options(util PRIVATE $<$<LINK_LANGUAGE:CUDA>:-Xnvlink=--lto>)
 
 set_source_files_properties(examples/metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
 add_executable(zeus_test examples/metaprogramming_t.cpp)
