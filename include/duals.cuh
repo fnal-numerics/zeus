@@ -67,6 +67,14 @@ namespace dual {
     {
       return DualNumber(lhs * rhs.real, lhs * rhs.dual);
     }
+  
+    __host__ __device__ DualNumber&
+    operator-=(const DualNumber& rhs) {
+      real -= rhs.real;
+      dual -= rhs.dual;
+      return *this;
+    }
+
   };
 
   __host__ __device__ inline dual::DualNumber
@@ -108,6 +116,24 @@ namespace dual {
     return DualNumber(atan2f(y.real, x.real),
                       (x.real * y.dual - y.real * x.dual) / denom);
   }
+// log for DualNumber: (ln r, r'/r)
+static __inline__ __host__ __device__ DualNumber
+log(const DualNumber& x) {
+  // assume x.real > 0
+  return DualNumber(::log(x.real), x.dual / x.real);
+}
+
+// pow for DualNumber ^ DualNumber
+static __inline__ __host__ __device__ DualNumber
+pow(const DualNumber& base, const DualNumber& exponent) {
+  // base.real must be > 0
+  const double br = base.real;
+  const double er = exponent.real;
+  const double pr = ::pow(br, er);
+  // d(b^e) = b^e * (e' * ln b + e * b'/b)
+  const double pd = pr * (exponent.dual * ::log(br) + er * base.dual / br);
+  return DualNumber(pr, pd);
+}
 
   template <typename T>
   static __inline__ __host__ __device__ T
@@ -116,6 +142,40 @@ namespace dual {
     return T(powf(base.real, exponent),
              exponent * powf(base.real, exponent - 1) * base.dual);
   }
+
+// pi via std::acos(-1)
+static __inline__ __host__ __device__ double pi() {
+  return ::acos(-1.0);
+}
+
+// digamma(double) helper for lgamma
+// Reflection for x<0.5, then recur to x>=8, then asymptotic series.
+static __inline__ __host__ __device__ double digamma(double x) {
+  if (x < 0.5) {
+    // gamma(x) = gamma(1-x) - pi cot(pi x)
+    return digamma(1.0 - x) - pi() / ::tan(pi() * x);
+  }
+  double acc = 0.0;
+  while (x < 8.0) { acc -= 1.0 / x; x += 1.0; }
+  const double inv = 1.0 / x;
+  const double inv2 = inv * inv;
+  // gamma(x) ~ ln x − 1/(2x) − 1/(12x^2) + 1/(120x^4) − 1/(252x^6) + 1/(240x^8) − 1/(132x^10)
+  const double s = -1.0/12.0
+                 + inv2*(  1.0/120.0
+                 + inv2*( -1.0/252.0
+                 + inv2*(  1.0/240.0
+                 + inv2*( -1.0/132.0 ))));
+  return acc + ::log(x) - 0.5*inv + s;
+}
+
+// lgamma for DualNumber: (lgamma(r), r' * digamma(r))
+static __inline__ __host__ __device__ DualNumber
+lgamma(const DualNumber& x) {
+  const double lr = ::lgamma(x.real);
+  const double dg = digamma(x.real);
+  return DualNumber(lr, x.dual * dg);
+}
+
 
   // can we call F with std::array<Scalar,DIM>?
 
