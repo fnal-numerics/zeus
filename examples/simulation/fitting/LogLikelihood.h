@@ -11,30 +11,61 @@ class LogLikelihood {
 public:
   LogLikelihood(std::vector<int> const& bin_counts,
                 std::vector<double> const& bin_centers)
-    : counts(bin_counts), centers(bin_centers)
-  {}
-
-  // Returns the sum of the negative log likelihood over all bins.
-  template <typename T>
-  T
-  operator()(T a, T b, T c, T d) const
+    : counts(bin_counts), centers(bin_centers),
+      n_(counts.size()), K_(n_,1), X_(n_,1)
   {
-    using std::lgamma; // may need to write this for CUDA
-    using std::pow;    // may need to write this for CUDA
-    double nll = 0.0;
-    for (size_t i = 0; i < counts.size(); ++i) {
-      double x = centers[i];
-      double mean = a * pow(1.0 - x, b) / pow(x, c + d * log(x));
-      int k = counts[i];
-      // log Poisson probability: k*log(mean) - mean - log(k!)
-      // log(k!) = lgamma(k+1)
-      double log_p = k * log(mean) - mean - lgamma(k + 1);
+    // one bulk host->device copy each (same pattern as Gaussian)
+    K_.set(counts.data(),  n_);
+    X_.set(centers.data(), n_);
+  }
+
+  // Zeus-compatible overload
+  template <typename T>
+  __host__ __device__
+  T operator()(std::array<T,4> const& theta) const {
+    using ::pow;     // device intrinsics for double; ADL picks dual::pow for DualNumber
+    using ::log;     // same
+    using ::lgamma;  // device lgamma(double); ADL picks dual::lgamma for DualNumber
+
+    const T a = theta[0];
+    const T b = theta[1];
+    const T c = theta[2];
+    const T d = theta[3];
+
+    // read from device-visible mirrors (no std::vector in device code)
+    const int*    Kp = K_.data();
+    const double* Xp = X_.data();
+
+    T nll = T(0);
+    for (std::size_t i = 0; i < n_; ++i) {
+      T x = T(Xp[i]);         // promote to T
+      int ki = Kp[i];
+
+      T mean   = a * pow(T(1.0) - x, b) / pow(x, c + d * log(x));
+      T log_p  = T(ki) * log(mean) - mean - lgamma(T(ki) + T(1));
       nll -= log_p;
     }
     return nll;
   }
 
+  template <typename T>
+  __host__ __device__
+  T operator()(T a, T b, T c, T d) const {
+    return (*this)(std::array<T,4>{a,b,c,d});
+  }
+
 private:
-  std::vector<int> counts;
+  std::vector<int>    counts;
   std::vector<double> centers;
+
+  // device-visible mirrors 
+  std::size_t    n_;
+  Matrix<int>    K_;
+  Matrix<double> X_;
 };
+
+namespace zeus {
+template<> struct fn_traits<LogLikelihood> {
+  static constexpr std::size_t arity = 4;
+};
+}

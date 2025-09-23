@@ -6,6 +6,7 @@
 
 #include "gaussian.hpp"
 #include "nn.hpp"
+#include "simulation/fitting/LogLikelihood.h"
 
 #include <cstdlib>    // for rand(), srand()
 #include <cmath>      // for exp()
@@ -138,6 +139,13 @@ auto foo = Zeus(f,/*lower_bound=*/-20.0,/*upper_bound=*/20.0,/*optimization=*/N,
 std::cout<< "best result: " << foo.fval <<  std::endl;
 
   constexpr std::size_t D = 4;
+    std::vector<int> counts = {3,2,5};
+  std::vector<double> centers = {0.2,0.5,0.8};
+  LogLikelihood ll(counts, centers);
+  using namespace std::literals;
+  auto res = zeus::Zeus(ll, -5.00, 5.00, N, 10000, 10, 100, "poisson", 1e-8, 42, run);
+  std::cout << "best NLL: " << res.fval << "\n";
+
   using T = double;
   
   T off = T(0.5);
