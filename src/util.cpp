@@ -70,7 +70,11 @@ namespace util {
                        const int claimed,
                        const int actual,
                        const int surrendered,
-                       const int stopped)
+                       const int stopped,
+		       const double ms_per_call,
+		       const double calls_per_thread_mean,
+		       const double ad_fraction,
+		       const double block95, const double serialized)
   {
     std::string filename = "zeus_" + std::to_string(dim) + "d_results.tsv";
     std::ofstream outfile(filename, std::ios::app);
@@ -86,7 +90,7 @@ namespace util {
     // if file is new or empty, let us write the header
     if (file_empty) {
       outfile
-        << "fun\trun\tN\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\t"
+        << "fun\trun\tN\tkernel\tms_per_call\tcalls_per_thread_mean\tad_fraction\tblock95\tserialized\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\t"
            "bfgs_iter\tpso_iter\ttime\terror\tfval\tnorm";
       for (int i = 0; i < dim; i++)
         outfile << "\tcoord_" << i;
@@ -102,7 +106,7 @@ namespace util {
       time_seconds = (ms_opt + ms_rand);
       // printf("bfgs time = total time = %.4f ms\n", time_seconds);
     }
-    outfile << fun_name << "\t" << run << "\t" << N << "\t" << claimed << "\t"
+    outfile << fun_name << "\t" << run << "\t" << N << "\t" << ms_opt << "\t" << ms_per_call << "\t" <<calls_per_thread_mean <<"\t" <<ad_fraction <<  "\t" << block95 << "\t" << serialized  << "\t"  << claimed << "\t"
             << actual << "\t" << surrendered << "\t" << stopped << "\t" << idx
             << "\t" << status << "\t" << max_iter << "\t" << pso_iter << "\t"
             << time_seconds << "\t" << std::scientific << error << "\t"

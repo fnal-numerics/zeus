@@ -138,7 +138,7 @@ namespace zeus {
                                  best.c.claimed,
                                  best.c.actual,
                                  best.c.surrendered,
-                                 best.c.stopped);
+                                 best.c.stopped,best.ms_per_call,best.calls_per_thread_mean, best.ad_fraction, best.block95,best.serialized);
 
       cudaError_t cuda_error = cudaGetLastError();
       if (cuda_error != cudaSuccess) {

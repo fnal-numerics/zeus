@@ -32,6 +32,11 @@ struct Result {
   double coordinates[DIM];
   int iter;
   Convergence c;
+  double ms_per_call;
+  double calls_per_thread_mean;
+  double ad_fraction;
+  double block95;
+  double serialized;
 };
 
 namespace util {
@@ -62,7 +67,12 @@ namespace util {
                             const int claimed,
                             const int actual,
                             const int surrendered,
-                            const int stopped);
+                            const int stopped,
+			    const double ms_per_call,
+                            const double calls_per_thread_mean,
+                            const double ad_fraction,
+			    const double block95,
+			    const double serialized);
 
   template <size_t DIM>
   Convergence
