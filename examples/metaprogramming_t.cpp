@@ -92,6 +92,69 @@ struct BukinN6 {
 };
 
 
+// assumes columns: bin_low <tab> bin_high <tab> counts
+// computes centers = (low+high)/2 and fills counts as-is
+void load_dijet_spectrum(const std::string& path,
+                         std::vector<int>& counts,
+                         std::vector<double>& centers)
+{
+  counts.clear();
+  centers.clear();
+
+  std::ifstream in(path);
+  if (!in) {
+    throw std::runtime_error("couldn't open: " + path);
+  }
+
+  std::string header;
+  std::getline(in, header);              // skip the header line
+
+  double low, high;
+  int cnt;
+  while (in >> low >> high >> cnt) {     // tabs/whitespace both work
+    centers.push_back(0.5 * (low + high));
+    counts.push_back(cnt);
+  }
+}
+
+inline void load_dijet_spectrum_as_x(const std::string& path,
+                                     std::vector<int>& counts_out,
+                                     std::vector<double>& xcenters_out,
+                                     double sqrt_s_units /* e.g. 13.6 for TeV, 13600 for GeV */)
+{
+  counts_out.clear();
+  xcenters_out.clear();
+
+  std::ifstream in(path);
+  if (!in) throw std::runtime_error("couldn't open: " + path);
+
+  std::string header;
+  std::getline(in, header); // skip header
+
+  double low, high;
+  int cnt;
+  while (in >> low >> high >> cnt) {
+    const double m_center = 0.5 * (low + high);
+    double x = m_center / sqrt_s_units;
+
+    // tiny clamp for numerical safety (avoids log(0), pow at edges)
+    constexpr double eps = 1e-12;
+    if (x <= eps) x = eps;
+    if (x >= 1.0 - eps) x = 1.0 - eps;
+
+    xcenters_out.push_back(x);
+    counts_out.push_back(cnt);
+  }
+
+  if (counts_out.empty() || counts_out.size() != xcenters_out.size())
+    throw std::runtime_error("empty or mismatched data in: " + path);
+
+  // (optional) quick sanity print
+  auto mn = *std::min_element(xcenters_out.begin(), xcenters_out.end());
+  auto mx = *std::max_element(xcenters_out.begin(), xcenters_out.end());
+  std::cout << "Loaded " << counts_out.size() << " bins; x in [" << mn << ", " << mx << "]\n";
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -120,32 +183,46 @@ main(int argc, char* argv[])
 
   auto res5 = zeus::Zeus(Rast{}, -5.12, 5.12, host, N, 10000, 10, 100, "rastrigin", 1e-8, 42, 0);
   std::cout << "global minimum for 5d rastrigin: " << res5.fval << std::endl;
-#endif
-#if(1)
   // positive symmetric matrix
   // matrix of random numbers -> transpose to itself, divide by 2.
   //   
   //auto result2 = zeus::Zeus(rast,-5.0, 5.0,100,1000,100,10,"square",1e-6,42,0);
 
+
+  // Bukin No6 function for rebuttal
   BukinN6<2> b;
 
   auto bukin6 = Zeus(b,-15.0, 3.0, N, bfgs, 20, 100, "bukin6", 1e-8, 42, run,true);
   std::cout << "best result for bukin6: " << bukin6.fval  <<"\n";
 
-Foo<2> f;
-auto foo = Zeus(f,/*lower_bound=*/-20.0,/*upper_bound=*/20.0,/*optimization=*/N,
-              /*bfgs_iterations=*/bfgs,/*pso_iterations=*/20,/*required_convergences=*/100,
-             /*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run,/*parallel=*/ true);
-std::cout<< "best result: " << foo.fval <<  std::endl;
-
+  Foo<2> f;
+  auto foo = Zeus(f,/*lower_bound=*/-20.0,/*upper_bound=*/20.0,/*optimization=*/N,/*bfgs_iterations=*/bfgs,/*pso_iterations=*/20,/*required_convergences=*/100,/*function_name=*/"foo",/*tolerance=*/1e-8,/*seed=*/42,/*index_of_run=*/run,/*parallel=*/ true);
+  std::cout<< "best result: " << foo.fval <<  std::endl;
+#endif
+#if(1) 
+  // real-world HEP problem 
   constexpr std::size_t D = 4;
-    std::vector<int> counts = {3,2,5};
-  std::vector<double> centers = {0.2,0.5,0.8};
+  std::vector<int> counts;//  = {3,2,5};
+  // every line in the df is a counts
+  // one line at a time
+  //
+  std::vector<double> centers;// = {0.2,0.5,0.8};
+  //load_dijet_spectrum("../examples/simulation/dijet_spectrum.tsv", counts, centers);
+  load_dijet_spectrum_as_x("../examples/simulation/dijet_spectrum.tsv", counts, centers, /*sqrt_s in TeV*/ 13.6);
+
+  // number of bins = number of data lines
+  std::cout << "\n\n#bins = " << counts.size() << "\n";
+  long long total = 0;
+  for (int k : counts) total += k;
+  std::cout << "total events in the spectrum (counts) = " << total << "\n\n";
+
   LogLikelihood ll(counts, centers);
   using namespace std::literals;
-  auto res = zeus::Zeus(ll, -5.00, 5.00, N, 10000, 10, 100, "poisson", 1e-8, 42, run);
+  auto res = zeus::Zeus(ll, 0.00, 10.00, N, 10000, 10, 100, "poisson", 1e-8, 42, run);
   std::cout << "best NLL: " << res.fval << "\n";
-
+#endif
+#if(0)
+  // gaussian example
   using T = double;
   
   T off = T(0.5);
@@ -162,8 +239,8 @@ std::cout<< "best result: " << foo.fval <<  std::endl;
   using namespace std::literals;
   auto res150 = zeus::Zeus(g, -5.00, 5.00, N, 10000, 10, 100, "gaussian"s, 1e-8, 42, run); 
   std::cout << "global minimum for " << D << "d Gaussian: " << res150.fval << std::endl;
-#endif  
-#if(0)
+
+  // neural network example
   constexpr size_t In = 5;
   constexpr size_t H = 15;
   constexpr size_t Out = 10;
