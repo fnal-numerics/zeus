@@ -112,7 +112,9 @@ namespace bfgs {
     curandState* states,
     bool save_trajectories = false,
     unsigned long long* ad_cycles_out = nullptr,
-    int* ad_calls_out  = nullptr)
+    int* ad_calls_out = nullptr,
+    unsigned long long* bfgs_cycles_out = nullptr,
+    int* bfgs_calls_out = nullptr)
   {
     static_assert(
       std::is_same_v<decltype(std::declval<Function>()(
@@ -158,6 +160,9 @@ namespace bfgs {
     
     unsigned long long ad_cycles = 0ULL;
     int ad_calls = 0;
+
+    unsigned long long bfgs_cycles = 0ULL;
+    int bfgs_calls = 0;
 
     // first gradient
     unsigned long long t0 = clock64();
@@ -216,10 +221,15 @@ namespace bfgs {
       // gradient using new point
       double delta_dot = util::dot_product_device(delta_x, delta_g, DIM);
 
+      unsigned long long b0 = clock64();
       // bfgs update on H
       util::bfgs_update<DIM>(&H, delta_x, delta_g, delta_dot, &Htmp);
       // only update x and g for next iteration if the new minima is smaller
       // than previous double min =
+      unsigned long long b1 = clock64();
+      bfgs_cycles += (b1 - b0);
+      bfgs_calls  += 1;
+      
       if (fnew < bestVal) {
         bestVal = fnew;
         for (int i = 0; i < DIM; ++i) {
@@ -279,132 +289,109 @@ namespace bfgs {
     result[idx] = r;
     if (ad_cycles_out) ad_cycles_out[idx] = ad_cycles;
     if (ad_calls_out)  ad_calls_out[idx]  = ad_calls;
- 
+    if (bfgs_cycles_out) bfgs_cycles_out[idx] = bfgs_cycles;
+    if (bfgs_calls_out) bfgs_calls_out[idx] = bfgs_calls;
+
     //if (ad_calls_out) ad_calls_out[idx] = 123;
   } // end optimizerKernel
 
-
-inline void report_ad_metrics_and_cleanup(
+inline Metrics report_metrics_and_cleanup(
+    const char* label,
     int N,
-    unsigned long long* d_ad_cycles,
-    int* d_ad_calls,
+    unsigned long long* d_cycles,   // pass AD or BFGS cycles
+    int* d_calls,                   // pass AD or BFGS calls
     float ms_opt,
     int device_id,
-    double* out_ms_per_call,
-    double* out_calls_per_thread_mean,
-    double* out_heuristic_ad_fraction,
-    dim3 gridDimUsed, 
-    dim3 blockDimUsed,
-    double* out_block95_fraction,
-    double* out_serialized_fraction)
+    dim3 gridDimUsed,
+    dim3 blockDimUsed)
 {
-  // copy metrics back
-  std::vector<unsigned long long> h_ad_cycles(N);
-  std::vector<int>                h_ad_calls(N);
-  cudaMemcpy(h_ad_cycles.data(), d_ad_cycles, N*sizeof(unsigned long long), cudaMemcpyDeviceToHost);
-  cudaMemcpy(h_ad_calls.data(),  d_ad_calls,  N*sizeof(int),                cudaMemcpyDeviceToHost);
+  Metrics out;
 
-  // compute averages and fraction vs total kernel time
+  // Copy back the arrays the caller passed in (AD or BFGS).
+  std::vector<unsigned long long> h_cycles(N);
+  std::vector<int>                h_calls(N);
+  cudaMemcpy(h_cycles.data(), d_cycles, N*sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_calls.data(),  d_calls,  N*sizeof(int),                cudaMemcpyDeviceToHost);
+
+  // Compute stats (identical math for either AD or BFGS).
   cudaDeviceProp prop{};
-  cudaGetDeviceProperties(&prop, device_id); // prop.clockRate is in kHz
+  cudaGetDeviceProperties(&prop, device_id);
   const double sm_clock_hz = static_cast<double>(prop.clockRate) * 1000.0;
 
   unsigned long long sum_cycles = 0ULL;
   long long sum_calls = 0LL;
   for (int i = 0; i < N; ++i) {
-    sum_cycles += h_ad_cycles[i];
-    sum_calls  += h_ad_calls[i];
+    sum_cycles += h_cycles[i];
+    sum_calls  += h_calls[i];
   }
 
   const double avg_cycles_per_thread = double(sum_cycles) / double(N);
   const double avg_calls_per_thread  = (sum_calls > 0 ? double(sum_calls)/double(N) : 0.0);
   const double avg_cycles_per_call   = (avg_calls_per_thread > 0 ? avg_cycles_per_thread / avg_calls_per_thread : 0.0);
 
-  // convert cycles 2 ms (approx; assumes SM runs near reported clockRate)
-  const double avg_ad_ms_per_thread  = (avg_cycles_per_thread / sm_clock_hz) * 1e3;
-  const double avg_ad_ms_per_call    = (avg_cycles_per_call   / sm_clock_hz) * 1e3;
+  const double avg_ms_per_thread  = (avg_cycles_per_thread / sm_clock_hz) * 1e3;
+  const double avg_ms_per_call    = (avg_cycles_per_call   / sm_clock_hz) * 1e3;
 
-  // 1) average per-thread AD time ÷ kernel total time (heuristic)
-  const double frac_ad_of_total = (avg_ad_ms_per_thread > 0.0 && ms_opt > 0.0)
-                                ? (avg_ad_ms_per_thread / ms_opt)
-                                : 0.0;
+  const double frac_of_total = (avg_ms_per_thread > 0.0 && ms_opt > 0.0)
+                             ? (avg_ms_per_thread / ms_opt) : 0.0;
 
-  // 2) sum over threads (serialized view)
-  const double est_total_ad_ms_serialized = (double)sum_cycles / sm_clock_hz * 1e3;
-  const double frac_serialized = (ms_opt > 0.0) ? (est_total_ad_ms_serialized / ms_opt) : 0.0;
+  const double est_total_ms_serialized = (double)sum_cycles / sm_clock_hz * 1e3;
+  const double frac_serialized         = (ms_opt > 0.0) ? (est_total_ms_serialized / ms_opt) : 0.0;
 
- // per-block aggregation and 95th percentile 
- double block95_fraction_local = 0.0;
+  // per-block aggregation (active blocks only) for p95
+  double block95_fraction_local = 0.0;
+  const long long threads_per_block = 1LL * blockDimUsed.x * blockDimUsed.y * blockDimUsed.z;
+  const long long num_blocks_active =
+      (threads_per_block > 0)
+          ? ((static_cast<long long>(N) + threads_per_block - 1) / threads_per_block)
+          : 0;
 
-  // threads per block as launched
-  const long long threads_per_block =
-    1LL * blockDimUsed.x * blockDimUsed.y * blockDimUsed.z;
-
-// ceil(N / threads_per_block), but 0 if threads_per_block == 0
-const long long num_blocks_active =
-    (threads_per_block > 0)
-        ? ((static_cast<long long>(N) + threads_per_block - 1) / threads_per_block)
-        : 0;
-if (threads_per_block > 0 && num_blocks_active > 0) {
-  // per-block aggregation over *active* blocks only ===
-  std::vector<long double> block_cycles((size_t)num_blocks_active, 0.0L);
-
-  // global_tid assumed linear: tid = blockIdx_linear*threads_per_block + threadIdx_linear
-  for (int tid = 0; tid < N; ++tid) {
-    const long long b = tid / threads_per_block; // 0 .. num_blocks_active-1
-    block_cycles[(size_t)b] += (long double)h_ad_cycles[tid];
+  if (threads_per_block > 0 && num_blocks_active > 0) {
+    std::vector<long double> block_cycles((size_t)num_blocks_active, 0.0L);
+    for (int tid = 0; tid < N; ++tid) {
+      const long long b = tid / threads_per_block;
+      block_cycles[(size_t)b] += (long double)h_cycles[tid];
+    }
+    std::vector<double> f_block; f_block.reserve((size_t)num_blocks_active);
+    for (long long b = 0; b < num_blocks_active; ++b) {
+      const long double t_ms = (block_cycles[(size_t)b] / sm_clock_hz) * 1e3L;
+      f_block.push_back( (double)t_ms / (double)ms_opt );
+    }
+    if (!f_block.empty()) {
+      std::sort(f_block.begin(), f_block.end());
+      const size_t idx95 =
+          std::min<size_t>(f_block.size() - 1,
+                           (size_t)std::ceil(0.95 * f_block.size()) - 1);
+      block95_fraction_local = f_block[idx95];
+    }
   }
 
-  std::vector<double> f_block;
-  f_block.reserve((size_t)num_blocks_active);
-  for (long long b = 0; b < num_blocks_active; ++b) {
-    const long double t_ms = (block_cycles[(size_t)b] / sm_clock_hz) * 1e3L;
-    f_block.push_back( (double)t_ms / (double)ms_opt );
-  }
+  // print with label
+  std::printf("[%s] Kernel wall time: %.3f ms\n", label, ms_opt);
+  std::printf("[%s] Avg cycles/thread: %.3f ; avg ms/thread: %.6f\n",
+              label, avg_cycles_per_thread, avg_ms_per_thread);
+  std::printf("[%s] Calls/thread ≈ %.2f; ms/call ≈ %.6f\n",
+              label, avg_calls_per_thread, avg_ms_per_call);
+  std::printf("[%s] Heuristic fraction: %.3f%%\n",
+              label, 100.0 * frac_of_total);
+  std::printf("[%s] Serialized sum: %.3f ms; fraction vs kernel: %.3f%%\n",
+              label, est_total_ms_serialized, 100.0 * frac_serialized);
+  std::printf("[%s] Block-level fraction p95: %.3f%%\n",
+              label, 100.0 * block95_fraction_local);
 
-  if (!f_block.empty()) {
-    std::sort(f_block.begin(), f_block.end());
-    const double p50 = f_block[f_block.size() / 2];
-    const size_t idx95 =
-        std::min<size_t>(f_block.size() - 1,
-                         (size_t)std::ceil(0.95 * f_block.size()) - 1);
-    const double p95 = f_block[idx95];
-    const double mx  = f_block.back();
+  // fill outputs
+  out.ms_per_call = avg_ms_per_call;
+  out.calls_per_thread_mean = avg_calls_per_thread;
+  out.fraction_of_kernel = frac_of_total;
+  out.block95 = block95_fraction_local;
+  out.serialized = frac_serialized;
 
-    std::printf("Per-block AD fraction (active blocks only): "
-                "p50=%.3f%%, p95=%.3f%%, max=%.3f%%\n",
-                100.0 * p50, 100.0 * p95, 100.0 * mx);
+  // cleanup the device buffers we were given
+  cudaFree(d_cycles);
+  cudaFree(d_calls);
 
-    block95_fraction_local = p95; // keep for export
-  }
-} else {
-  std::fprintf(stderr,
-               "Per-block aggregation skipped (threads_per_block=%lld, active_blocks=%lld)\n",
-               threads_per_block, num_blocks_active);
+  return out;
 }
-
-  std::printf("Kernel wall time: %.3f ms\n", ms_opt);
-  std::printf("SM clock (nominal): %.3f MHz\n", sm_clock_hz / 1e6);
-  std::printf("Average cycles per thread: %.3f ", avg_cycles_per_thread);
-  std::printf("AD avg per thread: %.3f ms (calls/thread ≈ %.2f; ms/call ≈ %.6f)\n",
-              avg_ad_ms_per_thread, avg_calls_per_thread, avg_ad_ms_per_call);
-  std::printf("Heuristic AD fraction (avg-per-thread / kernel): %.3f%%\n",
-              100.0 * frac_ad_of_total);
-  std::printf("Serialized AD work (sum over threads): %.3f ms; fraction vs kernel: %.3f%%\n",
-              est_total_ad_ms_serialized, 100.0 * frac_serialized);
-  std::printf("Block-level AD fraction p95: %.3f%%\n", 100.0 * block95_fraction_local);
-  
-  if (out_ms_per_call)               *out_ms_per_call               = avg_ad_ms_per_call;
-  if (out_calls_per_thread_mean)     *out_calls_per_thread_mean     = avg_calls_per_thread;
-  if (out_heuristic_ad_fraction)     *out_heuristic_ad_fraction     = frac_ad_of_total;
-  if (out_block95_fraction)          *out_block95_fraction          = block95_fraction_local;
-  if (out_serialized_fraction) *out_serialized_fraction = frac_serialized;
-  
-  // cleanup
-  cudaFree(d_ad_cycles);
-  cudaFree(d_ad_calls);
-}
-
 
   template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
   Result<DIM>
@@ -442,12 +429,20 @@ if (threads_per_block > 0 && num_blocks_active > 0) {
     dim3 optGrid((N + blockSize - 1) / blockSize);
 
   // metric buffers
+// ad
 unsigned long long* d_ad_cycles = nullptr;
 int* d_ad_calls = nullptr;
 cudaMalloc(&d_ad_cycles, N * sizeof(unsigned long long));
 cudaMalloc(&d_ad_calls,  N * sizeof(int));
 cudaMemset(d_ad_cycles, 0, N * sizeof(unsigned long long));
 cudaMemset(d_ad_calls,  0, N * sizeof(int));
+// bfgs
+unsigned long long* d_bfgs_cycles = nullptr;
+int* d_bfgs_calls = nullptr;
+cudaMalloc(&d_bfgs_cycles, N * sizeof(unsigned long long));
+cudaMalloc(&d_bfgs_calls,  N * sizeof(int));
+cudaMemset(d_bfgs_cycles, 0, N * sizeof(unsigned long long));
+cudaMemset(d_bfgs_calls,  0, N * sizeof(int));
 
     // optimizeKernel time
     cudaEvent_t startOpt, stopOpt;
@@ -478,7 +473,7 @@ cudaMemset(d_ad_calls,  0, N * sizeof(int));
                                 tolerance,
                                 d_results.data(),
                                 states,
-                                true, d_ad_cycles, d_ad_calls);
+                                true, d_ad_cycles, d_ad_calls, d_bfgs_cycles, d_bfgs_calls);
     } else {
       optimize<Function, DIM, 128>
         <<<optGrid, optBlock>>>(f,
@@ -492,7 +487,7 @@ cudaMemset(d_ad_calls,  0, N * sizeof(int));
                                 requiredConverged,
                                 tolerance,
                                 d_results.data(),
-                                states, false, d_ad_cycles, d_ad_calls);
+                                states, false, d_ad_cycles, d_ad_calls, d_bfgs_cycles, d_bfgs_calls);
     }
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -517,27 +512,19 @@ cudaMemset(d_ad_calls,  0, N * sizeof(int));
     cudaEventDestroy(stopOpt);
 
     // calculate the AD timing
-    double ms_per_call = 0.0;
-    double calls_per_thread_mean = 0.0;
-    double heuristic_ad_fraction = 0.0;
-    double block95_fraction = 0.0;
-    double serialized_fraction = 0.0;
     int device_id = 0; 
     cudaGetDevice(&device_id);
-    report_ad_metrics_and_cleanup(N, d_ad_cycles, d_ad_calls, ms_opt, device_id,&ms_per_call, &calls_per_thread_mean, &heuristic_ad_fraction,optGrid,optBlock,&block95_fraction,&serialized_fraction);
+    Metrics ad_metrics = report_metrics_and_cleanup("AD", N, d_ad_cycles, d_ad_calls, ms_opt, device_id, optGrid, optBlock);
+    Metrics bfgs_metrics = report_metrics_and_cleanup("BFGS", N, d_bfgs_cycles, d_bfgs_calls, ms_opt, device_id, optGrid, optBlock);
+
     std::vector<Result<DIM>> h_results(N);
-    cudaMemcpy(
-      h_results.data(), d_results, N * sizeof(Result<DIM>), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_results.data(), d_results, N * sizeof(Result<DIM>), cudaMemcpyDeviceToHost);
     Convergence c = util::dump_data_2_file<DIM>(N, h_results.data(), fun_name, pso_iter, run);
 
     Result best = launch_reduction<DIM>(N, deviceResults.data(), h_results.data());
     best.c = c;
-    best.ad_fraction = heuristic_ad_fraction;
-    best.calls_per_thread_mean = calls_per_thread_mean;
-    best.ms_per_call = ms_per_call;
-    best.block95 = block95_fraction;
-    best.serialized = serialized_fraction;
-
+    best.ad = ad_metrics;
+    best.bfgs = bfgs_metrics; 
     return best;
   }
 
