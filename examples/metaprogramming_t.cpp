@@ -92,38 +92,15 @@ struct BukinN6 {
 };
 
 
-// assumes columns: bin_low <tab> bin_high <tab> counts
-// computes centers = (low+high)/2 and fills counts as-is
-void load_dijet_spectrum(const std::string& path,
-                         std::vector<int>& counts,
-                         std::vector<double>& centers)
+inline void load_dijet_spectrum_as_x(
+    const std::string& path,
+    std::vector<double>& bin_low,
+    std::vector<double>& bin_high,
+    std::vector<int>&    true_counts,
+    std::vector<double>& x_centers,
+    double sqrt_s_units /* e.g. 13.6 for TeV, 13600 for GeV */)
 {
-  counts.clear();
-  centers.clear();
-
-  std::ifstream in(path);
-  if (!in) {
-    throw std::runtime_error("couldn't open: " + path);
-  }
-
-  std::string header;
-  std::getline(in, header);              // skip the header line
-
-  double low, high;
-  int cnt;
-  while (in >> low >> high >> cnt) {     // tabs/whitespace both work
-    centers.push_back(0.5 * (low + high));
-    counts.push_back(cnt);
-  }
-}
-
-inline void load_dijet_spectrum_as_x(const std::string& path,
-                                     std::vector<int>& counts_out,
-                                     std::vector<double>& xcenters_out,
-                                     double sqrt_s_units /* e.g. 13.6 for TeV, 13600 for GeV */)
-{
-  counts_out.clear();
-  xcenters_out.clear();
+  bin_low.clear(); bin_high.clear(); true_counts.clear(); x_centers.clear();
 
   std::ifstream in(path);
   if (!in) throw std::runtime_error("couldn't open: " + path);
@@ -131,28 +108,50 @@ inline void load_dijet_spectrum_as_x(const std::string& path,
   std::string header;
   std::getline(in, header); // skip header
 
-  double low, high;
-  int cnt;
+  double low, high; int cnt;
   while (in >> low >> high >> cnt) {
     const double m_center = 0.5 * (low + high);
     double x = m_center / sqrt_s_units;
-
-    // tiny clamp for numerical safety (avoids log(0), pow at edges)
     constexpr double eps = 1e-12;
     if (x <= eps) x = eps;
     if (x >= 1.0 - eps) x = 1.0 - eps;
 
-    xcenters_out.push_back(x);
-    counts_out.push_back(cnt);
+    bin_low.push_back(low);
+    bin_high.push_back(high);
+    true_counts.push_back(cnt);
+    x_centers.push_back(x);
   }
 
-  if (counts_out.empty() || counts_out.size() != xcenters_out.size())
+  if (true_counts.empty() || true_counts.size() != x_centers.size())
     throw std::runtime_error("empty or mismatched data in: " + path);
 
-  // (optional) quick sanity print
-  auto mn = *std::min_element(xcenters_out.begin(), xcenters_out.end());
-  auto mx = *std::max_element(xcenters_out.begin(), xcenters_out.end());
-  std::cout << "Loaded " << counts_out.size() << " bins; x in [" << mn << ", " << mx << "]\n";
+  auto mn = *std::min_element(x_centers.begin(), x_centers.end());
+  auto mx = *std::max_element(x_centers.begin(), x_centers.end());
+  std::cout << "Loaded " << true_counts.size() << " bins; x in [" << mn << ", " << mx << "]\n";
+}
+
+void write_pred_vs_true_tsv(const std::string& path,
+                            const std::vector<double>& bin_low,
+                            const std::vector<double>& bin_high,
+                            const std::vector<int>&    true_counts,
+                            const std::vector<double>& x_centers,
+                            const std::vector<double>& pred_mu,
+                            const std::vector<double>& pred_residual,
+                            const std::vector<double>& pred_pull)
+{
+  std::ofstream out(path);
+  if (!out) throw std::runtime_error("could not open: " + path);
+  out << std::setprecision(17);
+  out << "bin_low\tbin_high\tx_center\ttrue_counts\tpred_mu\tpred_residual\tpred_pull\n";
+  for (size_t i = 0; i < true_counts.size(); ++i) {
+    out << bin_low[i]        << '\t'
+        << bin_high[i]       << '\t'
+        << x_centers[i]      << '\t'
+        << true_counts[i]    << '\t'
+        << pred_mu[i]        << '\t'
+        << pred_residual[i]  << '\t'
+        << pred_pull[i]      << '\n';
+  }
 }
 
 int
@@ -201,25 +200,52 @@ main(int argc, char* argv[])
 #endif
 #if(1) 
   // real-world HEP problem 
-  constexpr std::size_t D = 4;
-  std::vector<int> counts;//  = {3,2,5};
-  // every line in the df is a counts
-  // one line at a time
-  //
-  std::vector<double> centers;// = {0.2,0.5,0.8};
-  //load_dijet_spectrum("../examples/simulation/dijet_spectrum.tsv", counts, centers);
-  load_dijet_spectrum_as_x("../examples/simulation/dijet_spectrum.tsv", counts, centers, /*sqrt_s in TeV*/ 13.6);
+  std::vector<double> bin_low, bin_high;
+  std::vector<int> counts;
+  std::vector<double> centers;
+
+  load_dijet_spectrum_as_x("../examples/simulation/dijet_spectrum.tsv",bin_low, bin_high, counts,centers, /*sqrt_s in TeV*/ 13.6);
 
   // number of bins = number of data lines
   std::cout << "\n\n#bins = " << counts.size() << "\n";
   long long total = 0;
   for (int k : counts) total += k;
-  std::cout << "total events in the spectrum (counts) = " << total << "\n\n";
+  std::cout << "total events in the spectrum = " << total << "\n\n";
 
+  // fit
   LogLikelihood ll(counts, centers);
   using namespace std::literals;
   auto res = zeus::Zeus(ll, 0.00, 10.00, N, 10000, 10, 100, "poisson", 1e-8, 42, run);
   std::cout << "best NLL: " << res.fval << "\n";
+
+  const double a = res.coordinates[0], b = res.coordinates[1], c = res.coordinates[2], d = res.coordinates[3];
+  const double eps = 1e-12;
+
+  std::vector<double> pred_mu(centers.size());
+  std::vector<double> pred_residual(centers.size());
+  std::vector<double> pred_pull(centers.size());
+
+  for (size_t i = 0; i < centers.size(); ++i) {
+    double x = std::min(std::max(centers[i], eps), 1.0 - eps);
+    double mu = a * std::pow(1.0 - x, b) / std::pow(x, c + d * std::log(x));
+    pred_mu[i] = mu;
+    pred_residual[i] = static_cast<double>(counts[i]) - mu;
+    pred_pull[i] = pred_residual[i] / std::sqrt(std::max(mu, 1e-12));
+  }
+
+// predicted chisquare
+  double pred_chi2 = 0.0, pred_dev = 0.0;
+  for (size_t i = 0; i < pred_mu.size(); ++i) {
+    const double k = static_cast<double>(counts[i]);
+    const double m = std::max(pred_mu[i], 1e-12);
+    pred_chi2 += (k - m)*(k - m) / m;
+    pred_dev  += (k > 0) ? 2.0*(k*std::log(k/m) - (k - m)) : 2.0*m;
+  }
+  int ndf = std::max<int>(1, (int)pred_mu.size() - 4);
+  std::cout << "center-prediction  chi2/ndf=" << pred_chi2/ndf << "  dev/ndf=" << pred_dev/ndf << "\n";
+  // write out
+  write_pred_vs_true_tsv("dijet_fit_vs_data.tsv",bin_low, bin_high, counts, centers, pred_mu, pred_residual, pred_pull);
+
 #endif
 #if(0)
   // gaussian example
