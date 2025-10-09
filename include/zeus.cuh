@@ -129,17 +129,8 @@ namespace zeus {
                                  MAX_ITER,
                                  PSO_ITER,
                                  error,
-                                 best.fval,
-                                 best.coordinates,
-                                 best.idx,
-                                 best.status,
-                                 best.gradientNorm,
                                  run,
-                                 best.c.claimed,
-                                 best.c.actual,
-                                 best.c.surrendered,
-                                 best.c.stopped,best.ms_per_call,best.calls_per_thread_mean, best.ad_fraction, best.block95,best.serialized);
-
+				 best);
       cudaError_t cuda_error = cudaGetLastError();
       if (cuda_error != cudaSuccess) {
         printf("CUDA error: %s\n", cudaGetErrorString(cuda_error));

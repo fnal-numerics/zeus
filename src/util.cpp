@@ -49,8 +49,8 @@ namespace util {
     }
     return std::sqrt(sum_sq);
   } // end calculate_euclidean_error
-
-  void
+  /*
+  template <std::size_t DIM> void
   append_results_2_tsv(const int dim,
                        const int N,
                        const std::string fun_name,
@@ -61,20 +61,8 @@ namespace util {
                        const int max_iter,
                        const int pso_iter,
                        const double error,
-                       const double globalMin,
-                       double* hostCoordinates,
-                       const int idx,
-                       const int status,
-                       const double norm,
                        const int run,
-                       const int claimed,
-                       const int actual,
-                       const int surrendered,
-                       const int stopped,
-		       const double ms_per_call,
-		       const double calls_per_thread_mean,
-		       const double ad_fraction,
-		       const double block95, const double serialized)
+		       const Result<DIM>& best)
   {
     std::string filename = "zeus_" + std::to_string(dim) + "d_results.tsv";
     std::ofstream outfile(filename, std::ios::app);
@@ -89,8 +77,8 @@ namespace util {
     }
     // if file is new or empty, let us write the header
     if (file_empty) {
-      outfile
-        << "fun\trun\tN\tkernel\tms_per_call\tcalls_per_thread_mean\tad_fraction\tblock95\tserialized\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\t"
+      outfile << "\tBFGS_ms_per_call\tBFGS_calls_per_thread_mean\tBFGS_fraction\tBFGS_block95\tBFGS_serialized"
+        << "fun\trun\tN\tkernel\tms_per_call\tcalls_per_thread_mean\tad_fraction\tblock95\tserialized\tBFGS_ms_per_call\tBFGS_call_per_thread_mean\tBFGS_fraction\tBFGS_block95\tBFGS_serialized\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\t"
            "bfgs_iter\tpso_iter\ttime\terror\tfval\tnorm";
       for (int i = 0; i < dim; i++)
         outfile << "\tcoord_" << i;
@@ -106,13 +94,15 @@ namespace util {
       time_seconds = (ms_opt + ms_rand);
       // printf("bfgs time = total time = %.4f ms\n", time_seconds);
     }
-    outfile << fun_name << "\t" << run << "\t" << N << "\t" << ms_opt << "\t" << ms_per_call << "\t" <<calls_per_thread_mean <<"\t" <<ad_fraction <<  "\t" << block95 << "\t" << serialized  << "\t"  << claimed << "\t"
-            << actual << "\t" << surrendered << "\t" << stopped << "\t" << idx
-            << "\t" << status << "\t" << max_iter << "\t" << pso_iter << "\t"
-            << time_seconds << "\t" << std::scientific << error << "\t"
-            << globalMin << "\t" << norm << "\t";
+    outfile << fun_name << "\t" << run << "\t" << N << "\t" << ms_opt << "\t"
+          << best.ad.ms_per_call << "\t" << best.ad.calls_per_thread_mean <<"\t" <<best.ad.fraction_of_kernel <<  "\t" << best.ad.block95 << "\t" << best.ad.serialized << "\t"
+          << "\t" << best.bfgs.ms_per_call << "\t" << best.bfgs.calls_per_thread_mean << "\t" << best.bfgs.fraction_of_kernel << "\t" << best.bfgs.block95 << "\t" << best.bfgs.serialized << "\t" 
+	  << best.c.claimed << "\t" << best.c.actual << "\t" << best.c.surrendered << "\t" << best.c.stopped << "\t" << best.idx
+          << "\t" << best.status << "\t" << max_iter << "\t" << pso_iter << "\t"
+          << time_seconds << "\t" << std::scientific << error << "\t"
+          << best.fval << "\t" << best.gradientNorm << "\t";
     for (int i = 0; i < dim; i++) {
-      outfile << hostCoordinates[i];
+      outfile << best.coordinates[i];
       if (i < dim - 1)
         outfile << "\t";
     }
@@ -120,5 +110,5 @@ namespace util {
     outfile.close();
     // printf("results are saved to %s", filename.c_str());
   } // end append_results_2_tsv
-
+*/
 } // end namespace util

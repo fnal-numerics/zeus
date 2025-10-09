@@ -11,32 +11,41 @@
 #include <cmath>      // for std::sqrt
 #include <limits> 
 
+struct Metrics {
+  // label for printing "AD", "BFGS"
+  const char* label = "";
+  double ms_per_call = 0.0;
+  double calls_per_thread_mean = 0.0;
+  double fraction_of_kernel = 0.0; // avg-per-thread / kernel
+  double block95 = 0.0;
+  double serialized = 0.0; // sum over threads / kernel
+};
+
 struct Convergence {
-  int actual;
-  int claimed;
-  int surrendered;
-  int stopped;
+  int actual = 0;
+  int claimed = 0;
+  int surrendered = 0;
+  int stopped = 0;
 };
 
 template <std::size_t DIM>
 struct Result {
-  int idx;
+  int idx = -1;
   // 0 surrender (reached max iterations)
   // 1 if converged
   // 2 stopped_bc_someone_flipped_the_flag
   // 3 cudamemoryallocation failure
   // 4 cudaruntime error
-  int status; 
-  double fval; // function value
-  double gradientNorm;
-  double coordinates[DIM];
-  int iter;
+  int status = -1; 
+  double fval = 37.0; // function value
+  double gradientNorm = 0.0;
+  double coordinates[DIM]{};
+  int iter=0;
   Convergence c;
-  double ms_per_call;
-  double calls_per_thread_mean;
-  double ad_fraction;
-  double block95;
-  double serialized;
+  double ms_opt = 0.0; 
+
+  Metrics ad;
+  Metrics bfgs;
 };
 
 namespace util {
@@ -48,6 +57,7 @@ namespace util {
                                    const double* coordinates,
                                    const int dim);
 
+  template <std::size_t DIM>
   void append_results_2_tsv(const int dim,
                             const int N,
                             const std::string fun_name,
@@ -58,22 +68,55 @@ namespace util {
                             const int max_iter,
                             const int pso_iter,
                             const double error,
-                            const double globalMin,
-                            double* hostCoordinates,
-                            const int idx,
-                            const int status,
-                            const double norm,
                             const int run,
-                            const int claimed,
-                            const int actual,
-                            const int surrendered,
-                            const int stopped,
-			    const double ms_per_call,
-                            const double calls_per_thread_mean,
-                            const double ad_fraction,
-			    const double block95,
-			    const double serialized);
+			    const Result<DIM>& best) {
+    std::string filename = "zeus_" + std::to_string(dim) + "d_results.tsv";
+    std::ofstream outfile(filename, std::ios::app); 
+    bool file_exists = std::filesystem::exists(filename);
+    bool file_empty =
+      file_exists ? (std::filesystem::file_size(filename) == 0) : true;
+    // std::ofstream outfile(filename, std::ios::app);
+    if (!outfile.is_open()) {
+      std::cerr << "Error opening file: " << filename << std::endl;
+      return;
+    }
+    // if file is new or empty, let us write the header
+    if (file_empty) {
+      outfile << "fun\trun\tN\tkernel\tad_ms_per_call\tad_calls_per_thread_mean\tad_fraction\tad_block95\tad_serialized\tBFGS_ms_per_call\tBFGS_call_per_thread_mean\tBFGS_fraction\tBFGS_block95\tBFGS_serialized\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\t"
+           "bfgs_iter\tpso_iter\ttime\terror\tfval\tnorm";
+      for (int i = 0; i < dim; i++)
+        outfile << "\tcoord_" << i;
+      outfile << std::endl;
+    } // end if file is empty
 
+    double time_seconds = std::numeric_limits<double>::infinity();
+    if (pso_iter > 0) {
+      time_seconds = (ms_init + ms_pso + ms_opt + ms_rand);
+      // printf("total time = pso + bfgs = total time = %0.4f ms\n",
+       // time_seconds);
+    } else {
+      time_seconds = (ms_opt + ms_rand);
+      // printf("bfgs time = total time = %.4f ms\n", time_seconds);
+    }
+    outfile << fun_name << "\t" << run << "\t" << N << "\t" << ms_opt << "\t"
+          << best.ad.ms_per_call << "\t" << best.ad.calls_per_thread_mean <<"\t" <<best.ad.fraction_of_kernel <<  "\t" << best.ad.block95 << "\t" << best    .ad.serialized << "\t"
+          << "\t" << best.bfgs.ms_per_call << "\t" << best.bfgs.calls_per_thread_mean << "\t" << best.bfgs.fraction_of_kernel << "\t" << best.bfgs.block95 << "\t" << best.bfgs.serialized << "\t"
+          << best.c.claimed << "\t" << best.c.actual << "\t" << best.c.surrendered << "\t" << best.c.stopped << "\t" << best.idx
+          << "\t" << best.status << "\t" << max_iter << "\t" << pso_iter << "\t"
+          << time_seconds << "\t" << std::scientific << error << "\t"
+          << best.fval << "\t" << best.gradientNorm << "\t";
+    std::cout << "claimed: " << best.c.claimed << "\tactual : " << best.c.actual << "\tsurrendered: " << best.c.surrendered << "\tstopped: " << best.c.stopped <<"\n";
+    for (int i = 0; i < dim; i++) {
+      outfile << best.coordinates[i];
+      if (i < dim - 1)
+        outfile << "\t";
+    }
+    outfile << "\n";
+    outfile.close();
+    // printf("results are saved to %s", filename.c_str());
+  } // end append_results_2_tsv
+
+			    
   template <size_t DIM>
   Convergence
   dump_data_2_file(size_t N, Result<DIM>* h_results,
