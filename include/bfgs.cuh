@@ -114,7 +114,8 @@ namespace bfgs {
     unsigned long long* ad_cycles_out = nullptr,
     int* ad_calls_out = nullptr,
     unsigned long long* bfgs_cycles_out = nullptr,
-    int* bfgs_calls_out = nullptr)
+    int* bfgs_calls_out = nullptr,
+    unsigned long long* total_cycles_out = nullptr)
   {
     static_assert(
       std::is_same_v<decltype(std::declval<Function>()(
@@ -126,21 +127,18 @@ namespace bfgs {
     if (idx >= N)
       return;
 
+    unsigned long long k_begin = clock64();
+
     curandState localState = states[idx];
-
     std::array<double, DIM> x_arr, x_new, g_arr, g_new, p_arr;
-
     DeviceMatrix<double> H(DIM, DIM);
     DeviceMatrix<double> Htmp(DIM, DIM);
-
     double delta_x[DIM], delta_g[DIM];
-
     Result<DIM> r;
     for(int i=0;i<DIM;i++)
       x_arr[i] = 7.0;
     write_result<DIM>(r,/*status=*/-1,/*fval=*/333777.0,/*coordinates=*/x_arr.data(),/*norm=*/69.0,/*iter*/0,idx);
     util::initialize_identity_matrix(&H, DIM);
-
     int num_steps = 0, iter;
     double x_raw[DIM];
     // initialize x either from PSO array or fallback by RNG
@@ -291,7 +289,8 @@ namespace bfgs {
     if (ad_calls_out)  ad_calls_out[idx]  = ad_calls;
     if (bfgs_cycles_out) bfgs_cycles_out[idx] = bfgs_cycles;
     if (bfgs_calls_out) bfgs_calls_out[idx] = bfgs_calls;
-
+    unsigned long long k_end = clock64();
+    if (total_cycles_out) total_cycles_out[idx] = (k_end - k_begin);
     //if (ad_calls_out) ad_calls_out[idx] = 123;
   } // end optimizerKernel
 
@@ -303,7 +302,8 @@ inline Metrics report_metrics_and_cleanup(
     float ms_opt,
     int device_id,
     dim3 gridDimUsed,
-    dim3 blockDimUsed)
+    dim3 blockDimUsed,
+    const unsigned long long* d_total_cycles = nullptr)
 {
   Metrics out;
 
@@ -337,6 +337,24 @@ inline Metrics report_metrics_and_cleanup(
 
   const double est_total_ms_serialized = (double)sum_cycles / sm_clock_hz * 1e3;
   const double frac_serialized         = (ms_opt > 0.0) ? (est_total_ms_serialized / ms_opt) : 0.0;
+
+  // averaged per-thread fraction cycles_i / total_cycles_i
+  double fraction_of_thread_mean = 0.0;
+  if (d_total_cycles) {
+    std::vector<unsigned long long> h_total(N);
+    cudaMemcpy(h_total.data(), d_total_cycles, N*sizeof(unsigned long long), cudaMemcpyDeviceToHost);
+
+    long double acc = 0.0L;
+    long long cnt = 0;
+    for (int i = 0; i < N; ++i) {
+      const double tot = (double)h_total[i];
+      if (tot > 0.0) {
+        acc += (long double)((double)h_cycles[i] / tot);
+        ++cnt;
+      }
+    }
+    fraction_of_thread_mean = (cnt > 0) ? (double)(acc / (long double)cnt) : 0.0;
+  }
 
   // per-block aggregation (active blocks only) for p95
   double block95_fraction_local = 0.0;
@@ -378,6 +396,7 @@ inline Metrics report_metrics_and_cleanup(
               label, est_total_ms_serialized, 100.0 * frac_serialized);
   std::printf("[%s] Block-level fraction p95: %.3f%%\n",
               label, 100.0 * block95_fraction_local);
+  
 
   // fill outputs
   out.ms_per_call = avg_ms_per_call;
@@ -385,6 +404,7 @@ inline Metrics report_metrics_and_cleanup(
   out.fraction_of_kernel = frac_of_total;
   out.block95 = block95_fraction_local;
   out.serialized = frac_serialized;
+  out.fraction_of_thread = fraction_of_thread_mean;
 
   // cleanup the device buffers we were given
   cudaFree(d_cycles);
@@ -444,6 +464,10 @@ cudaMalloc(&d_bfgs_calls,  N * sizeof(int));
 cudaMemset(d_bfgs_cycles, 0, N * sizeof(unsigned long long));
 cudaMemset(d_bfgs_calls,  0, N * sizeof(int));
 
+unsigned long long* d_total_cycles = nullptr;
+cudaMalloc(&d_total_cycles, N * sizeof(unsigned long long));
+cudaMemset(d_total_cycles, 0, N * sizeof(unsigned long long));
+
     // optimizeKernel time
     cudaEvent_t startOpt, stopOpt;
     cudaEventCreate(&startOpt);
@@ -473,7 +497,7 @@ cudaMemset(d_bfgs_calls,  0, N * sizeof(int));
                                 tolerance,
                                 d_results.data(),
                                 states,
-                                true, d_ad_cycles, d_ad_calls, d_bfgs_cycles, d_bfgs_calls);
+                                true, d_ad_cycles, d_ad_calls, d_bfgs_cycles, d_bfgs_calls, d_total_cycles);
     } else {
       optimize<Function, DIM, 128>
         <<<optGrid, optBlock>>>(f,
@@ -487,7 +511,7 @@ cudaMemset(d_bfgs_calls,  0, N * sizeof(int));
                                 requiredConverged,
                                 tolerance,
                                 d_results.data(),
-                                states, false, d_ad_cycles, d_ad_calls, d_bfgs_cycles, d_bfgs_calls);
+                                states, false, d_ad_cycles, d_ad_calls, d_bfgs_cycles, d_bfgs_calls, d_total_cycles);
     }
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
@@ -514,8 +538,8 @@ cudaMemset(d_bfgs_calls,  0, N * sizeof(int));
     // calculate the AD timing
     int device_id = 0; 
     cudaGetDevice(&device_id);
-    Metrics ad_metrics = report_metrics_and_cleanup("AD", N, d_ad_cycles, d_ad_calls, ms_opt, device_id, optGrid, optBlock);
-    Metrics bfgs_metrics = report_metrics_and_cleanup("BFGS", N, d_bfgs_cycles, d_bfgs_calls, ms_opt, device_id, optGrid, optBlock);
+    Metrics ad_metrics = report_metrics_and_cleanup("AD", N, d_ad_cycles, d_ad_calls, ms_opt, device_id, optGrid, optBlock, d_total_cycles);
+    Metrics bfgs_metrics = report_metrics_and_cleanup("BFGS", N, d_bfgs_cycles, d_bfgs_calls, ms_opt, device_id, optGrid, optBlock, d_total_cycles);
 
     std::vector<Result<DIM>> h_results(N);
     cudaMemcpy(h_results.data(), d_results, N * sizeof(Result<DIM>), cudaMemcpyDeviceToHost);
