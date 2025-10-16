@@ -19,6 +19,7 @@ struct Metrics {
   double fraction_of_kernel = 0.0; // avg-per-thread / kernel
   double block95 = 0.0;
   double serialized = 0.0; // sum over threads / kernel
+  double fraction_of_thread=0.0;
 };
 
 struct Convergence {
@@ -82,8 +83,11 @@ namespace util {
     }
     // if file is new or empty, let us write the header
     if (file_empty) {
-      outfile << "fun\trun\tN\tkernel\tad_ms_per_call\tad_calls_per_thread_mean\tad_fraction\tad_block95\tad_serialized\tBFGS_ms_per_call\tBFGS_call_per_thread_mean\tBFGS_fraction\tBFGS_block95\tBFGS_serialized\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\t"
-           "bfgs_iter\tpso_iter\ttime\terror\tfval\tnorm";
+      outfile
+      << "fun\trun\tN\tkernel"
+      << "\tad_ms_per_call\tad_calls_per_thread_mean\tad_fraction\tad_block95\tad_serialized"
+      << "\tbfgs_ms_per_call\tbfgs_calls_per_thread_mean\tbfgs_fraction\tbfgs_block95\tbfgs_serialized"
+      << "\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\tbfgs_iter\tpso_iter\ttime\terror\tfval\tnorm";
       for (int i = 0; i < dim; i++)
         outfile << "\tcoord_" << i;
       outfile << std::endl;
@@ -99,8 +103,8 @@ namespace util {
       // printf("bfgs time = total time = %.4f ms\n", time_seconds);
     }
     outfile << fun_name << "\t" << run << "\t" << N << "\t" << ms_opt << "\t"
-          << best.ad.ms_per_call << "\t" << best.ad.calls_per_thread_mean <<"\t" <<best.ad.fraction_of_kernel <<  "\t" << best.ad.block95 << "\t" << best    .ad.serialized << "\t"
-          << "\t" << best.bfgs.ms_per_call << "\t" << best.bfgs.calls_per_thread_mean << "\t" << best.bfgs.fraction_of_kernel << "\t" << best.bfgs.block95 << "\t" << best.bfgs.serialized << "\t"
+          << best.ad.ms_per_call << "\t" << best.ad.calls_per_thread_mean <<"\t" <<best.ad.fraction_of_thread <<  "\t" << best.ad.block95 << "\t" << best.ad.serialized << "\t"
+          << best.bfgs.ms_per_call << "\t" << best.bfgs.calls_per_thread_mean << "\t" << best.bfgs.fraction_of_thread << "\t" << best.bfgs.block95 << "\t" << best.bfgs.serialized << "\t"
           << best.c.claimed << "\t" << best.c.actual << "\t" << best.c.surrendered << "\t" << best.c.stopped << "\t" << best.idx
           << "\t" << best.status << "\t" << max_iter << "\t" << pso_iter << "\t"
           << time_seconds << "\t" << std::scientific << error << "\t"
