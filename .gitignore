@@ -1,4 +1,5 @@
 build/
+.remote_config
 Testing/
 pso
 particledata
