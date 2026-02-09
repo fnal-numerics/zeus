@@ -265,86 +265,93 @@ TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
   cudaFree(d_states);
 }
 
-inline int pointerStatus(double* p)
+inline int
+pointerStatus(double* p)
 {
-    if (p == MALLOC_ERROR)  return 3;
-    if (p == KERNEL_ERROR)  return 4;
-    return 0;                               // success
+  if (p == MALLOC_ERROR)
+    return 3;
+  if (p == KERNEL_ERROR)
+    return 4;
+  return 0; // success
 }
 
-TEST_CASE("pso::launch returns 4: KERNEL_ERROR when overflowing the memory")
+TEST_CASE("pso::launch throws cuda_exception<3> when overflowing the memory")
 {
-    // exhaust almost all free memory on the device ──────────────
-    std::vector<void*> scraps;
-    size_t freeB  = 0, totalB = 0;
-    cudaMemGetInfo(&freeB, &totalB);
+  // exhaust almost all free memory on the device ──────────────
+  std::vector<void*> scraps;
+  size_t freeB = 0, totalB = 0;
+  cudaMemGetInfo(&freeB, &totalB);
 
-    // Keep at least 16 MiB so the runtime itself can breathe
-    const size_t CHUNK = (freeB > 32ull << 20) ? (freeB - (16ull << 20)) : freeB / 2;
+  // Keep at least 16 MiB so the runtime itself can breathe
+  const size_t CHUNK =
+    (freeB > 32ull << 20) ? (freeB - (16ull << 20)) : freeB / 2;
 
-    while (true) {
-        void* p = nullptr;
-        if (cudaMalloc(&p, CHUNK) != cudaSuccess) break;
-        scraps.push_back(p);
-    }
+  while (true) {
+    void* p = nullptr;
+    if (cudaMalloc(&p, CHUNK) != cudaSuccess)
+      break;
+    scraps.push_back(p);
+  }
 
-    // now launch PSO with a 'normal' problem size
-    using Fn  = util::Rosenbrock<2>;
-    constexpr int DIM = 2;
-    float ms0 = 0.0f, ms1 = 0.0f;
-    curandState* states = nullptr;
+  // now launch PSO with a 'normal' problem size
+  using Fn = util::Rosenbrock<2>;
+  constexpr int DIM = 2;
+  float ms0 = 0.0f, ms1 = 0.0f;
+  curandState* states = nullptr;
 
-    double* ptr = pso::launch<Fn, DIM>(/*PSO_ITER*/ 10,
-                                       /*N*/         512,
-                                       /*lower*/    -2.0,
-                                       /*upper*/     2.0,
-                                       ms0, ms1,
-                                       42, states,
-                                       Fn{});
+  REQUIRE_THROWS_AS((pso::launch<Fn, DIM>(/*PSO_ITER*/ 10,
+                                          /*N*/ 512,
+                                          /*lower*/ -2.0,
+                                          /*upper*/ 2.0,
+                                          ms0,
+                                          ms1,
+                                          42,
+                                          states,
+                                          Fn{})),
+                    cuda_exception<4>);
 
-    REQUIRE(ptr == KERNEL_ERROR);
-
-    // clean up the scrap buffers so the rest of the suite runs ‐─
-    for (void* p : scraps) cudaFree(p);
+  // clean up the scrap buffers so the rest of the suite runs ‐─
+  for (void* p : scraps)
+    cudaFree(p);
 }
 
-TEST_CASE("pso::launch returns 3 (MALLOC_ERROR) when cudaMalloc fails",
+TEST_CASE("pso::launch throws cuda_exception<3> when cudaMalloc fails",
           "[pso][malloc-error]")
 {
-    using Fn  = util::Rosenbrock<2>;
-    constexpr int DIM       = 2;
-    constexpr int PSO_ITER  = 10;
+  using Fn = util::Rosenbrock<2>;
+  constexpr int DIM = 2;
+  constexpr int PSO_ITER = 10;
 
-    // pick an absurdly large N so that at least one cudaMalloc fails
-    const int N = std::numeric_limits<int>::max() / DIM;   // ≈1 G x DIM doubles
+  // pick an absurdly large N so that at least one cudaMalloc fails
+  const int N = std::numeric_limits<int>::max() / DIM; // ≈1 G x DIM doubles
 
-    float ms_init = 0.0f, ms_pso = 0.0f;
-    curandState* states = nullptr;
+  float ms_init = 0.0f, ms_pso = 0.0f;
+  curandState* states = nullptr;
 
-    double* ptr = pso::launch<Fn, DIM>(PSO_ITER, N, -2.0, 2.0,
-                                       ms_init, ms_pso, 42, states, Fn{});
-
-    REQUIRE(pointerStatus(ptr) == 3);
+  REQUIRE_THROWS_AS(
+    (pso::launch<Fn, DIM>(
+      PSO_ITER, N, -2.0, 2.0, ms_init, ms_pso, 42, states, Fn{})),
+    cuda_exception<3>);
 }
 
-TEST_CASE("pso::launch returns 4 (KERNEL_ERROR) when the kernel launch fails",
+TEST_CASE("pso::launch throws cuda_exception<4> when the kernel launch fails",
           "[pso][kernel-error]")
 {
-    using Fn  = util::Rosenbrock<2>;
-    constexpr int DIM       = 2;
-    constexpr int PSO_ITER  = 10;
+  using Fn = util::Rosenbrock<2>;
+  constexpr int DIM = 2;
+  constexpr int PSO_ITER = 10;
 
-    // This deliberately supplies no RNG state array.
-    // the kernel dereferences it, so the first launch triggers an invalid-device-pointer
-    // error which `pso::launch` must translate to KERNEL_ERROR.
-    curandState* states = nullptr;
+  // This deliberately supplies no RNG state array.
+  // the kernel dereferences it, so the first launch triggers an
+  // invalid-device-pointer error which `pso::launch` must translate to
+  // KERNEL_ERROR.
+  curandState* states = nullptr;
 
-    float ms_init = 0.0f, ms_pso = 0.0f;
-    const int N = 512;
+  float ms_init = 0.0f, ms_pso = 0.0f;
+  const int N = 512;
 
-    double* ptr = pso::launch<Fn, DIM>(PSO_ITER, N, -2.0, 2.0,
-                                       ms_init, ms_pso, 99, states, Fn{});
-
-    REQUIRE(pointerStatus(ptr) == 4);
+  REQUIRE_THROWS_AS(
+    (pso::launch<Fn, DIM>(
+      PSO_ITER, N, -2.0, 2.0, ms_init, ms_pso, 99, states, Fn{})),
+    cuda_exception<4>);
 }
-
