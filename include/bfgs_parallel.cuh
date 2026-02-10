@@ -12,8 +12,8 @@ namespace bfgs {
   namespace parallel {
     namespace cg = cooperative_groups;
 
-    // Parallel forward-mode AD across dimensions using a tile of size TS.
-    // TS must divide 32 (so tiles don’t cross warp boundaries).
+    /// Parallel forward-mode AD across dimensions using a tile of size TS.
+    /// TS must divide 32 (so tiles don’t cross warp boundaries).
     template <class Function, int DIM, int TS>
     __device__ void
     grad_ad_tile(const Function& f,
@@ -53,7 +53,7 @@ namespace bfgs {
       tile.sync();
     }
 
-    // match the kernel's chooser
+    /// Compile-time tile size selection based on problem dimensionality.
     template <int DIM>
     struct tile_size {
       static constexpr int value = (DIM >= 32 ? 32 :
@@ -64,7 +64,7 @@ namespace bfgs {
                                                 1);
     };
 
-    // kernel for one tile = one BFGS optimization
+    /// Parallel BFGS kernel where each tile performs one optimization.
     template <typename Function,
               std::size_t DIM = zeus::fn_traits<Function>::arity,
               int TS>
@@ -258,7 +258,7 @@ namespace bfgs {
       }
     }
 
-    // helper to compute dynamic shmem for a given block size
+    /// Calculate shared memory bytes needed for optimize_tiles kernel.
     template <int DIM, int TS>
     static size_t
     smem_for_block(int block_threads)
@@ -269,6 +269,8 @@ namespace bfgs {
       return size_t(tilesPerBlock) * perTileDoubles * sizeof(double);
     }
 
+    /// Launch parallel BFGS optimization with N independent optimizations.
+    /// Uses tile-based parallelism for cooperative gradient computation.
     template <typename Function,
               std::size_t DIM = zeus::fn_traits<Function>::arity>
     Result<DIM>

@@ -10,6 +10,9 @@
 
 namespace bfgs {
   namespace sequential {
+    /// Sequential BFGS optimization kernel.
+    /// Each thread performs one independent BFGS optimization using
+    /// automatic differentiation for gradient computation.
     template <typename Function, int DIM, unsigned int blockSize>
     __global__ void
     optimize(Function f,
@@ -236,6 +239,9 @@ namespace bfgs {
     } // end optimizerKernel
 
     inline Metrics
+    /// Report performance metrics and cleanup device memory.
+    /// Computes timing statistics for AD or BFGS operations and frees
+    /// the provided device buffers.
     report_metrics_and_cleanup(
       const char* label,
       int N,
@@ -381,6 +387,9 @@ namespace bfgs {
     }
 
     template <typename Function,
+              /// Launch sequential BFGS optimization with N independent
+              /// optimizations. Each thread performs one complete BFGS
+              /// optimization independently.
               std::size_t DIM = zeus::fn_traits<Function>::arity>
     Result<DIM>
     launch(size_t N,

@@ -8,6 +8,9 @@
 
 namespace bfgs {
 
+  /// Initialize CURAND states for N parallel optimizations.
+  /// Allocates device memory and launches kernel to set up PRNG states.
+  /// Returns pointer to device memory containing initialized states.
   inline curandState*
   initialize_states(int N, int seed, float& ms_rand)
   {
@@ -31,6 +34,8 @@ namespace bfgs {
     return d_states;
   }
 
+  /// Device helper to populate a Result structure.
+  /// Used by BFGS kernels to record optimization outcomes.
   template <int DIM>
   __device__ void
   write_result(Result<DIM>& r,
@@ -51,11 +56,12 @@ namespace bfgs {
     }
   }
 
+  /// Find and return the best result from N parallel optimizations.
+  /// Uses CUB's DeviceReduce::ArgMin to find the minimum function value,
+  /// then prints and returns the corresponding Result.
   template <int DIM>
   Result<DIM>
-  launch_reduction(int N,
-                   double* deviceResults,
-                   Result<DIM> const* h_results)
+  launch_reduction(int N, double* deviceResults, Result<DIM> const* h_results)
   {
     // ArgMin & final print
     cub::KeyValuePair<int, double>* deviceArgMin;

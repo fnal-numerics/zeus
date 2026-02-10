@@ -47,7 +47,7 @@ namespace zeus {
          double tolerance,
          int seed,
          int run,
-	 bool parallel)
+         bool parallel)
     {
       float ms_rand = 0.0f;
       curandState* states = bfgs::initialize_states(N, seed, ms_rand);
@@ -81,43 +81,43 @@ namespace zeus {
         }
       } // end if pso_iter > 0
 
-      Result<DIM> best; 
+      Result<DIM> best;
       float ms_opt = 0.0f;
-      if(run != 0){
+      if (run != 0) {
         std::cout << "parallel" << "\n";
-      best = bfgs::parallel::launch(N,
-                                 PSO_ITER,
-                                 MAX_ITER,
-                                 upper,
-                                 lower,
-                                 pso_results_device.data(),
-                                 deviceTrajectory,
-                                 requiredConverged,
-                                 tolerance,
-                                 save_trajectories,
-                                 ms_opt,
-                                 fun_name,
-                                 states,
-                                 run,
-                                 f);
+        best = bfgs::parallel::launch(N,
+                                      PSO_ITER,
+                                      MAX_ITER,
+                                      upper,
+                                      lower,
+                                      pso_results_device.data(),
+                                      deviceTrajectory,
+                                      requiredConverged,
+                                      tolerance,
+                                      save_trajectories,
+                                      ms_opt,
+                                      fun_name,
+                                      states,
+                                      run,
+                                      f);
       } else {
 
         std::cout << "sequential" << "\n";
-      best = bfgs::sequential::launch(N,
-                                 PSO_ITER,
-                                 MAX_ITER,
-                                 upper,
-                                 lower,
-                                 pso_results_device.data(),
-                                 deviceTrajectory,
-                                 requiredConverged,
-                                 tolerance,
-                                 save_trajectories,
-                                 ms_opt,
-                                 fun_name,
-                                 states,
-                                 run,
-                                 f);
+        best = bfgs::sequential::launch(N,
+                                        PSO_ITER,
+                                        MAX_ITER,
+                                        upper,
+                                        lower,
+                                        pso_results_device.data(),
+                                        deviceTrajectory,
+                                        requiredConverged,
+                                        tolerance,
+                                        save_trajectories,
+                                        ms_opt,
+                                        fun_name,
+                                        states,
+                                        run,
+                                        f);
       }
       double error =
         util::calculate_euclidean_error(fun_name, best.coordinates, DIM);
@@ -132,7 +132,7 @@ namespace zeus {
                                  PSO_ITER,
                                  error,
                                  run,
-				 best);
+                                 best);
       cudaError_t cuda_error = cudaGetLastError();
       if (cuda_error != cudaSuccess) {
         printf("CUDA error: %s\n", cudaGetErrorString(cuda_error));
@@ -154,7 +154,7 @@ namespace zeus {
        double tolerance,
        int seed,
        int run,
-       bool parallel=true)
+       bool parallel = true)
   {
     static_assert(
       std::is_same_v<decltype(f(
@@ -178,7 +178,7 @@ namespace zeus {
                       tolerance,
                       seed,
                       run,
-		      parallel);
+                      parallel);
   }
 
 } // end zeus namespace
