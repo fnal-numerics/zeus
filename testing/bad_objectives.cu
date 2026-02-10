@@ -1,4 +1,4 @@
-#include "bfgs.cuh"  // bfgs::optimizeKernel
+#include "bfgs_sequential.cuh"  // bfgs::sequential::optimize
 #include "duals.cuh" // dual::DualNumber
 #include <array>
 
@@ -31,7 +31,7 @@ instantiate_bad1()
   Result<DIM>* d_out = nullptr;
 
   // should trigger static_assert -- wrong signature for double)
-  bfgs::optimizeKernel<BadObjective1, DIM, 128><<<1, 128>>>(BadObjective1{},
+  bfgs::sequential::optimize<BadObjective1, DIM, 128><<<1, 128>>>(BadObjective1{},
                                                             0.0,
                                                             1.0,
                                                             d_pso,
@@ -55,7 +55,7 @@ instantiate_bad2()
 
   // this should pass the first check but trigger the static_assert (no
   // DualNumber overload).
-  bfgs::optimizeKernel<BadObjective2, DIM, 128><<<1, 128>>>(BadObjective2{},
+  bfgs::sequential::optimize<BadObjective2, DIM, 128><<<1, 128>>>(BadObjective2{},
                                                             0.0,
                                                             1.0,
                                                             d_pso,

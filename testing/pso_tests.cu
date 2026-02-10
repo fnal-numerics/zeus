@@ -12,7 +12,7 @@ using Catch::Approx;
 #include "utils.cuh"
 #include "pso.cuh"
 #include "fun.h"
-#include "bfgs.cuh"
+#include "bfgs_common.cuh"
 
 using namespace zeus;
 

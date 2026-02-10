@@ -6,7 +6,7 @@ using Catch::Approx;
 #include <curand_kernel.h>
 #include <string>
 
-#include "bfgs.cuh"
+#include "bfgs_sequential.cuh"
 #include "fun.h"
 #include "utils.cuh"
 

@@ -1,0 +1,96 @@
+#pragma once
+
+#include <cub/cub.cuh>
+#include <cuda_runtime.h>
+
+#include "utils.cuh"
+#include "context.cuh"
+
+namespace bfgs {
+
+  inline curandState*
+  initialize_states(int N, int seed, float& ms_rand)
+  {
+    // PRNG setup
+    curandState* d_states;
+    cudaMalloc(&d_states, N * sizeof(curandState));
+
+    // Launch setup
+    int threads = 256;
+    int blocks = (N + threads - 1) / threads;
+    cudaEvent_t t0, t1;
+    cudaEventCreate(&t0);
+    cudaEventCreate(&t1);
+    cudaEventRecord(t0);
+    util::setup_curand_states<<<blocks, threads>>>(
+      util::non_null{d_states}, seed, N);
+    cudaEventRecord(t1);
+    cudaEventSynchronize(t1);
+    cudaEventElapsedTime(&ms_rand, t0, t1);
+    cudaDeviceSynchronize();
+    return d_states;
+  }
+
+  template <int DIM>
+  __device__ void
+  write_result(Result<DIM>& r,
+               int status,
+               double fval,
+               const double* coordinates,
+               double gradientNorm,
+               int iter,
+               int idx)
+  {
+    r.status = status;
+    r.iter = iter;
+    r.fval = fval;
+    r.idx = idx;
+    r.gradientNorm = gradientNorm;
+    for (int d = 0; d < DIM; ++d) {
+      r.coordinates[d] = coordinates[d];
+    }
+  }
+
+  template <int DIM>
+  Result<DIM>
+  launch_reduction(int N,
+                   double* deviceResults,
+                   Result<DIM> const* h_results)
+  {
+    // ArgMin & final print
+    cub::KeyValuePair<int, double>* deviceArgMin;
+    cudaMalloc(&deviceArgMin, sizeof(*deviceArgMin));
+    void* d_temp_storage = nullptr;
+    size_t temp_bytes = 0;
+    cub::DeviceReduce::ArgMin(
+      d_temp_storage, temp_bytes, deviceResults, deviceArgMin, N);
+    cudaMalloc(&d_temp_storage, temp_bytes);
+    cub::DeviceReduce::ArgMin(
+      d_temp_storage, temp_bytes, deviceResults, deviceArgMin, N);
+
+    cub::KeyValuePair<int, double> h_argMin;
+    cudaMemcpy(
+      &h_argMin, deviceArgMin, sizeof(h_argMin), cudaMemcpyDeviceToHost);
+
+    int globalMinIndex = h_argMin.key;
+
+    // print the "best" thread's full record
+    Result best = h_results[globalMinIndex];
+    printf("Global best summary:\n");
+    printf("   idx          = %d\n", best.idx);
+    printf("   status       = %d\n", best.status);
+    printf("   fval         = %.7e\n", best.fval);
+    printf("   gradientNorm = %.7e\n", best.gradientNorm);
+    printf("   iter         = %d\n", best.iter);
+    printf("   coords       = [");
+    for (int d = 0; d < DIM; ++d) {
+      printf(" %.7e", best.coordinates[d]);
+    }
+    printf(" ]\n");
+
+    cudaFree(deviceArgMin);
+    cudaFree(d_temp_storage);
+    return best;
+  }
+
+} // namespace bfgs

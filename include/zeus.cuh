@@ -6,7 +6,9 @@
 #include "duals.cuh"
 #include "pso.cuh"
 #include "utils.cuh"
-#include "bfgs.cuh"
+#include "bfgs_common.cuh"
+#include "bfgs_sequential.cuh"
+#include "bfgs_parallel.cuh"
 #include "traits.hpp"
 #include "cuda_buffer.cuh"
 
