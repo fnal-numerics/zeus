@@ -26,5 +26,9 @@ remote-test:
 	@echo "🧪 Running tests on $(REMOTE_HOST)..."
 	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; cd build && ctest --output-on-failure"
 
+remote-test-non-null: remote-sync
+	@echo "🧪 Running non_null tests on $(REMOTE_HOST)..."
+	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; mkdir -p build && cd build && cmake -G 'Unix Makefiles' .. && cmake --build . -j && ./non_null_tests"
+
 remote-shell:
 	ssh -t $(REMOTE_HOST) "cd $(REMOTE_DIR); bash --login"
