@@ -49,18 +49,19 @@ TEST_CASE("pso::initKernel sets pBest & gBest for util::Rastrigin<2>",
   }
 
   // run initKernel<Function,DIM>
-  pso::initKernel<util::Rastrigin<DIM>, DIM><<<1, N>>>(util::Rastrigin<DIM>(),
-                                                       lower,
-                                                       upper,
-                                                       dX,
-                                                       dV,
-                                                       dPBestX,
-                                                       dPBestVal,
-                                                       dGBestX,
-                                                       dGBestVal,
-                                                       N,
-                                                       seed,
-                                                       d_states);
+  pso::initKernel<util::Rastrigin<DIM>, DIM>
+    <<<1, N>>>(util::Rastrigin<DIM>(),
+               lower,
+               upper,
+               util::non_null{dX},
+               util::non_null{dV},
+               util::non_null{dPBestX},
+               util::non_null{dPBestVal},
+               util::non_null{dGBestX},
+               util::non_null{dGBestVal},
+               N,
+               seed,
+               util::non_null{d_states});
   cudaDeviceSynchronize();
 
   // copy back
@@ -130,24 +131,25 @@ TEST_CASE("pso::iterKernel inertia‐only updates X and V for 4 particles in 1D"
   cudaMemcpy(dGBestVal, &hGBV, sizeof(double), cudaMemcpyHostToDevice);
 
   // launch one iteration: w=0.5, c1=c2=0
-  pso::iterKernel<util::Rastrigin<DIM>, DIM><<<1, N>>>(util::Rastrigin<DIM>(),
-                                                       lower,
-                                                       upper,
-                                                       0.5, // inertia
-                                                       0.0, // cognitive
-                                                       0.0, // social
-                                                       dX,
-                                                       dV,
-                                                       dPBestX,
-                                                       dPBestVal,
-                                                       dGBestX,
-                                                       dGBestVal,
-                                                       nullptr,
-                                                       false,
-                                                       N,
-                                                       /*iter=*/0,
-                                                       seed,
-                                                       d_states);
+  pso::iterKernel<util::Rastrigin<DIM>, DIM>
+    <<<1, N>>>(util::Rastrigin<DIM>(),
+               lower,
+               upper,
+               0.5, // inertia
+               0.0, // cognitive
+               0.0, // social
+               util::non_null{dX},
+               util::non_null{dV},
+               util::non_null{dPBestX},
+               util::non_null{dPBestVal},
+               util::non_null{dGBestX},
+               util::non_null{dGBestVal},
+               nullptr,
+               false,
+               N,
+               /*iter=*/0,
+               seed,
+               util::non_null{d_states});
   cudaDeviceSynchronize();
 
   // 5) copy back and verify: v1 = 0.5*v0, x1 = x0 + v1
@@ -192,18 +194,19 @@ TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
   cudaMalloc(&dGBestVal, sizeof(double));
 
   // init
-  pso::initKernel<util::Rastrigin<DIM>, DIM><<<1, N>>>(util::Rastrigin<DIM>(),
-                                                       lower,
-                                                       upper,
-                                                       dX,
-                                                       dV,
-                                                       dPBestX,
-                                                       dPBestVal,
-                                                       dGBestX,
-                                                       dGBestVal,
-                                                       N,
-                                                       seed,
-                                                       d_states);
+  pso::initKernel<util::Rastrigin<DIM>, DIM>
+    <<<1, N>>>(util::Rastrigin<DIM>(),
+               lower,
+               upper,
+               util::non_null{dX},
+               util::non_null{dV},
+               util::non_null{dPBestX},
+               util::non_null{dPBestVal},
+               util::non_null{dGBestX},
+               util::non_null{dGBestVal},
+               N,
+               seed,
+               util::non_null{d_states});
   cudaDeviceSynchronize();
 
   // 3) snapshot pre‐iter
@@ -216,24 +219,25 @@ TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
   copyDevice(dGBestVal, &hGV0, 1);
 
   // 4) one iteration with w=c1=c2=0
-  pso::iterKernel<util::Rastrigin<DIM>, DIM><<<1, N>>>(util::Rastrigin<DIM>(),
-                                                       lower,
-                                                       upper,
-                                                       0.0,
-                                                       0.0,
-                                                       0.0, // w, c1, c2
-                                                       dX,
-                                                       dV,
-                                                       dPBestX,
-                                                       dPBestVal,
-                                                       dGBestX,
-                                                       dGBestVal,
-                                                       nullptr,
-                                                       false,
-                                                       N,
-                                                       0,
-                                                       seed,
-                                                       d_states);
+  pso::iterKernel<util::Rastrigin<DIM>, DIM>
+    <<<1, N>>>(util::Rastrigin<DIM>(),
+               lower,
+               upper,
+               0.0,
+               0.0,
+               0.0, // w, c1, c2
+               util::non_null{dX},
+               util::non_null{dV},
+               util::non_null{dPBestX},
+               util::non_null{dPBestVal},
+               util::non_null{dGBestX},
+               util::non_null{dGBestVal},
+               nullptr,
+               false,
+               N,
+               0,
+               seed,
+               util::non_null{d_states});
   cudaDeviceSynchronize();
 
   // 5) snapshot post‐iter
@@ -296,11 +300,12 @@ TEST_CASE("pso::launch throws cuda_exception<3> when overflowing the memory")
   // now launch PSO with a 'normal' problem size
   using Fn = util::Rosenbrock<2>;
   constexpr int DIM = 2;
-  float ms0 = 0.0f, ms1 = 0.0f;
-  curandState* states = nullptr;
+  const int N = 512;
+  float ms0 = 0.0f, ms1 = 0.0f, ms_rand = 0.0f;
+  curandState* states = bfgs::initialize_states(N, 42, ms_rand);
 
   REQUIRE_THROWS_AS((pso::launch<Fn, DIM>(/*PSO_ITER*/ 10,
-                                          /*N*/ 512,
+                                          /*N*/ N,
                                           /*lower*/ -2.0,
                                           /*upper*/ 2.0,
                                           ms0,
@@ -310,6 +315,7 @@ TEST_CASE("pso::launch throws cuda_exception<3> when overflowing the memory")
                                           Fn{})),
                     cuda_exception<4>);
 
+  cudaFree(states);
   // clean up the scrap buffers so the rest of the suite runs ‐─
   for (void* p : scraps)
     cudaFree(p);
@@ -325,13 +331,15 @@ TEST_CASE("pso::launch throws cuda_exception<3> when cudaMalloc fails",
   // pick an absurdly large N so that at least one cudaMalloc fails
   const int N = std::numeric_limits<int>::max() / DIM; // ≈1 G x DIM doubles
 
-  float ms_init = 0.0f, ms_pso = 0.0f;
-  curandState* states = nullptr;
+  float ms_init = 0.0f, ms_pso = 0.0f, ms_rand = 0.0f;
+  curandState* states = bfgs::initialize_states(512, 42, ms_rand);
 
   REQUIRE_THROWS_AS(
     (pso::launch<Fn, DIM>(
       PSO_ITER, N, -2.0, 2.0, ms_init, ms_pso, 42, states, Fn{})),
     cuda_exception<3>);
+
+  cudaFree(states);
 }
 
 TEST_CASE("pso::launch throws cuda_exception<4> when the kernel launch fails",
@@ -340,16 +348,14 @@ TEST_CASE("pso::launch throws cuda_exception<4> when the kernel launch fails",
   using Fn = util::Rosenbrock<2>;
   constexpr int DIM = 2;
   constexpr int PSO_ITER = 10;
-
-  // This deliberately supplies no RNG state array.
-  // the kernel dereferences it, so the first launch triggers an
-  // invalid-device-pointer error which `pso::launch` must translate to
-  // KERNEL_ERROR.
-  curandState* states = nullptr;
-
-  float ms_init = 0.0f, ms_pso = 0.0f;
   const int N = 512;
 
+  float ms_init = 0.0f, ms_pso = 0.0f, ms_rand = 0.0f;
+  curandState* states = bfgs::initialize_states(N, 99, ms_rand);
+
+  // Force a kernel error by freeing states before launch
+  cudaFree(states);
+  
   REQUIRE_THROWS_AS(
     (pso::launch<Fn, DIM>(
       PSO_ITER, N, -2.0, 2.0, ms_init, ms_pso, 99, states, Fn{})),

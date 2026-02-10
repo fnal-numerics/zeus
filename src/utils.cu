@@ -1,19 +1,7 @@
 #include "utils.cuh"
 #include <string>
 
-namespace bfgs {
-namespace sequential {
-   __device__ int d_stopFlag;
-   __device__ int d_convergedCount;
-   __device__ int d_threadsRemaining;
-}
-
-namespace parallel {
-   __device__ int d_stopFlag;
-   __device__ int d_convergedCount;
-   __device__ int d_threadsRemaining;
-}
-}
+namespace bfgs {}
 
 namespace util {
 
@@ -29,7 +17,7 @@ namespace util {
     if (err != cudaSuccess) {
       printf("cudaDeviceSetLimit Stack error: %s\n", cudaGetErrorString(err));
     }
-    
+
     // get current device ID
     int device;
     err = cudaGetDevice(&device);
@@ -49,13 +37,19 @@ namespace util {
     // Use total free memory as heap size
     size_t freeBytes = 0, total = 0;
     cudaMemGetInfo(&freeBytes, &total);
-    printf("GPU reporting %.2f GB free of %.2f GB total\n",freeBytes/1e9, total/1e9);
+    printf("GPU reporting %.2f GB free of %.2f GB total\n",
+           freeBytes / 1e9,
+           total / 1e9);
     size_t newHeap = freeBytes;
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
     if (err != cudaSuccess) {
-      printf("Failed to set heap to %zu bytes: %s\n",newHeap, cudaGetErrorString(err));
+      printf("Failed to set heap to %zu bytes: %s\n",
+             newHeap,
+             cudaGetErrorString(err));
     } else {
-      printf("Successfully set heap size to %zu bytes (%.2f GB)\n", newHeap, newHeap / (1024.0 * 1024.0 * 1024.0));
+      printf("Successfully set heap size to %zu bytes (%.2f GB)\n",
+             newHeap,
+             newHeap / (1024.0 * 1024.0 * 1024.0));
     }
   }
 
@@ -228,12 +222,12 @@ namespace util {
   }
 
   __global__ void
-  setup_curand_states(curandState* states, uint64_t seed, int N)
+  setup_curand_states(util::non_null<curandState*> states, uint64_t seed, int N)
   {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= N)
-      return;
-    curand_init(seed, idx, 0, &states[idx]);
+    if (idx < N) {
+      curand_init(seed, idx, 0, &states[idx]);
+    }
   }
 
   __device__ double

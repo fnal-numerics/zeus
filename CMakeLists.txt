@@ -21,7 +21,6 @@ find_package(CUDAToolkit REQUIRED)
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 add_library(util
-    src/bfgs.cu
     src/utils.cu
     src/util.cpp
     include/util.hpp
@@ -52,6 +51,10 @@ target_compile_options(zeus_test PRIVATE
 target_include_directories(zeus_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(zeus_test PRIVATE  util  CUDA::cudart)
 target_link_libraries(zeus_test PUBLIC util CUDA::cudart) # build util into zeus
+
+add_executable(non_null_tests testing/non_null_tests.cu)
+target_link_libraries(non_null_tests PRIVATE util Catch2::Catch2WithMain CUDA::cudart)
+add_test(NAME non_null_tests COMMAND non_null_tests)
 
 #target_compile_options(zeus_test PRIVATE  $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>)
 

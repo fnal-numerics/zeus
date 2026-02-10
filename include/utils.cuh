@@ -2,18 +2,67 @@
 
 #include <curand_kernel.h> // for curandState
 #include <cassert>
+#include <stdexcept>
 
 #include "util.hpp"
 #include "device_matrix.cuh"
 
+inline constexpr double malloc_error = 3.0; // value 3.0
+inline constexpr double kernel_error = 4.0; // value 4.0
 
-inline constexpr double malloc_error = 3.0;   // value 3.0
-inline constexpr double kernel_error = 4.0;      // value 4.0
-
-inline double *const MALLOC_ERROR = const_cast<double*>(&malloc_error);
-inline double *const KERNEL_ERROR = const_cast<double*>(&kernel_error);
+inline double* const MALLOC_ERROR = const_cast<double*>(&malloc_error);
+inline double* const KERNEL_ERROR = const_cast<double*>(&kernel_error);
 
 namespace util {
+
+  template <typename T>
+  struct non_null {
+    T ptr;
+
+    __host__ __device__ explicit non_null(const T p) : ptr(p)
+    {
+#ifndef __CUDA_ARCH__
+      if (p == nullptr) {
+        throw std::invalid_argument(
+          "util::non_null: construction from nullptr");
+      }
+#endif
+    }
+
+    template <typename U,
+              typename = std::enable_if_t<std::is_convertible_v<U, T>>>
+    __host__ __device__
+    non_null(const non_null<U>& other)
+      : ptr(other.get())
+    {}
+
+    // Disable construction from nullptr literal
+    non_null(std::nullptr_t) = delete;
+    non_null& operator=(std::nullptr_t) = delete;
+
+    __host__ __device__ T
+    get() const
+    {
+      return ptr;
+    }
+    __host__ __device__ T
+    operator->() const
+    {
+      return ptr;
+    }
+    __host__ __device__ auto&
+    operator*() const
+    {
+      return *ptr;
+    }
+
+    // Implicit conversion to the underlying pointer type
+    __host__ __device__
+    operator T() const
+    {
+      return ptr;
+    }
+  };
 
   extern "C" {
   __device__ __noinline__ void vector_add(const double*,
@@ -26,8 +75,9 @@ namespace util {
                                             int);
   }
 
-  template<class... Ptrs>
-  inline void freeCudaPtrs(Ptrs... ptrs)
+  template <class... Ptrs>
+  inline void
+  freeCudaPtrs(Ptrs... ptrs)
   {
     (cudaFree(ptrs), ...);
   }
@@ -65,7 +115,9 @@ namespace util {
 
   template <int DIM>
   __device__ void
-  compute_search_direction(double* p, const DeviceMatrix<double>* H, const double* g)
+  compute_search_direction(double* p,
+                           const DeviceMatrix<double>* H,
+                           const double* g)
   {
     for (int i = 0; i < DIM; i++) {
       double sum = 0.0;
@@ -139,13 +191,17 @@ namespace util {
   // BFGS update with compile-time dimension
   template <int DIM>
   __device__ void
-  bfgs_update(DeviceMatrix<double>* H, const double* s, const double* y, double sTy, DeviceMatrix<double>* Htmp)
+  bfgs_update(DeviceMatrix<double>* H,
+              const double* s,
+              const double* y,
+              double sTy,
+              DeviceMatrix<double>* Htmp)
   {
     if (::fabs(sTy) < 1e-14)
       return;
     double rho = 1.0 / sTy;
 
-    initialize_identity_matrix(Htmp,DIM);
+    initialize_identity_matrix(Htmp, DIM);
     // Compute H_new element-wise without allocating large temporary matrices.
     // H_new = (I - rho * s * y^T) * H * (I - rho * y * s^T) + rho * s * s^T
 
@@ -238,7 +294,7 @@ namespace util {
                                            double lower,
                                            double upper);
 
-  __global__ void setup_curand_states(curandState* states,
+  __global__ void setup_curand_states(non_null<curandState*> states,
                                       uint64_t seed,
                                       int N);
 

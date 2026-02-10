@@ -397,42 +397,65 @@ struct BadObjective {
 
 TEST_CASE("good/bad objective test", "[bfgs][objective]")
 {
-  curandState* states = nullptr;
-  // dummy device pointers:
-  double* d_pso = nullptr;
-  double* d_results = nullptr;
   const int N = 1, MAX_ITER = 1, requiredConverged = 1;
   const double lower = 0.0, upper = 1.0, tolerance = 1e-6;
-  Result<DIM>* d_out = nullptr;
+  
+  // Allocate required device pointers
+  float ms_rand = 0.0f;
+  curandState* states = bfgs::initialize_states(N, 42, ms_rand);
+  
+  double* d_pso;
+  cudaMalloc(&d_pso, N * DIM * sizeof(double));
+  
+  double* d_results;
+  cudaMalloc(&d_results, N * sizeof(double));
+  
+  Result<DIM>* d_out;
+  cudaMalloc(&d_out, N * sizeof(Result<DIM>));
+
+  // Allocate context
+  util::BFGSContext* d_ctx;
+  cudaMalloc(&d_ctx, sizeof(util::BFGSContext));
+  util::BFGSContext h_ctx = {0, 0};
+  cudaMemcpy(d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
 
   // This **should compile** without error:
-  bfgs::sequential::optimize<GoodObjective, DIM, 128><<<1, 128>>>(GoodObjective(),
-                                                            lower,
-                                                            upper,
-                                                            d_pso,
-                                                            d_results,
-                                                            nullptr,
-                                                            N,
-                                                            MAX_ITER,
-                                                            requiredConverged,
-                                                            tolerance,
-                                                            d_out,
-                                                            states);
+  bfgs::sequential::optimize<GoodObjective, DIM, 128>
+    <<<1, 128>>>(GoodObjective(),
+                 lower,
+                 upper,
+                 d_pso,
+                 util::non_null{d_results},
+                 nullptr,
+                 N,
+                 MAX_ITER,
+                 requiredConverged,
+                 tolerance,
+                 util::non_null{d_out},
+                 util::non_null{states},
+                 util::non_null{d_ctx});
+  
+  cudaFree(d_ctx);
+  cudaFree(d_out);
+  cudaFree(d_results);
+  cudaFree(d_pso);
+  cudaFree(states);
 
   // This **must fail** to compile, triggering static_assert:
 #if (0)
-  bfgs::sequential::optimize<BadObjective, DIM, 128><<<1, 128>>>(BadObjective(),
-                                                           lower,
-                                                           upper,
-                                                           d_pso,
-                                                           d_results,
-                                                           nullptr,
-                                                           N,
-                                                           MAX_ITER,
-                                                           requiredConverged,
-                                                           tolerance,
-                                                           d_out,
-                                                           states);
+  bfgs::sequential::optimize<BadObjective, DIM, 128>
+    <<<1, 128>>>(BadObjective(),
+                 lower,
+                 upper,
+                 d_pso,
+                 d_results,
+                 nullptr,
+                 N,
+                 MAX_ITER,
+                 requiredConverged,
+                 tolerance,
+                 d_out,
+                 states);
   dual::calculateGradientUsingAD(BadObjective, , ga);
 #endif
 }

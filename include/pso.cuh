@@ -7,9 +7,7 @@
 using namespace zeus;
 
 namespace bfgs {
-  extern __device__ int d_stopFlag; // 0 = keep going; 1 = stop immediately
-  extern __device__ int d_convergedCount; // how many threads have converged?
-  extern __device__ int d_threadsRemaining;
+  // BFGSContext is now used instead of global device variables
 }
 
 namespace pso {
@@ -21,15 +19,15 @@ namespace pso {
   initKernel(Function func,
              double lower,
              double upper,
-             double* X,
-             double* V,
-             double* pBestX,
-             double* pBestVal,
-             double* gBestX,
-             double* gBestVal,
+             util::non_null<double*> X,
+             util::non_null<double*> V,
+             util::non_null<double*> pBestX,
+             util::non_null<double*> pBestVal,
+             util::non_null<double*> gBestX,
+             util::non_null<double*> gBestVal,
              int N,
              uint64_t seed,
-             curandState* states)
+             util::non_null<curandState*> states)
   {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= N)
@@ -77,18 +75,18 @@ namespace pso {
              double w,  // weight inertia
              double c1, // cognitive coefficient
              double c2, // social coefficient
-             double* X,
-             double* V,
-             double* pBestX,
-             double* pBestVal,
-             double* gBestX,
-             double* gBestVal,
+             util::non_null<double*> X,
+             util::non_null<double*> V,
+             util::non_null<double*> pBestX,
+             util::non_null<double*> pBestVal,
+             util::non_null<double*> gBestX,
+             util::non_null<double*> gBestVal,
              double* traj, // pass nullptr if not saving
              bool saveTraj,
              int N,
              int iter,
              uint64_t seed,
-             curandState* states)
+             util::non_null<curandState*> states)
   // iteration
   {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -193,38 +191,40 @@ namespace pso {
          curandState* states,
          Function fun)
   { //, Result<DIM>& best) {
-    static_assert(!std::is_reference<decltype(fun)>::value,"ZEUS: function must be passed by VALUE to kernels (no &).");
+    static_assert(!std::is_reference<decltype(fun)>::value,
+                  "ZEUS: function must be passed by VALUE to kernels (no &).");
 
     // allocate PSO buffers on device
     size_t freeBytes = 0, total = 0;
     cudaMemGetInfo(&freeBytes, &total);
-    size_t sizeX        = size_t(N) * DIM;
+    size_t sizeX = size_t(N) * DIM;
     size_t sizePBestVal = size_t(N);
-    size_t sizeF        = sizePBestVal;                    // same size as N doubles
-    size_t sizeGBestX   = DIM;
- 
-   size_t need = sizeof(double) * (sizeX * 3   // X, V, PBestX
-            + sizePBestVal * 2         // PBestVal, F
-            + sizeGBestX + 1 );//sizeof(double);              // GBestX + Val
-    printf("GPU reporting %.2f GB free of %.2f GB total\n",freeBytes/1e9, total/1e9);
-    printf("Need %.2f GB for PSO buffers\n", need/1e9);
+    size_t sizeF = sizePBestVal; // same size as N doubles
+    size_t sizeGBestX = DIM;
+
+    size_t need =
+      sizeof(double) *
+      (sizeX * 3          // X, V, PBestX
+       + sizePBestVal * 2 // PBestVal, F
+       + sizeGBestX + 1); // sizeof(double);              // GBestX + Val
+    printf("GPU reporting %.2f GB free of %.2f GB total\n",
+           freeBytes / 1e9,
+           total / 1e9);
+    printf("Need %.2f GB for PSO buffers\n", need / 1e9);
     if (need > freeBytes) {
-      
+
       throw cuda_exception<3>("Not enough device memory for PSO buffers");
-   } 
-   // once we know we have enough memory, we can allocate it
+    }
+    // once we know we have enough memory, we can allocate it
     try { // resource acquisition is initialization
-      dbuf dX (sizeX);
-      dbuf dV (sizeX);
-      dbuf dPBestX (sizeX);
-      dbuf dPBestVal (sizePBestVal);
-      dbuf dGBestX (sizeGBestX);
-      dbuf dGBestVal (1);
-      dbuf dF (sizeF); 
-      int zero = 0;
-      cudaMemcpyToSymbol(bfgs::d_stopFlag, &zero, sizeof(int));
-      cudaMemcpyToSymbol(bfgs::d_threadsRemaining, &N, sizeof(int));
-      cudaMemcpyToSymbol(bfgs::d_convergedCount, &zero, sizeof(int));
+      dbuf dX(sizeX);
+      dbuf dV(sizeX);
+      dbuf dPBestX(sizeX);
+      dbuf dPBestVal(sizePBestVal);
+      dbuf dGBestX(sizeGBestX);
+      dbuf dGBestVal(1);
+      dbuf dF(sizeF);
+      // BFGSContext initialization is now handled by bfgs::sequential::launch
       // set seed to infinity
       {
         double inf = std::numeric_limits<double>::infinity();
@@ -235,94 +235,97 @@ namespace pso {
       dim3 psoGrid((N + psoBlock.x - 1) / psoBlock.x);
 
       // host-side buffers for printing
-      //double hostGBestVal;
-      //std::vector<double> hostGBestX(DIM);
+      // double hostGBestVal;
+      // std::vector<double> hostGBestX(DIM);
 
-    // PSO‐init Kernel
-    cudaEvent_t t0, t1;
-    cudaEventCreate(&t0);
-    cudaEventCreate(&t1);
-    cudaEventRecord(t0);
-    initKernel<Function, DIM><<<psoGrid, psoBlock>>>(fun,
-                                                     lower,
-                                                     upper,
-                                                     dX.data(),
-                                                     dV.data(),
-                                                     dPBestX.data(),
-                                                     dPBestVal.data(),
-                                                     dGBestX.data(),
-                                                     dGBestVal.data(),
-                                                     N,
-                                                     seed,
-                                                     states);
-    cudaEventRecord(t1);
-    cudaEventSynchronize(t1);
-    if (cudaGetLastError() != cudaSuccess)
-      throw cuda_exception<4>("PSO initKernel failed");
-    cudaEventElapsedTime(&ms_init, t0, t1);
-#if (0)
-    std::vector<double> hX(N * DIM), hV(N * DIM);
-    std::ofstream out("pso_log.tsv");
-    assert(out && "failed to open pso_log.tsv");
-    out << "iter\tpid";
-    for (int d = 0; d < DIM; ++d)
-      out << "\tx" << d;
-    for (int d = 0; d < DIM; ++d)
-      out << "\tv" << d;
-    out << "\tfval\n";
-    saveIteration<Function, DIM>(0, N, dX.data(), dV.data(), fun, out, hX, hV);
-#endif
-    // copy back and print initial global best
-    auto hostGBestVal = dGBestVal.copy_to_host();
-    auto hostGBestX = dGBestX.copy_to_host();
-    printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
-    for (int d = 0; d < DIM; ++d)
-      printf(" %.4f", hostGBestX[d]);
-    printf(" ]\n\n");
-
-    // PSO iterations
-    // const double w  = 0.7298, c1 = 1.4962, c2 = 1.4962;
-    const double w = 0.5, c1 = 1.2, c2 = 1.5;
-    for (int iter = 1; iter < PSO_ITER + 1; ++iter) {
+      // PSO‐init Kernel
+      cudaEvent_t t0, t1;
+      cudaEventCreate(&t0);
+      cudaEventCreate(&t1);
       cudaEventRecord(t0);
-      iterKernel<Function, DIM><<<psoGrid, psoBlock>>>(fun,
-                                                       lower,
-                                                       upper,
-                                                       w,
-                                                       c1,
-                                                       c2,
-                                                       dX,
-                                                       dV,
-                                                       dPBestX.data(),
-                                                       dPBestVal.data(),
-                                                       dGBestX.data(),
-                                                       dGBestVal.data(),
-                                                       nullptr, // traj
-                                                       false,   // saveTraj
-                                                       N,
-                                                       iter,
-                                                       seed,
-                                                       states); //, best);
+      initKernel<Function, DIM>
+        <<<psoGrid, psoBlock>>>(fun,
+                                lower,
+                                upper,
+                                util::non_null{dX.data()},
+                                util::non_null{dV.data()},
+                                util::non_null{dPBestX.data()},
+                                util::non_null{dPBestVal.data()},
+                                util::non_null{dGBestX.data()},
+                                util::non_null{dGBestVal.data()},
+                                N,
+                                seed,
+                                util::non_null{states});
       cudaEventRecord(t1);
       cudaEventSynchronize(t1);
       if (cudaGetLastError() != cudaSuccess)
-        throw cuda_exception<4>("PSO iterKernel failed");
-      float ms_iter = 0;
-      cudaEventElapsedTime(&ms_iter, t0, t1);
-      hostGBestVal = dGBestVal.copy_to_host();
-      hostGBestX = dGBestX.copy_to_host();
-      //saveIteration<Function, DIM>(iter, N, dX, dV, f, out, hX, hV);
-      ms_pso += ms_iter;
-    } // end pso loop
-    // printf("total pso time = %.3f\n", ms_pso+ms_init);
-    cudaEventDestroy(t0);
-    cudaEventDestroy(t1);
-    return dPBestX; // return the personal best for each particle
- 
-   } catch (cuda_exception<3>&) {
-     // allocation failure 
+        throw cuda_exception<4>("PSO initKernel failed");
+      cudaEventElapsedTime(&ms_init, t0, t1);
+#if (0)
+      std::vector<double> hX(N * DIM), hV(N * DIM);
+      std::ofstream out("pso_log.tsv");
+      assert(out && "failed to open pso_log.tsv");
+      out << "iter\tpid";
+      for (int d = 0; d < DIM; ++d)
+        out << "\tx" << d;
+      for (int d = 0; d < DIM; ++d)
+        out << "\tv" << d;
+      out << "\tfval\n";
+      saveIteration<Function, DIM>(
+        0, N, dX.data(), dV.data(), fun, out, hX, hV);
+#endif
+      // copy back and print initial global best
+      auto hostGBestVal = dGBestVal.copy_to_host();
+      auto hostGBestX = dGBestX.copy_to_host();
+      printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
+      for (int d = 0; d < DIM; ++d)
+        printf(" %.4f", hostGBestX[d]);
+      printf(" ]\n\n");
+
+      // PSO iterations
+      // const double w  = 0.7298, c1 = 1.4962, c2 = 1.4962;
+      const double w = 0.5, c1 = 1.2, c2 = 1.5;
+      for (int iter = 1; iter < PSO_ITER + 1; ++iter) {
+        cudaEventRecord(t0);
+        iterKernel<Function, DIM>
+          <<<psoGrid, psoBlock>>>(fun,
+                                  lower,
+                                  upper,
+                                  w,
+                                  c1,
+                                  c2,
+                                  util::non_null{dX.data()},
+                                  util::non_null{dV.data()},
+                                  util::non_null{dPBestX.data()},
+                                  util::non_null{dPBestVal.data()},
+                                  util::non_null{dGBestX.data()},
+                                  util::non_null{dGBestVal.data()},
+                                  nullptr, // traj
+                                  false,   // saveTraj
+                                  N,
+                                  iter,
+                                  seed,
+                                  util::non_null{states}); //, best);
+        cudaEventRecord(t1);
+        cudaEventSynchronize(t1);
+        if (cudaGetLastError() != cudaSuccess)
+          throw cuda_exception<4>("PSO iterKernel failed");
+        float ms_iter = 0;
+        cudaEventElapsedTime(&ms_iter, t0, t1);
+        hostGBestVal = dGBestVal.copy_to_host();
+        hostGBestX = dGBestX.copy_to_host();
+        // saveIteration<Function, DIM>(iter, N, dX, dV, f, out, hX, hV);
+        ms_pso += ms_iter;
+      } // end pso loop
+      // printf("total pso time = %.3f\n", ms_pso+ms_init);
+      cudaEventDestroy(t0);
+      cudaEventDestroy(t1);
+      return dPBestX; // return the personal best for each particle
+    }
+    catch (cuda_exception<3>&) {
+      // allocation failure
       throw;
-    } 
+    }
   }
 
 } // end namespace pso
