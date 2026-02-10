@@ -10,8 +10,6 @@
 #include "context.cuh"
 #include "traits.hpp"
 
-using namespace zeus;
-
 namespace bfgs {
 
   inline curandState*
@@ -28,7 +26,8 @@ namespace bfgs {
     cudaEventCreate(&t0);
     cudaEventCreate(&t1);
     cudaEventRecord(t0);
-    util::setup_curand_states<<<blocks, threads>>>(util::non_null{d_states}, seed, N);
+    util::setup_curand_states<<<blocks, threads>>>(
+      util::non_null{d_states}, seed, N);
     cudaEventRecord(t1);
     cudaEventSynchronize(t1);
     cudaEventElapsedTime(&ms_rand, t0, t1);
@@ -58,7 +57,9 @@ namespace bfgs {
 
   template <int DIM>
   Result<DIM>
-  launch_reduction(int N, double* deviceResults, Result<DIM> const* h_results)
+  launch_reduction(int N,
+                   double* deviceResults,
+                   Result<DIM> const* h_results)
   {
     // ArgMin & final print
     cub::KeyValuePair<int, double>* deviceArgMin;
@@ -99,26 +100,25 @@ namespace bfgs {
   namespace sequential {
     template <typename Function, int DIM, unsigned int blockSize>
     __global__ void
-    optimize(
-      Function f,
-      const double lower,
-      const double upper,
-      const double* pso_array, // pso initialized positions (optional)
-      util::non_null<double*> deviceResults,
-      double* deviceTrajectory,
-      int N,
-      const int MAX_ITER,
-      const int requiredConverged,
-      const double tolerance,
-      util::non_null<Result<DIM>*> result,
-      util::non_null<curandState*> states,
-      util::non_null<util::BFGSContext*> ctx,
-      bool save_trajectories = false,
-      unsigned long long* ad_cycles_out = nullptr,
-      int* ad_calls_out = nullptr,
-      unsigned long long* bfgs_cycles_out = nullptr,
-      int* bfgs_calls_out = nullptr,
-      unsigned long long* total_cycles_out = nullptr)
+    optimize(Function f,
+             const double lower,
+             const double upper,
+             const double* pso_array, // pso initialized positions (optional)
+             util::non_null<double*> deviceResults,
+             double* deviceTrajectory,
+             int N,
+             const int MAX_ITER,
+             const int requiredConverged,
+             const double tolerance,
+             util::non_null<Result<DIM>*> result,
+             util::non_null<curandState*> states,
+             util::non_null<util::BFGSContext*> ctx,
+             bool save_trajectories = false,
+             unsigned long long* ad_cycles_out = nullptr,
+             int* ad_calls_out = nullptr,
+             unsigned long long* bfgs_cycles_out = nullptr,
+             int* bfgs_calls_out = nullptr,
+             unsigned long long* total_cycles_out = nullptr)
     {
       static_assert(
         std::is_same_v<decltype(std::declval<Function>()(
@@ -468,7 +468,8 @@ namespace bfgs {
       return out;
     }
 
-    template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
+    template <typename Function,
+              std::size_t DIM = zeus::fn_traits<Function>::arity>
     Result<DIM>
     launch(size_t N,
            const int pso_iter,
@@ -712,7 +713,7 @@ namespace bfgs {
 
     // kernel for one tile = one BFGS optimization
     template <typename Function,
-              std::size_t DIM = fn_traits<Function>::arity,
+              std::size_t DIM = zeus::fn_traits<Function>::arity,
               int TS>
     __global__ void
     optimize_tiles(Function f,
@@ -915,7 +916,8 @@ namespace bfgs {
       return size_t(tilesPerBlock) * perTileDoubles * sizeof(double);
     }
 
-    template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
+    template <typename Function,
+              std::size_t DIM = zeus::fn_traits<Function>::arity>
     Result<DIM>
     launch(size_t N,
            const int pso_iter,
