@@ -251,10 +251,6 @@ namespace bfgs {
         }
         deviceResults[tile_global_id] = r.fval;
         result[tile_global_id] = r;
-
-        // free exactly once
-        H.release();
-        Htmp.release();
       }
     }
 
