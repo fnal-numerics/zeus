@@ -9,7 +9,9 @@
 #include <vector>
 #include <string>
 #include <cmath>      // for std::sqrt
-#include <limits> 
+#include <limits>
+
+#include "cuda_buffer.cuh"
 
 struct Metrics {
   // label for printing "AD", "BFGS"
@@ -173,4 +175,7 @@ namespace util {
 
 }
 
-
+namespace zeus {
+template <std::size_t DIM>
+using result_buffer = cuda_buffer<Result<DIM>>;
+}
