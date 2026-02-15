@@ -71,7 +71,7 @@ target_link_libraries(zeus
 )
 
 target_compile_options(zeus
-    PRIVATE
+    PUBLIC
         $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr -O3 --use_fast_math -Xptxas=-O3 -rdc=true>
 )
 
