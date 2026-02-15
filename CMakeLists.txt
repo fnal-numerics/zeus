@@ -10,6 +10,11 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 set(CMAKE_CUDA_ARCHITECTURES native)
 
+# Default to shared libraries if not specified
+if(NOT DEFINED BUILD_SHARED_LIBS)
+    set(BUILD_SHARED_LIBS ON)
+endif()
+
 # Options
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(ZEUS_MASTER_PROJECT ON)
@@ -46,6 +51,13 @@ add_library(zeus
 )
 
 add_library(Zeus::zeus ALIAS zeus)
+
+set_target_properties(zeus PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    CUDA_VISIBILITY_PRESET hidden
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+)
 
 target_include_directories(zeus
     PUBLIC
