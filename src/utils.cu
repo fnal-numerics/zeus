@@ -38,8 +38,8 @@ namespace util {
     size_t freeBytes = 0, total = 0;
     cudaMemGetInfo(&freeBytes, &total);
     printf("GPU reporting %.2f GB free of %.2f GB total\n",
-           freeBytes / 1e9,
-           total / 1e9);
+           freeBytes / (1024.0 * 1024.0 * 1024.0),
+           total / (1024.0 * 1024.0 * 1024.0));
     size_t newHeap = freeBytes;
     cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
     if (err != cudaSuccess) {
@@ -47,8 +47,7 @@ namespace util {
              newHeap,
              cudaGetErrorString(err));
     } else {
-      printf("Successfully set heap size to %zu bytes (%.2f GB)\n",
-             newHeap,
+      printf("Successfully set heap size to %.2f GB\n",
              newHeap / (1024.0 * 1024.0 * 1024.0));
     }
   }

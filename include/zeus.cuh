@@ -49,6 +49,7 @@ namespace zeus {
          int run,
          bool parallel)
     {
+      util::set_stack_size();
       float ms_rand = 0.0f;
       curandState* states = bfgs::initialize_states(N, seed, ms_rand);
       // save trajectories?

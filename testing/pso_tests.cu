@@ -321,6 +321,38 @@ TEST_CASE("pso::launch throws cuda_exception<3> when overflowing the memory")
     cudaFree(p);
 }
 
+struct TrappingFunction {
+  template <typename T, std::size_t D>
+  __host__ __device__ T
+  operator()(const std::array<T, D>&) const
+  {
+#ifdef __CUDA_ARCH__
+    __trap();
+#endif
+    return T(0);
+  }
+};
+
+TEST_CASE("pso::launch throws cuda_exception<4> when the kernel launch fails",
+          "[pso][kernel-error]")
+{
+  using Fn = TrappingFunction;
+  constexpr int DIM = 2;
+  constexpr int PSO_ITER = 1;
+  const int N = 32;
+
+  float ms_init = 0.0f, ms_pso = 0.0f, ms_rand = 0.0f;
+  curandState* states = bfgs::initialize_states(N, 99, ms_rand);
+
+  // This should reliably trigger cudaErrorIllegalInstruction (exception 4)
+  REQUIRE_THROWS_AS(
+    (pso::launch<Fn, DIM>(
+      PSO_ITER, N, -2.0, 2.0, ms_init, ms_pso, 99, states, Fn{})),
+    cuda_exception<4>);
+
+  cudaFree(states);
+}
+
 TEST_CASE("pso::launch throws cuda_exception<3> when cudaMalloc fails",
           "[pso][malloc-error]")
 {
@@ -328,11 +360,14 @@ TEST_CASE("pso::launch throws cuda_exception<3> when cudaMalloc fails",
   constexpr int DIM = 2;
   constexpr int PSO_ITER = 10;
 
-  // pick an absurdly large N so that at least one cudaMalloc fails
-  const int N = std::numeric_limits<int>::max() / DIM; // ≈1 G x DIM doubles
+  // Query free memory and ask for more than is available to guarantee failure
+  size_t freeB = 0, totalB = 0;
+  cudaMemGetInfo(&freeB, &totalB);
+  const int N = (freeB / sizeof(double) / DIM) + 1000000;
 
   float ms_init = 0.0f, ms_pso = 0.0f, ms_rand = 0.0f;
-  curandState* states = bfgs::initialize_states(512, 42, ms_rand);
+  // Use a small seed population for curand to avoid OOM here
+  curandState* states = bfgs::initialize_states(1, 42, ms_rand);
 
   REQUIRE_THROWS_AS(
     (pso::launch<Fn, DIM>(
@@ -340,24 +375,4 @@ TEST_CASE("pso::launch throws cuda_exception<3> when cudaMalloc fails",
     cuda_exception<3>);
 
   cudaFree(states);
-}
-
-TEST_CASE("pso::launch throws cuda_exception<4> when the kernel launch fails",
-          "[pso][kernel-error]")
-{
-  using Fn = util::Rosenbrock<2>;
-  constexpr int DIM = 2;
-  constexpr int PSO_ITER = 10;
-  const int N = 512;
-
-  float ms_init = 0.0f, ms_pso = 0.0f, ms_rand = 0.0f;
-  curandState* states = bfgs::initialize_states(N, 99, ms_rand);
-
-  // Force a kernel error by freeing states before launch
-  cudaFree(states);
-  
-  REQUIRE_THROWS_AS(
-    (pso::launch<Fn, DIM>(
-      PSO_ITER, N, -2.0, 2.0, ms_init, ms_pso, 99, states, Fn{})),
-    cuda_exception<4>);
 }
