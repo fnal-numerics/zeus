@@ -45,6 +45,8 @@ add_library(zeus
     include/traits.hpp
 )
 
+add_library(Zeus::zeus ALIAS zeus)
+
 target_include_directories(zeus
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
