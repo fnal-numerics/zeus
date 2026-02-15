@@ -54,9 +54,6 @@ add_library(Zeus::zeus ALIAS zeus)
 
 set_target_properties(zeus PROPERTIES
     POSITION_INDEPENDENT_CODE ON
-    CUDA_VISIBILITY_PRESET hidden
-    CXX_VISIBILITY_PRESET hidden
-    VISIBILITY_INLINES_HIDDEN ON
 )
 
 target_include_directories(zeus

@@ -92,36 +92,6 @@ namespace util {
     return cudaSuccess;
   }
 
-  // https://xorshift.di.unimi.it/splitmix64.c
-  // Very fast 64-bit mixer — returns a new 64-bit value each time.
-  __device__ inline uint64_t
-  splitmix64(uint64_t& x)
-  {
-    uint64_t z = (x += 0x9e3779b97f4a7c15ULL); // 1 add
-    z = (z ^ (z >> 30)) *
-        0xbf58476d1ce4e5b9ULL; // 1 shift, 1 xor, 1 64x64 multiplier
-    z = (z ^ (z >> 27)) *
-        0x94d049bb133111ebULL; // 1 shift, 1, xor, 1 64x64 multiplier
-    // printf("split");
-    return z ^ (z >> 31); // 1 shift, 1 xor
-  }
-
-  // return a random double in [minVal, maxVal)
-  __device__ inline double
-  random_double(uint64_t& state, double minVal, double maxVal)
-  {
-    // get 64‐bit random int
-    uint64_t z = splitmix64(state);
-    // map high 53 bits into [0,1)
-    double u =
-      (z >> 11) *
-      (1.0 /
-       9007199254740992.0); // discard lower 11 bits, leaving mantissa width of
-                            // IEEE double, then normalize integer into [0,1)
-    // scale into [minVal, maxVal)
-    return minVal + u * (maxVal - minVal);
-  }
-
   __device__ double
   dot_product_device(const double* a, const double* b, int size)
   {
@@ -143,10 +113,6 @@ namespace util {
         int idx = i * size + j;
         if (idx < size * size) {
           result[idx] = v1[i] * v2[j];
-        } else {
-          printf("outer product out of bounds..\ndim=%d i*size+j=%d\n",
-                 size,
-                 i * size + j);
         }
       }
     }
@@ -171,18 +137,6 @@ namespace util {
 
   } // end extern C
 
-  __device__ bool
-  valid(double x)
-  {
-    if (isinf(x)) {
-      return false;
-    } else if (isnan(x)) {
-      return false;
-    } else {
-      return true;
-    }
-  }
-
   __device__ double
   pow2(double x)
   {
@@ -202,17 +156,6 @@ namespace util {
         C[i * DIM + j] = sum;
       }
     }
-  }
-
-  // function to calculate scalar directional direvative d = g * p
-  __device__ double
-  directional_derivative(const double* grad, const double* p, int dim)
-  {
-    double d = 0.0;
-    for (int i = 0; i < dim; ++i) {
-      d += grad[i] * p[i];
-    }
-    return d;
   }
 
   __device__ double

@@ -84,23 +84,56 @@ namespace util {
 
   void set_stack_size();
 
+  // The following utility functions are implemented in the header (and marked
+  // inline) to ensure they are available to user code that instantiates Zeus
+  // templates. This avoids 'undefined reference' or CUDA registration errors
+  // when Zeus is built as a shared library.
+
   // https://xorshift.di.unimi.it/splitmix64.c
   // Very fast 64-bit mixer — returns a new 64-bit value each time.
-  __device__ inline uint64_t splitmix64(uint64_t& x);
+  __device__ inline uint64_t
+  splitmix64(uint64_t& x)
+  {
+    uint64_t z = (x += 0x9e3779b97f4a7c15ULL);
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+    return z ^ (z >> 31);
+  }
 
   // return a random double in [minVal, maxVal)
-  __device__ inline double random_double(uint64_t& state,
-                                         double minVal,
-                                         double maxVal);
+  __device__ inline double
+  random_double(uint64_t& state, double minVal, double maxVal)
+  {
+    uint64_t z = splitmix64(state);
+    double u = (z >> 11) * (1.0 / 9007199254740992.0);
+    return minVal + u * (maxVal - minVal);
+  }
 
-  __device__ double dot_product_device(const double* a,
-                                       const double* b,
-                                       int size);
+  __device__ inline double
+  dot_product_device(const double* a, const double* b, int size)
+  {
+    double sum = 0.0;
+    for (int i = 0; i < size; ++i) {
+      sum += a[i] * b[i];
+    }
+    return sum;
+  }
 
-  __device__ void outer_product_device(const double* v1,
-                                       const double* v2,
-                                       double* result,
-                                       int size);
+  __device__ inline void
+  outer_product_device(const double* v1,
+                       const double* v2,
+                       double* result,
+                       int size)
+  {
+    for (int i = 0; i < size; ++i) {
+      for (int j = 0; j < size; ++j) {
+        int idx = i * size + j;
+        if (idx < size * size) {
+          result[idx] = v1[i] * v2[j];
+        }
+      }
+    }
+  }
 
   template <int DIM>
   __device__ double
@@ -169,9 +202,17 @@ namespace util {
     }
   }
 
-  __device__ bool valid(double x);
+  __device__ inline bool
+  valid(double x)
+  {
+    return !(isinf(x) || isnan(x));
+  }
 
-  __device__ double pow2(double x);
+  __device__ inline double
+  pow2(double x)
+  {
+    return x * x;
+  }
 
   __device__ inline void
   initialize_identity_matrix_device(double* H, int n)
@@ -286,13 +327,21 @@ namespace util {
   }
 
   // function to calculate scalar directional direvative d = g * p
-  __device__ double directional_derivative(const double* grad,
-                                           const double* p,
-                                           int dim);
+  __device__ inline double
+  directional_derivative(const double* grad, const double* p, int dim)
+  {
+    double d = 0.0;
+    for (int i = 0; i < dim; ++i) {
+      d += grad[i] * p[i];
+    }
+    return d;
+  }
 
-  __device__ double generate_random_double(curandState* state,
-                                           double lower,
-                                           double upper);
+  __device__ inline double
+  generate_random_double(curandState* state, double lower, double upper)
+  {
+    return lower + (upper + (-lower)) * curand_uniform_double(state);
+  }
 
   __global__ void setup_curand_states(non_null<curandState*> states,
                                       uint64_t seed,
