@@ -92,78 +92,6 @@ namespace util {
     return cudaSuccess;
   }
 
-  __device__ double
-  dot_product_device(const double* a, const double* b, int size)
-  {
-    double sum = 0.0;
-    for (int i = 0; i < size; ++i) {
-      sum += a[i] * b[i];
-    }
-    return sum;
-  }
-
-  __device__ void
-  outer_product_device(const double* v1,
-                       const double* v2,
-                       double* result,
-                       int size)
-  {
-    for (int i = 0; i < size; ++i) {
-      for (int j = 0; j < size; ++j) {
-        int idx = i * size + j;
-        if (idx < size * size) {
-          result[idx] = v1[i] * v2[j];
-        }
-      }
-    }
-  }
-
-  extern "C" {
-  __device__ void
-  vector_add(const double* a, const double* b, double* result, int size)
-  {
-    for (int i = 0; i < size; ++i) {
-      result[i] = a[i] + b[i];
-    }
-  }
-
-  __device__ void
-  vector_scale(const double* a, double scalar, double* result, int dim)
-  {
-    for (int i = 0; i < dim; ++i) {
-      result[i] = a[i] * scalar;
-    }
-  }
-
-  } // end extern C
-
-  __device__ double
-  pow2(double x)
-  {
-    return x * x;
-  }
-
-  template <int DIM>
-  __device__ void
-  matrix_multiply_device(const double* A, const double* B, double* C)
-  {
-    for (int i = 0; i < DIM; ++i) {
-      for (int j = 0; j < DIM; ++j) {
-        double sum = 0.0;
-        for (int k = 0; k < DIM; ++k) {
-          sum += A[i * DIM + k] * B[k * DIM + j];
-        }
-        C[i * DIM + j] = sum;
-      }
-    }
-  }
-
-  __device__ double
-  generate_random_double(curandState* state, double lower, double upper)
-  {
-    return lower + (upper + (-lower)) * curand_uniform_double(state);
-  }
-
   __global__ void
   setup_curand_states(util::non_null<curandState*> states, uint64_t seed, int N)
   {
@@ -171,28 +99,6 @@ namespace util {
     if (idx < N) {
       curand_init(seed, idx, 0, &states[idx]);
     }
-  }
-
-  __device__ double
-  atomicMinDouble(double* addr, double val)
-  {
-    // reinterpret the address as 64‑bit unsigned
-    unsigned long long* ptr = reinterpret_cast<unsigned long long*>(addr);
-    unsigned long long old_bits = *ptr, assumed_bits;
-
-    do {
-      assumed_bits = old_bits;
-      double old_val = __longlong_as_double(assumed_bits);
-      // if the current value is already <= our candidate, nothing to do
-      if (old_val <= val)
-        break;
-      // else try to swap in the new min value’s bit‐pattern
-      unsigned long long new_bits = __double_as_longlong(val);
-      old_bits = atomicCAS(ptr, assumed_bits, new_bits);
-    } while (assumed_bits != old_bits);
-
-    // return the previous minimum
-    return __longlong_as_double(old_bits);
   }
 
 } // end namespace util

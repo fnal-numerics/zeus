@@ -64,17 +64,6 @@ namespace util {
     }
   };
 
-  extern "C" {
-  __device__ __noinline__ void vector_add(const double*,
-                                          const double*,
-                                          double*,
-                                          int);
-  __device__ __noinline__ void vector_scale(const double*,
-                                            double,
-                                            double*,
-                                            int);
-  }
-
   template <class... Ptrs>
   inline void
   freeCudaPtrs(Ptrs... ptrs)
@@ -180,17 +169,21 @@ namespace util {
 
   // wrap kernel definitions extern "C" block so that their symbols are exported
   // with C linkage
-  extern "C" {
-  __device__ void vector_add(const double* a,
-                             const double* b,
-                             double* result,
-                             int size);
+  __device__ inline void
+  vector_add(const double* a, const double* b, double* result, int size)
+  {
+    for (int i = 0; i < size; ++i) {
+      result[i] = a[i] + b[i];
+    }
+  }
 
-  __device__ void vector_scale(const double* a,
-                               double scalar,
-                               double* result,
-                               int dim);
-  } // end extern C
+  __device__ inline void
+  vector_scale(const double* a, double scalar, double* result, int dim)
+  {
+    for (int i = 0; i < dim; ++i) {
+      result[i] = a[i] * scalar;
+    }
+  }
 
   __device__ inline void
   initialize_identity_matrix(DeviceMatrix<double>* H, int dim)
@@ -225,9 +218,19 @@ namespace util {
   }
 
   template <int DIM>
-  __device__ void matrix_multiply_device(const double* A,
-                                         const double* B,
-                                         double* C);
+  __device__ inline void
+  matrix_multiply_device(const double* A, const double* B, double* C)
+  {
+    for (int i = 0; i < DIM; ++i) {
+      for (int j = 0; j < DIM; ++j) {
+        double sum = 0.0;
+        for (int k = 0; k < DIM; ++k) {
+          sum += A[i * DIM + k] * B[k * DIM + j];
+        }
+        C[i * DIM + j] = sum;
+      }
+    }
+  }
 
   // BFGS update with compile-time dimension
   template <int DIM>
@@ -385,6 +388,26 @@ namespace util {
       current_best, x_arr.data(), p_arr.data(), g_arr.data(), f);
   }
 
-  __device__ double atomicMinDouble(double* addr, double val);
+  __device__ inline double
+  atomicMinDouble(double* addr, double val)
+  {
+    // reinterpret the address as 64‑bit unsigned
+    unsigned long long* ptr = reinterpret_cast<unsigned long long*>(addr);
+    unsigned long long old_bits = *ptr, assumed_bits;
+
+    do {
+      assumed_bits = old_bits;
+      double old_val = __longlong_as_double(assumed_bits);
+      // if the current value is already <= our candidate, nothing to do
+      if (old_val <= val)
+        break;
+      // else try to swap in the new min value’s bit‐pattern
+      unsigned long long new_bits = __double_as_longlong(val);
+      old_bits = atomicCAS(ptr, assumed_bits, new_bits);
+    } while (assumed_bits != old_bits);
+
+    // return the previous minimum
+    return __longlong_as_double(old_bits);
+  }
 
 } // end namespace util

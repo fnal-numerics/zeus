@@ -86,26 +86,26 @@ namespace dual {
   static __inline__ __host__ __device__ DualNumber
   sin(const DualNumber& x)
   {
-    return DualNumber(sinf(x.real), x.dual * cosf(x.real));
+    return DualNumber(::sin(x.real), x.dual * ::cos(x.real));
   }
 
   static __inline__ __host__ __device__ DualNumber
   cos(const DualNumber& x)
   {
-    return DualNumber(cosf(x.real), -x.dual * sinf(x.real));
+    return DualNumber(::cos(x.real), -x.dual * ::sin(x.real));
   }
 
   static __inline__ __host__ __device__ DualNumber
   exp(const DualNumber& x)
   {
-    double ex = expf(x.real);
+    double ex = ::exp(x.real);
     return DualNumber(ex, x.dual * ex);
   }
 
   static __inline__ __host__ __device__ DualNumber
   sqrt(const DualNumber& x)
   {
-    double sr = sqrtf(x.real);
+    double sr = ::sqrt(x.real);
     return DualNumber(sr, x.dual / (2.0 * sr));
   }
 
@@ -113,7 +113,7 @@ namespace dual {
   atan2(const DualNumber& y, const DualNumber& x)
   {
     double denom = x.real * x.real + y.real * y.real;
-    return DualNumber(atan2f(y.real, x.real),
+    return DualNumber(::atan2(y.real, x.real),
                       (x.real * y.dual - y.real * x.dual) / denom);
   }
   // log for DualNumber: (ln r, r'/r)
@@ -141,8 +141,8 @@ namespace dual {
   static __inline__ __host__ __device__ T
   pow(const T& base, double exponent)
   {
-    return T(powf(base.real, exponent),
-             exponent * powf(base.real, exponent - 1) * base.dual);
+    return T(::pow(base.real, exponent),
+             exponent * ::pow(base.real, exponent - 1) * base.dual);
   }
 
   // pi via std::acos(-1)
