@@ -6,7 +6,6 @@
 #include <cuda_runtime.h>
 #include "exception.hpp" // cuda_exception<3>/<4>
 
-
 namespace zeus {
 
   /// RAII wrapper for CUDA device memory allocation.
@@ -14,26 +13,30 @@ namespace zeus {
   /// deep copy semantics for safe resource management.
   template <typename T>
   struct cuda_buffer {
-    T* d = nullptr;      ///< Device pointer
-    size_t sz = 0;       ///< Number of elements
+    T* d = nullptr; ///< Device pointer
+    size_t sz = 0;  ///< Number of elements
 
     cuda_buffer() noexcept = default;
-    explicit cuda_buffer(std::size_t n);  ///< Allocate n elements on device
+    explicit cuda_buffer(std::size_t n); ///< Allocate n elements on device
     template <std::size_t N>
-    explicit cuda_buffer(const std::array<T, N>& host);  ///< Allocate and copy from host array
-    cuda_buffer(cuda_buffer const& o);  ///< Deep copy from device to device
-    cuda_buffer& operator=(cuda_buffer const& o);  ///< Copy-assign via copy-and-swap
-    cuda_buffer(cuda_buffer&& o) noexcept;  ///< Move constructor
-    cuda_buffer& operator=(cuda_buffer&& o) noexcept;  ///< Move assignment
-    ~cuda_buffer();  ///< Free device memory
+    explicit cuda_buffer(
+      const std::array<T, N>& host);   ///< Allocate and copy from host array
+    cuda_buffer(cuda_buffer const& o); ///< Deep copy from device to device
+    cuda_buffer& operator=(
+      cuda_buffer const& o);               ///< Copy-assign via copy-and-swap
+    cuda_buffer(cuda_buffer&& o) noexcept; ///< Move constructor
+    cuda_buffer& operator=(cuda_buffer&& o) noexcept; ///< Move assignment
+    ~cuda_buffer();                                   ///< Free device memory
 
     void swap(cuda_buffer& o) noexcept;  ///< Swap device pointers and sizes
-    T* data() const noexcept;  ///< Raw device pointer accessor
-    operator T*() const noexcept;  ///< Implicit conversion to raw pointer
-    size_t size() const noexcept;  ///< Number of elements
-    std::vector<T> copy_to_host() const;  ///< Copy to new host vector
-    int copy_to_host(std::vector<T>& out) const;  ///< Copy to existing vector, returns status
-    int copy_to_host(T* out, size_t n) const;  ///< Copy to raw pointer, returns status
+    T* data() const noexcept;            ///< Raw device pointer accessor
+    operator T*() const noexcept;        ///< Implicit conversion to raw pointer
+    size_t size() const noexcept;        ///< Number of elements
+    std::vector<T> copy_to_host() const; ///< Copy to new host vector
+    int copy_to_host(
+      std::vector<T>& out) const; ///< Copy to existing vector, returns status
+    int copy_to_host(T* out,
+                     size_t n) const; ///< Copy to raw pointer, returns status
   };
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -85,8 +88,10 @@ namespace zeus {
   cuda_buffer<T>&
   cuda_buffer<T>::operator=(cuda_buffer const& o)
   {
-    cuda_buffer temp(o);
-    swap(temp);
+    if (this != &o) {
+      cuda_buffer temp(o);
+      swap(temp);
+    }
     return *this;
   }
 
@@ -137,7 +142,8 @@ namespace zeus {
   }
 
   template <typename T>
-  cuda_buffer<T>::operator T*() const noexcept
+  cuda_buffer<T>::
+  operator T*() const noexcept
   {
     return d;
   }
@@ -196,7 +202,7 @@ namespace zeus {
   bool
   operator==(cuda_buffer<T> const& a, cuda_buffer<T> const& b)
   {
-    return true;
+    return a.d == b.d && a.sz == b.sz;
   }
 
   // template alieses
