@@ -133,20 +133,20 @@ if(ZEUS_BUILD_TESTS)
     )
     FetchContent_MakeAvailable(catch2)
 
-    add_executable(non_null_tests testing/non_null_tests.cu)
+    add_executable(non_null_tests test/non_null_tests.cu)
     target_link_libraries(non_null_tests PRIVATE zeus Catch2::Catch2WithMain)
     add_test(NAME non_null_tests COMMAND non_null_tests)
 
     add_executable(unit_test
-      testing/catch_main.cpp
-      testing/util_tests.cu
-      testing/fun_tests.cu
-      testing/pso_tests.cu
-      testing/bfgs_tests.cu
-      testing/dual_tests.cu
-      testing/matrix_tests.cu
-      testing/cuda_buffer_tests.cu
-      testing/device_matrix_tests.cu
+      test/catch_main.cpp
+      test/util_tests.cu
+      test/fun_tests.cu
+      test/pso_tests.cu
+      test/bfgs_tests.cu
+      test/dual_tests.cu
+      test/matrix_tests.cu
+      test/cuda_buffer_tests.cu
+      test/device_matrix_tests.cu
     )
     
     set_target_properties(unit_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
@@ -159,7 +159,7 @@ if(ZEUS_BUILD_TESTS)
     catch_discover_tests(unit_test REPORTER console)
 
     # Bad objectives test (compile-time failure verification)
-    set(BAD_SRC "${CMAKE_CURRENT_SOURCE_DIR}/testing/bad_objectives.cu")
+    set(BAD_SRC "${CMAKE_CURRENT_SOURCE_DIR}/test/bad_objectives.cu")
     # Note: try_compile is tricky with FetchContent and dependencies. 
     # For now, keeping it as is but it might need refinement if it fails to see zeus headers.
     try_compile(BAD_OK
