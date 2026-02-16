@@ -118,6 +118,100 @@ std::cout << "Global minimum for " << D << "D Gaussian: " << res.fval << std::en
 - You can add conditional compilation based on `__CUDA_ARCH__` to handle host/device behavior if needed.
 - Zeus expects callables to accept `T` or `std::array<T, N>`.
 
+---
+
+## Using Zeus in Your Project
+
+As a user (not developer), you have two recommended approaches to use Zeus in your own project:
+
+### Method 1: Using FetchContent (Recommended for Simple Integration)
+
+FetchContent automatically downloads Zeus from the repository during the CMake configure step. This is ideal for small projects or when you want the latest development version.
+
+**In your CMakeLists.txt:**
+
+```cmake
+cmake_minimum_required(VERSION 3.24)
+project(MyProject LANGUAGES CXX CUDA)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 17)
+
+include(FetchContent)
+
+# Fetch Zeus from GitHub
+FetchContent_Declare(
+  Zeus
+  GIT_REPOSITORY https://github.com/fnal-numerics/zeus.git
+  GIT_TAG        main
+)
+FetchContent_MakeAvailable(Zeus)
+
+# Your executable
+add_executable(my_app my_main.cu)
+
+# Link against Zeus
+target_link_libraries(my_app PRIVATE Zeus::zeus)
+
+# CUDA compilation flags
+target_compile_options(my_app
+  PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr -O3 --use_fast_math>
+)
+```
+
+### Method 2: Using Installed Zeus (Recommended for Production)
+
+Install Zeus once in a system location, then find it via CMake's `find_package()`. This is better for production workflows and shared installations.
+
+**Step 1: Install Zeus**
+
+```bash
+cd zeus
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local/zeus ..
+cmake --build . -j
+cmake --install .
+```
+
+**Step 2: In your CMakeLists.txt:**
+
+```cmake
+cmake_minimum_required(VERSION 3.24)
+project(MyProject LANGUAGES CXX CUDA)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 17)
+
+# Find installed Zeus
+find_package(Zeus REQUIRED)
+
+# Your executable
+add_executable(my_app my_main.cu)
+
+# Link against Zeus
+target_link_libraries(my_app PRIVATE Zeus::zeus)
+
+# CUDA compilation flags
+target_compile_options(my_app
+  PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr -O3 --use_fast_math>
+)
+```
+
+**Step 3: Configure your project**
+
+```bash
+# If Zeus was installed to a standard location
+cmake -DCMAKE_BUILD_TYPE=Release ..
+
+# If Zeus was installed to a custom location, point CMake to it
+cmake -DCMAKE_PREFIX_PATH=/usr/local/zeus ..
+```
+
+Both methods will link your application with the Zeus library and provide access to all headers.
+
 
 
 🇭🇺
