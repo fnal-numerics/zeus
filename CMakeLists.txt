@@ -108,10 +108,16 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ZeusConfig.cmake
 
 # Examples
 if(ZEUS_BUILD_EXAMPLES)
-    set_source_files_properties(examples/stateless_funs.cpp PROPERTIES LANGUAGE CUDA)
-    add_executable(stateless examples/stateless_funs.cpp)
-    target_link_libraries(stateless PRIVATE zeus)
-    target_compile_options(stateless PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr -O3 --use_fast_math -Xptxas=-O3 -rdc=true>)
+    # Individual optimizer programs
+    set(OPTIMIZERS rosenbrock rastrigin ackley goldstein_price himmelblau)
+    set(OPTIMIZER_FLAGS $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr -O3 --use_fast_math -Xptxas=-O3 -rdc=true>)
+    
+    foreach(optimizer IN LISTS OPTIMIZERS)
+        add_executable(optimize_${optimizer} examples/optimize_${optimizer}.cu)
+        target_include_directories(optimize_${optimizer} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples)
+        target_link_libraries(optimize_${optimizer} PRIVATE zeus)
+        target_compile_options(optimize_${optimizer} PRIVATE ${OPTIMIZER_FLAGS})
+    endforeach()
 
     set_source_files_properties(examples/metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
     add_executable(zeus_test examples/metaprogramming_t.cpp)
