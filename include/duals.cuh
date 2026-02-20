@@ -6,96 +6,139 @@
 
 namespace dual {
 
-  class DualNumber {
-  public:
-    double real;
-    double dual;
+  /// Representation of a dual number for automatic differentiation.
+  struct DualNumber {
+    double real; ///< Real part of the dual number
+    double dual; ///< Dual part (derivative) of the dual number
 
-    __host__ __device__
-    DualNumber(double real = 0.0, double dual = 0.0)
-      : real(real), dual(dual)
-    {}
+    __host__ __device__ DualNumber(
+      double real = 0.0,
+      double dual =
+        0.0); ///< Construct a dual number with given real and dual parts.
 
-    // unary minus
-    __host__ __device__ DualNumber
-    operator-() const
-    {
-      return DualNumber(-real, -dual);
-    }
-    __host__ __device__ DualNumber&
-    operator+=(const DualNumber& rhs)
-    {
-      real += rhs.real;
-      dual += rhs.dual;
-      return *this;
-    }
+    __host__ __device__ DualNumber operator-() const; ///< Unary minus operator.
+
+    __host__ __device__ DualNumber& operator+=(
+      const DualNumber& rhs); ///< Compound addition assignment.
 
     __host__ __device__ DualNumber
-    operator+(const DualNumber& rhs) const
-    {
-      return DualNumber(real + rhs.real, dual + rhs.dual);
-    }
+    operator+(const DualNumber& rhs) const; ///< Binary addition operator.
 
     __host__ __device__ DualNumber
-    operator-(const DualNumber& rhs) const
-    {
-      return DualNumber(real - rhs.real, dual - rhs.dual);
-    }
+    operator-(const DualNumber& rhs) const; ///< Binary subtraction operator.
 
     __host__ __device__ DualNumber
-    operator*(const DualNumber& rhs) const
-    {
-      return DualNumber(real * rhs.real, dual * rhs.real + real * rhs.dual);
-    }
+    operator*(const DualNumber& rhs) const; ///< Binary multiplication operator.
 
     __host__ __device__ DualNumber
-    operator/(const DualNumber& rhs) const
-    {
-      double denom = rhs.real * rhs.real;
-      return DualNumber(real / rhs.real,
-                        (dual * rhs.real - real * rhs.dual) / denom);
-    }
-    // operator for double - DualNumber
-    __host__ __device__ friend DualNumber
-    operator-(double lhs, const DualNumber& rhs)
-    {
-      return DualNumber(lhs - rhs.real, -rhs.dual);
-    }
+    operator/(const DualNumber& rhs) const; ///< Binary division operator.
 
-    // operator for double * DualNumber
-    __host__ __device__ friend DualNumber
-    operator*(double lhs, const DualNumber& rhs)
-    {
-      return DualNumber(lhs * rhs.real, lhs * rhs.dual);
-    }
+    __host__ __device__ friend DualNumber operator-(
+      double lhs,
+      const DualNumber& rhs); ///< Subtraction of a dual number from a double.
 
-    __host__ __device__ DualNumber&
-    operator-=(const DualNumber& rhs)
-    {
-      real -= rhs.real;
-      dual -= rhs.dual;
-      return *this;
-    }
+    __host__ __device__ friend DualNumber operator*(
+      double lhs,
+      const DualNumber& rhs); ///< Multiplication of a double and a dual number.
+
+    __host__ __device__ DualNumber& operator-=(
+      const DualNumber& rhs); ///< Compound subtraction assignment.
   };
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // Implementation
+  // ──────────────────────────────────────────────────────────────────────────
+
+  __host__ __device__ inline DualNumber::DualNumber(double real, double dual)
+    : real(real), dual(dual)
+  {}
+
+  __host__ __device__ inline DualNumber
+  DualNumber::operator-() const
+  {
+    return DualNumber(-real, -dual);
+  }
+
+  __host__ __device__ inline DualNumber&
+  DualNumber::operator+=(const DualNumber& rhs)
+  {
+    real += rhs.real;
+    dual += rhs.dual;
+    return *this;
+  }
+
+  __host__ __device__ inline DualNumber
+  DualNumber::operator+(const DualNumber& rhs) const
+  {
+    return DualNumber(real + rhs.real, dual + rhs.dual);
+  }
+
+  __host__ __device__ inline DualNumber
+  DualNumber::operator-(const DualNumber& rhs) const
+  {
+    return DualNumber(real - rhs.real, dual - rhs.dual);
+  }
+
+  __host__ __device__ inline DualNumber
+  DualNumber::operator*(const DualNumber& rhs) const
+  {
+    return DualNumber(real * rhs.real, dual * rhs.real + real * rhs.dual);
+  }
+
+  __host__ __device__ inline DualNumber
+  DualNumber::operator/(const DualNumber& rhs) const
+  {
+    double denom = rhs.real * rhs.real;
+    return DualNumber(real / rhs.real,
+                      (dual * rhs.real - real * rhs.dual) / denom);
+  }
+
+  __host__ __device__ inline DualNumber
+  operator-(double lhs, const DualNumber& rhs)
+  {
+    return DualNumber(lhs - rhs.real, -rhs.dual);
+  }
+
+  __host__ __device__ inline DualNumber
+  operator*(double lhs, const DualNumber& rhs)
+  {
+    return DualNumber(lhs * rhs.real, lhs * rhs.dual);
+  }
+
+  __host__ __device__ inline DualNumber&
+  DualNumber::operator-=(const DualNumber& rhs)
+  {
+    real -= rhs.real;
+    dual -= rhs.dual;
+    return *this;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Mathematical functions
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Absolute value of a dual number.
   __host__ __device__ inline dual::DualNumber
   abs(const dual::DualNumber& a)
   {
     return (a.real < 0.0) ? dual::DualNumber(-a.real, -a.dual) : a;
   }
 
+  /// Sine of a dual number.
   static __inline__ __host__ __device__ DualNumber
   sin(const DualNumber& x)
   {
     return DualNumber(::sin(x.real), x.dual * ::cos(x.real));
   }
 
+  /// Cosine of a dual number.
   static __inline__ __host__ __device__ DualNumber
   cos(const DualNumber& x)
   {
     return DualNumber(::cos(x.real), -x.dual * ::sin(x.real));
   }
 
+  /// Exponential of a dual number.
   static __inline__ __host__ __device__ DualNumber
   exp(const DualNumber& x)
   {
@@ -103,6 +146,7 @@ namespace dual {
     return DualNumber(ex, x.dual * ex);
   }
 
+  /// Square root of a dual number.
   static __inline__ __host__ __device__ DualNumber
   sqrt(const DualNumber& x)
   {
@@ -110,6 +154,7 @@ namespace dual {
     return DualNumber(sr, x.dual / (2.0 * sr));
   }
 
+  /// Two-argument arctangent of dual numbers.
   static __inline__ __host__ __device__ DualNumber
   atan2(const DualNumber& y, const DualNumber& x)
   {
@@ -117,7 +162,8 @@ namespace dual {
     return DualNumber(::atan2(y.real, x.real),
                       (x.real * y.dual - y.real * x.dual) / denom);
   }
-  // log for DualNumber: (ln r, r'/r)
+
+  /// Natural logarithm of a dual number.
   static __inline__ __host__ __device__ DualNumber
   log(const DualNumber& x)
   {
@@ -125,7 +171,7 @@ namespace dual {
     return DualNumber(::log(x.real), x.dual / x.real);
   }
 
-  // pow for DualNumber ^ DualNumber
+  /// Power of a dual number raised to another dual number.
   static __inline__ __host__ __device__ DualNumber
   pow(const DualNumber& base, const DualNumber& exponent)
   {
@@ -138,6 +184,7 @@ namespace dual {
     return DualNumber(pr, pd);
   }
 
+  /// Power of a dual number raised to a double exponent.
   template <typename T>
   static __inline__ __host__ __device__ T
   pow(const T& base, double exponent)
@@ -146,15 +193,14 @@ namespace dual {
              exponent * ::pow(base.real, exponent - 1) * base.dual);
   }
 
-  // pi via std::acos(-1)
+  /// Returns the value of pi.
   static __inline__ __host__ __device__ double
   pi()
   {
     return ::acos(-1.0);
   }
 
-  // digamma(double) helper for lgamma
-  // Reflection for x<0.5, then recur to x>=8, then asymptotic series.
+  /// Digamma function for a double.
   static __inline__ __host__ __device__ double
   digamma(double x)
   {
@@ -179,7 +225,7 @@ namespace dual {
     return acc + ::log(x) - 0.5 * inv + s;
   }
 
-  // lgamma for DualNumber: (lgamma(r), r' * digamma(r))
+  /// Log-gamma function for a dual number.
   static __inline__ __host__ __device__ DualNumber
   lgamma(const DualNumber& x)
   {
@@ -188,16 +234,13 @@ namespace dual {
     return DualNumber(lr, x.dual * dg);
   }
 
-  // can we call F with std::array<Scalar,DIM>?
-
-  // only enabled if f takes std::array<dual,DIM> -> dual
+  /// Calculate the gradient of a function using automatic differentiation.
   template <class Function,
             std::size_t DIM,
             class = std::enable_if_t<std::is_same_v<
               decltype(std::declval<Function>()(
                 std::declval<std::array<dual::DualNumber, DIM>>())),
               dual::DualNumber>>>
-
   __device__ void
   calculateGradientUsingAD(
     Function const& f,
