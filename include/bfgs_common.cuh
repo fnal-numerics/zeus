@@ -64,21 +64,21 @@ namespace bfgs {
   launch_reduction(int N, double* deviceResults, Result<DIM> const* h_results)
   {
     // ArgMin & final print
-    cub::KeyValuePair<int, double>* deviceArgMin;
-    cudaMalloc(&deviceArgMin, sizeof(*deviceArgMin));
+    int* d_argmin_idx;
+    double* d_argmin_val;
+    cudaMalloc(&d_argmin_idx, sizeof(int));
+    cudaMalloc(&d_argmin_val, sizeof(double));
     void* d_temp_storage = nullptr;
     size_t temp_bytes = 0;
     cub::DeviceReduce::ArgMin(
-      d_temp_storage, temp_bytes, deviceResults, deviceArgMin, N);
+      d_temp_storage, temp_bytes, deviceResults, d_argmin_val, d_argmin_idx, N);
     cudaMalloc(&d_temp_storage, temp_bytes);
     cub::DeviceReduce::ArgMin(
-      d_temp_storage, temp_bytes, deviceResults, deviceArgMin, N);
+      d_temp_storage, temp_bytes, deviceResults, d_argmin_val, d_argmin_idx, N);
 
-    cub::KeyValuePair<int, double> h_argMin;
+    int globalMinIndex;
     cudaMemcpy(
-      &h_argMin, deviceArgMin, sizeof(h_argMin), cudaMemcpyDeviceToHost);
-
-    int globalMinIndex = h_argMin.key;
+      &globalMinIndex, d_argmin_idx, sizeof(int), cudaMemcpyDeviceToHost);
 
     // print the "best" thread's full record
     Result best = h_results[globalMinIndex];
@@ -94,7 +94,8 @@ namespace bfgs {
     }
     printf(" ]\n");
 
-    cudaFree(deviceArgMin);
+    cudaFree(d_argmin_idx);
+    cudaFree(d_argmin_val);
     cudaFree(d_temp_storage);
     return best;
   }
