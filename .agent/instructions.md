@@ -16,6 +16,6 @@ To activate these project rules globally, copy the following sections into your 
 - **Explicit Command Requirement**: Never run `git add`, `git commit`, or `git push` without an explicit user command for that specific action.
 
 ## Development Environment
-- Do not create new virtual environments; rely on the active conda environment.
-- Use `make` targets for routine tasks (format, lint, test).
+- Code can not be built or tested locally. All building and testing must be done on Perlmutter.
+- Use `make` targets for routine tasks (remote-sync, remote-build, remote-test, etc.)
 - Use `fetch_webpage` for external documentation links.
