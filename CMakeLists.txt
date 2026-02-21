@@ -1,4 +1,12 @@
 cmake_minimum_required(VERSION 3.24)
+
+# Must be set before project() so that it takes effect when CMake initializes
+# the CUDA language. If the user passes -DCMAKE_CUDA_ARCHITECTURES=... on the
+# command line the cache variable will already be defined and this is skipped.
+if(NOT DEFINED CACHE{CMAKE_CUDA_ARCHITECTURES})
+    set(CMAKE_CUDA_ARCHITECTURES 80 CACHE STRING "CUDA architectures to compile for")
+endif()
+
 project(Zeus LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -8,9 +16,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-if(NOT CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 80)
-endif()
+# (Default is now set before project(); nothing needed here.)
 
 # Default to shared libraries if not specified
 if(NOT DEFINED BUILD_SHARED_LIBS)
