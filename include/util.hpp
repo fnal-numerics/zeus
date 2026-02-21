@@ -31,6 +31,8 @@ struct Convergence {
   int stopped = 0;
 };
 
+namespace zeus {
+
 template <std::size_t DIM>
 struct Result {
   int idx = -1;
@@ -50,6 +52,8 @@ struct Result {
   Metrics ad;
   Metrics bfgs;
 };
+
+} // namespace zeus
 
 namespace util {
 
@@ -72,7 +76,7 @@ namespace util {
                             const int pso_iter,
                             const double error,
                             const int run,
-			    const Result<DIM>& best) {
+			    const zeus::Result<DIM>& best) {
     std::string filename = "zeus_" + std::to_string(dim) + "d_results.tsv";
     std::ofstream outfile(filename, std::ios::app); 
     bool file_exists = std::filesystem::exists(filename);
@@ -125,7 +129,7 @@ namespace util {
 			    
   template <size_t DIM>
   Convergence
-  dump_data_2_file(size_t N, Result<DIM>* h_results,
+  dump_data_2_file(size_t N, zeus::Result<DIM>* h_results,
                    std::string fun_name,
                    const int PSO_ITER,
                    const int run)
@@ -177,5 +181,5 @@ namespace util {
 
 namespace zeus {
 template <std::size_t DIM>
-using result_buffer = cuda_buffer<Result<DIM>>;
+using ResultBuffer = CudaBuffer<Result<DIM>>;
 }

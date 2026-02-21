@@ -53,15 +53,15 @@ TEST_CASE("pso::initKernel sets pBest & gBest for util::Rastrigin<2>",
     <<<1, N>>>(util::Rastrigin<DIM>(),
                lower,
                upper,
-               util::non_null{dX},
-               util::non_null{dV},
-               util::non_null{dPBestX},
-               util::non_null{dPBestVal},
-               util::non_null{dGBestX},
-               util::non_null{dGBestVal},
+               util::NonNull{dX},
+               util::NonNull{dV},
+               util::NonNull{dPBestX},
+               util::NonNull{dPBestVal},
+               util::NonNull{dGBestX},
+               util::NonNull{dGBestVal},
                N,
                seed,
-               util::non_null{d_states});
+               util::NonNull{d_states});
   cudaDeviceSynchronize();
 
   // copy back
@@ -138,18 +138,18 @@ TEST_CASE("pso::iterKernel inertia‐only updates X and V for 4 particles in 1D"
                0.5, // inertia
                0.0, // cognitive
                0.0, // social
-               util::non_null{dX},
-               util::non_null{dV},
-               util::non_null{dPBestX},
-               util::non_null{dPBestVal},
-               util::non_null{dGBestX},
-               util::non_null{dGBestVal},
+               util::NonNull{dX},
+               util::NonNull{dV},
+               util::NonNull{dPBestX},
+               util::NonNull{dPBestVal},
+               util::NonNull{dGBestX},
+               util::NonNull{dGBestVal},
                nullptr,
                false,
                N,
                /*iter=*/0,
                seed,
-               util::non_null{d_states});
+               util::NonNull{d_states});
   cudaDeviceSynchronize();
 
   // 5) copy back and verify: v1 = 0.5*v0, x1 = x0 + v1
@@ -198,15 +198,15 @@ TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
     <<<1, N>>>(util::Rastrigin<DIM>(),
                lower,
                upper,
-               util::non_null{dX},
-               util::non_null{dV},
-               util::non_null{dPBestX},
-               util::non_null{dPBestVal},
-               util::non_null{dGBestX},
-               util::non_null{dGBestVal},
+               util::NonNull{dX},
+               util::NonNull{dV},
+               util::NonNull{dPBestX},
+               util::NonNull{dPBestVal},
+               util::NonNull{dGBestX},
+               util::NonNull{dGBestVal},
                N,
                seed,
-               util::non_null{d_states});
+               util::NonNull{d_states});
   cudaDeviceSynchronize();
 
   // 3) snapshot pre‐iter
@@ -226,18 +226,18 @@ TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
                0.0,
                0.0,
                0.0, // w, c1, c2
-               util::non_null{dX},
-               util::non_null{dV},
-               util::non_null{dPBestX},
-               util::non_null{dPBestVal},
-               util::non_null{dGBestX},
-               util::non_null{dGBestVal},
+               util::NonNull{dX},
+               util::NonNull{dV},
+               util::NonNull{dPBestX},
+               util::NonNull{dPBestVal},
+               util::NonNull{dGBestX},
+               util::NonNull{dGBestVal},
                nullptr,
                false,
                N,
                0,
                seed,
-               util::non_null{d_states});
+               util::NonNull{d_states});
   cudaDeviceSynchronize();
 
   // 5) snapshot post‐iter

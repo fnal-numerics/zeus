@@ -14,20 +14,21 @@ namespace pso {
 
   // pso initialization kernel: initialize X, V, pBest;
   //                            atomically seed gBestVal/gBestX
-  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
+  template <typename Function,
+            std::size_t DIM = zeus::FnTraits<Function>::arity>
   __global__ void
   initKernel(Function func,
              double lower,
              double upper,
-             util::non_null<double*> X,
-             util::non_null<double*> V,
-             util::non_null<double*> pBestX,
-             util::non_null<double*> pBestVal,
-             util::non_null<double*> gBestX,
-             util::non_null<double*> gBestVal,
+             util::NonNull<double*> X,
+             util::NonNull<double*> V,
+             util::NonNull<double*> pBestX,
+             util::NonNull<double*> pBestVal,
+             util::NonNull<double*> gBestX,
+             util::NonNull<double*> gBestVal,
              int N,
              uint64_t seed,
-             util::non_null<curandState*> states)
+             util::NonNull<curandState*> states)
   {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= N)
@@ -67,7 +68,8 @@ namespace pso {
   }
 
   // one PSO iteration kernel
-  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
+  template <typename Function,
+            std::size_t DIM = zeus::FnTraits<Function>::arity>
   __global__ void
   iterKernel(Function func,
              double lower,
@@ -75,18 +77,18 @@ namespace pso {
              double w,  // weight inertia
              double c1, // cognitive coefficient
              double c2, // social coefficient
-             util::non_null<double*> X,
-             util::non_null<double*> V,
-             util::non_null<double*> pBestX,
-             util::non_null<double*> pBestVal,
-             util::non_null<double*> gBestX,
-             util::non_null<double*> gBestVal,
+             util::NonNull<double*> X,
+             util::NonNull<double*> V,
+             util::NonNull<double*> pBestX,
+             util::NonNull<double*> pBestVal,
+             util::NonNull<double*> gBestX,
+             util::NonNull<double*> gBestVal,
              double* traj, // pass nullptr if not saving
              bool saveTraj,
              int N,
              int iter,
              uint64_t seed,
-             util::non_null<curandState*> states)
+             util::NonNull<curandState*> states)
   // iteration
   {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -144,7 +146,8 @@ namespace pso {
   }
 
   // A simple logger function you can call from your launch()
-  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
+  template <typename Function,
+            std::size_t DIM = zeus::FnTraits<Function>::arity>
   void
   saveIteration(int iter,
                 int N,
@@ -179,8 +182,9 @@ namespace pso {
     out.flush();
   }
 
-  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
-  dbuf
+  template <typename Function,
+            std::size_t DIM = zeus::FnTraits<Function>::arity>
+  DoubleBuffer
   launch(const int PSO_ITER,
          const int N,
          const double lower,
@@ -218,13 +222,13 @@ namespace pso {
 
     // once we know we have enough memory, we can allocate it
     try { // resource acquisition is initialization
-      dbuf dX(sizeX);
-      dbuf dV(sizeX);
-      dbuf dPBestX(sizeX);
-      dbuf dPBestVal(sizePBestVal);
-      dbuf dGBestX(sizeGBestX);
-      dbuf dGBestVal(1);
-      dbuf dF(sizeF);
+      DoubleBuffer dX(sizeX);
+      DoubleBuffer dV(sizeX);
+      DoubleBuffer dPBestX(sizeX);
+      DoubleBuffer dPBestVal(sizePBestVal);
+      DoubleBuffer dGBestX(sizeGBestX);
+      DoubleBuffer dGBestVal(1);
+      DoubleBuffer dF(sizeF);
       // BFGSContext initialization is now handled by bfgs::sequential::launch
       // set seed to infinity
       {
@@ -248,15 +252,15 @@ namespace pso {
         <<<psoGrid, psoBlock>>>(fun,
                                 lower,
                                 upper,
-                                util::non_null{dX.data()},
-                                util::non_null{dV.data()},
-                                util::non_null{dPBestX.data()},
-                                util::non_null{dPBestVal.data()},
-                                util::non_null{dGBestX.data()},
-                                util::non_null{dGBestVal.data()},
+                                util::NonNull{dX.data()},
+                                util::NonNull{dV.data()},
+                                util::NonNull{dPBestX.data()},
+                                util::NonNull{dPBestVal.data()},
+                                util::NonNull{dGBestX.data()},
+                                util::NonNull{dGBestVal.data()},
                                 N,
                                 seed,
-                                util::non_null{states});
+                                util::NonNull{states});
       cudaEventRecord(t1);
       cudaEventSynchronize(t1);
       if (cudaGetLastError() != cudaSuccess)
@@ -295,18 +299,18 @@ namespace pso {
                                   w,
                                   c1,
                                   c2,
-                                  util::non_null{dX.data()},
-                                  util::non_null{dV.data()},
-                                  util::non_null{dPBestX.data()},
-                                  util::non_null{dPBestVal.data()},
-                                  util::non_null{dGBestX.data()},
-                                  util::non_null{dGBestVal.data()},
-                                  nullptr, // traj
-                                  false,   // saveTraj
+                                  util::NonNull{dX.data()},
+                                  util::NonNull{dV.data()},
+                                  util::NonNull{dPBestX.data()},
+                                  util::NonNull{dPBestVal.data()},
+                                  util::NonNull{dGBestX.data()},
+                                  util::NonNull{dGBestVal.data()},
+                                  nullptr,
+                                  false,
                                   N,
                                   iter,
                                   seed,
-                                  util::non_null{states}); //, best);
+                                  util::NonNull{states}); //, best);
         cudaEventRecord(t1);
         cudaEventSynchronize(t1);
         if (cudaGetLastError() != cudaSuccess)

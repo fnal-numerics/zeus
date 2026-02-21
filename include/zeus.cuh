@@ -34,8 +34,9 @@ namespace zeus {
   }
 
   namespace impl {
-    template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
-    Result<DIM>
+    template <typename Function,
+              std::size_t ZEUS_DIM = FnTraits<Function>::arity>
+    zeus::Result<ZEUS_DIM>
     Zeus(Function const& f,
          double lower,
          double upper,
@@ -55,70 +56,72 @@ namespace zeus {
       // save trajectories?
       bool save_trajectories = util::askUser2saveTrajectories();
       double* deviceTrajectory = nullptr;
-      // dbuf is cuda_buffer<double>
-      dbuf trajBuffer(0);
+      // DoubleBuffer is CudaBuffer<double>
+      DoubleBuffer trajBuffer(0);
       if (save_trajectories) {
-        trajBuffer = dbuf(size_t(N) * MAX_ITER * DIM);
+        trajBuffer = DoubleBuffer(size_t(N) * MAX_ITER * ZEUS_DIM);
         deviceTrajectory = trajBuffer.data();
       }
 
-      dbuf pso_results_device(0);
+      DoubleBuffer pso_results_device(0);
       float ms_init = 0.0f, ms_pso = 0.0f;
       if (PSO_ITER >= 0) {
         try {
-          pso_results_device = pso::launch(
+          pso_results_device = pso::launch<Function, ZEUS_DIM>(
             PSO_ITER, N, lower, upper, ms_init, ms_pso, seed, states, f);
           // printf("pso init: %.2f main loop: %.2f", ms_init, ms_pso);
         }
         catch (const CudaError& e) {
-          Result<DIM> r;
+          zeus::Result<ZEUS_DIM> r;
           r.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
           return r;
         }
 
       } // end if pso_iter > 0
 
-      Result<DIM> best;
+      zeus::Result<ZEUS_DIM> best;
       float ms_opt = 0.0f;
       if (run != 0) {
         std::cout << "parallel" << "\n";
-        best = bfgs::parallel::launch(N,
-                                      PSO_ITER,
-                                      MAX_ITER,
-                                      upper,
-                                      lower,
-                                      pso_results_device.data(),
-                                      deviceTrajectory,
-                                      requiredConverged,
-                                      tolerance,
-                                      save_trajectories,
-                                      ms_opt,
-                                      fun_name,
-                                      states,
-                                      run,
-                                      f);
+        best =
+          bfgs::parallel::launch<Function, ZEUS_DIM>(N,
+                                                     PSO_ITER,
+                                                     MAX_ITER,
+                                                     upper,
+                                                     lower,
+                                                     pso_results_device.data(),
+                                                     deviceTrajectory,
+                                                     requiredConverged,
+                                                     tolerance,
+                                                     save_trajectories,
+                                                     ms_opt,
+                                                     fun_name,
+                                                     states,
+                                                     run,
+                                                     f);
       } else {
 
         std::cout << "sequential" << "\n";
-        best = bfgs::sequential::launch(N,
-                                        PSO_ITER,
-                                        MAX_ITER,
-                                        upper,
-                                        lower,
-                                        pso_results_device.data(),
-                                        deviceTrajectory,
-                                        requiredConverged,
-                                        tolerance,
-                                        save_trajectories,
-                                        ms_opt,
-                                        fun_name,
-                                        states,
-                                        run,
-                                        f);
+        best = bfgs::sequential::launch<Function, ZEUS_DIM>(
+          N,
+          PSO_ITER,
+          MAX_ITER,
+          upper,
+          lower,
+          pso_results_device.data(),
+          deviceTrajectory,
+          requiredConverged,
+          tolerance,
+          save_trajectories,
+          ms_opt,
+          fun_name,
+          states,
+          run,
+          f);
       }
       double error =
-        util::calculate_euclidean_error(fun_name, best.coordinates, DIM);
-      util::append_results_2_tsv(DIM,
+        util::calculate_euclidean_error(fun_name, best.coordinates, ZEUS_DIM);
+      util::append_results_2_tsv(ZEUS_DIM,
                                  N,
                                  fun_name,
                                  ms_init,
@@ -138,7 +141,7 @@ namespace zeus {
     } // end Zeus
   } // namespace impl
 
-  template <typename Function, std::size_t DIM = fn_traits<Function>::arity>
+  template <typename Function, std::size_t ZEUS_DIM = FnTraits<Function>::arity>
   auto
   Zeus(Function const& f,
        double lower,
@@ -155,12 +158,13 @@ namespace zeus {
   {
     static_assert(
       std::is_same_v<decltype(f(
-                       std::declval<const std::array<double, DIM>&>())),
+                       std::declval<const std::array<double, ZEUS_DIM>&>())),
                      double>,
-      "Your objective must be callable as f(std::array<double,DIM>) -> double");
+      "Your objective must be callable as f(std::array<double,ZEUS_DIM>) -> "
+      "double");
     static_assert(
       std::is_same_v<decltype(std::declval<Function>()(
-                       std::declval<std::array<dual::DualNumber, DIM>>())),
+                       std::declval<std::array<dual::DualNumber, ZEUS_DIM>>())),
                      dual::DualNumber>,
       "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T "
       "fun(const std::array<T,N>) { ... }\n");

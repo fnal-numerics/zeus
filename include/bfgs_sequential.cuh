@@ -13,21 +13,21 @@ namespace bfgs {
     /// Sequential BFGS optimization kernel.
     /// Each thread performs one independent BFGS optimization using
     /// automatic differentiation for gradient computation.
-    template <typename Function, int DIM, unsigned int blockSize>
+    template <typename Function, int ZEUS_DIM, unsigned int blockSize>
     __global__ void
     optimize(Function f,
              const double lower,
              const double upper,
              const double* pso_array, // pso initialized positions (optional)
-             util::non_null<double*> deviceResults,
+             util::NonNull<double*> deviceResults,
              double* deviceTrajectory,
              int N,
              const int MAX_ITER,
              const int requiredConverged,
              const double tolerance,
-             util::non_null<Result<DIM>*> result,
-             util::non_null<curandState*> states,
-             util::non_null<util::BFGSContext*> ctx,
+             util::NonNull<zeus::Result<ZEUS_DIM>*> result,
+             util::NonNull<curandState*> states,
+             util::NonNull<util::BFGSContext*> ctx,
              bool save_trajectories = false,
              unsigned long long* ad_cycles_out = nullptr,
              int* ad_calls_out = nullptr,
@@ -36,9 +36,10 @@ namespace bfgs {
              unsigned long long* total_cycles_out = nullptr)
     {
       static_assert(
-        std::is_same_v<decltype(std::declval<Function>()(
-                         std::declval<std::array<dual::DualNumber, DIM>>())),
-                       dual::DualNumber>,
+        std::is_same_v<
+          decltype(std::declval<Function>()(
+            std::declval<std::array<dual::DualNumber, ZEUS_DIM>>())),
+          dual::DualNumber>,
         "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> "
         "T "
         "fun(const std::array<T,N>) { ... }\n");
@@ -49,35 +50,35 @@ namespace bfgs {
       unsigned long long k_begin = clock64();
 
       curandState localState = states[idx];
-      std::array<double, DIM> x_arr, x_new, g_arr, g_new, p_arr;
-      DeviceMatrix<double> H(DIM, DIM);
-      DeviceMatrix<double> Htmp(DIM, DIM);
-      double delta_x[DIM], delta_g[DIM];
-      Result<DIM> r;
-      for (int i = 0; i < DIM; i++)
+      std::array<double, ZEUS_DIM> x_arr, x_new, g_arr, g_new, p_arr;
+      DeviceMatrix<double> H(ZEUS_DIM, ZEUS_DIM);
+      DeviceMatrix<double> Htmp(ZEUS_DIM, ZEUS_DIM);
+      double delta_x[ZEUS_DIM], delta_g[ZEUS_DIM];
+      zeus::Result<ZEUS_DIM> r;
+      for (int i = 0; i < ZEUS_DIM; i++)
         x_arr[i] = 7.0;
-      write_result<DIM>(r,
-                        /*status=*/-1,
-                        /*fval=*/333777.0,
-                        /*coordinates=*/x_arr.data(),
-                        /*norm=*/69.0,
-                        /*iter*/ 0,
-                        idx);
-      util::initialize_identity_matrix(&H, DIM);
+      write_result<ZEUS_DIM>(r,
+                             /*status=*/-1,
+                             /*fval=*/333777.0,
+                             /*coordinates=*/x_arr.data(),
+                             /*norm=*/69.0,
+                             /*iter*/ 0,
+                             idx);
+      util::initialize_identity_matrix(&H, ZEUS_DIM);
       int num_steps = 0, iter;
-      double x_raw[DIM];
+      double x_raw[ZEUS_DIM];
       // initialize x either from PSO array or fallback by RNG
 #pragma unroll
-      for (int d = 0; d < DIM; ++d) {
+      for (int d = 0; d < ZEUS_DIM; ++d) {
         x_raw[d] = pso_array ?
-                     pso_array[idx * DIM + d] :
+                     pso_array[idx * ZEUS_DIM + d] :
                      util::generate_random_double(&states[idx], lower, upper);
         x_arr[d] = x_raw[d];
         g_arr[d] = 0.0;
         states[idx] = localState;
       }
 
-      double f0 = f(x_arr); // rosenbrock_device(x, DIM);
+      double f0 = f(x_arr); // rosenbrock_device(x, ZEUS_DIM);
       deviceResults[idx] = f0;
       double bestVal = f0;
 
@@ -104,21 +105,22 @@ namespace bfgs {
           // the next time any thread does atomicAdd(&d_stopFlag, 0) it’ll see 1
           // and break. printf("thread %d get outta dodge cuz we converged...",
           // idx);
-          write_result<DIM>(r,
-                            2,
-                            f(x_arr),
-                            x_arr.data(),
-                            util::calculate_gradient_norm<DIM>(g_arr),
-                            iter,
-                            idx);
+          write_result<ZEUS_DIM>(r,
+                                 2,
+                                 f(x_arr),
+                                 x_arr.data(),
+                                 util::calculate_gradient_norm<ZEUS_DIM>(g_arr),
+                                 iter,
+                                 idx);
           break;
         }
         num_steps++;
-        util::compute_search_direction<DIM>(p_arr, &H, g_arr); // p = -H * g
+        util::compute_search_direction<ZEUS_DIM>(
+          p_arr, &H, g_arr); // p = -H * g
 
         // use the alpha obtained from the line search
-        double alpha =
-          util::line_search<Function, DIM>(bestVal, x_arr, p_arr, g_arr, f);
+        double alpha = util::line_search<Function, ZEUS_DIM>(
+          bestVal, x_arr, p_arr, g_arr, f);
         if (alpha == 0.0) {
           printf("Alpha is zero, no movement in iteration=%d\n", iter);
           alpha = 1e-3;
@@ -126,7 +128,7 @@ namespace bfgs {
 
         // update current point by taking a step size of alpha in the direction
         // p
-        for (int i = 0; i < DIM; ++i) {
+        for (int i = 0; i < ZEUS_DIM; ++i) {
           x_new[i] = x_arr[i] + alpha * p_arr[i];
           delta_x[i] = x_new[i] - x_arr[i];
         }
@@ -140,7 +142,7 @@ namespace bfgs {
         ad_calls += 1;
 
         // calculate new delta_x and delta_g
-        for (int i = 0; i < DIM; ++i) {
+        for (int i = 0; i < ZEUS_DIM; ++i) {
           delta_g[i] =
             g_new[i] -
             g_arr[i]; // difference in gradient at the new point vs old point
@@ -148,11 +150,11 @@ namespace bfgs {
 
         // calculate the the dot product between the change in x and change in
         // gradient using new point
-        double delta_dot = util::dot_product_device(delta_x, delta_g, DIM);
+        double delta_dot = util::dot_product_device(delta_x, delta_g, ZEUS_DIM);
 
         unsigned long long b0 = clock64();
         // bfgs update on H
-        util::bfgs_update<DIM>(&H, delta_x, delta_g, delta_dot, &Htmp);
+        util::bfgs_update<ZEUS_DIM>(&H, delta_x, delta_g, delta_dot, &Htmp);
         // only update x and g for next iteration if the new minima is smaller
         // than previous double min =
         unsigned long long b1 = clock64();
@@ -161,16 +163,17 @@ namespace bfgs {
 
         if (fnew < bestVal) {
           bestVal = fnew;
-          for (int i = 0; i < DIM; ++i) {
+          for (int i = 0; i < ZEUS_DIM; ++i) {
             x_arr[i] = x_new[i];
             g_arr[i] = g_new[i];
           }
         }
         // refactor? yes
-        double grad_norm = util::calculate_gradient_norm<DIM>(g_arr);
+        double grad_norm = util::calculate_gradient_norm<ZEUS_DIM>(g_arr);
         // catch not finite gradient norm or function value
         if (!isfinite(grad_norm) || !isfinite(fnew)) {
-          write_result<DIM>(r, 5, fnew, x_arr.data(), grad_norm, iter, idx);
+          write_result<ZEUS_DIM>(
+            r, 5, fnew, x_arr.data(), grad_norm, iter, idx);
           break;
         }
         if (grad_norm < tolerance) {
@@ -178,7 +181,8 @@ namespace bfgs {
           int oldCount = atomicAdd(&ctx->convergedCount, 1);
           int newCount = oldCount + 1;
           double fcurr = f(x_arr);
-          write_result<DIM>(r, 1, fcurr, x_arr.data(), grad_norm, iter, idx);
+          write_result<ZEUS_DIM>(
+            r, 1, fcurr, x_arr.data(), grad_norm, iter, idx);
           // if we just hit the threshold set by the user, the VERY FIRST thread
           // to do so sets ctx->stopFlag=1 so everyone else exits on their next
           // check
@@ -202,10 +206,9 @@ namespace bfgs {
           break;
         }
 
-        /*  deviceTrajectory layout: idx * (MAX_ITER * DIM) + iter * DIM + i
-        if (save_trajectories) {
-          for (int i = 0; i < DIM; i++) {
-            deviceTrajectory[idx * (MAX_ITER * DIM) + iter * DIM + i] =
+        /*  deviceTrajectory layout: idx * (MAX_ITER * ZEUS_DIM) + iter *
+        ZEUS_DIM + i if (save_trajectories) { for (int i = 0; i < ZEUS_DIM; i++)
+        { deviceTrajectory[idx * (MAX_ITER * ZEUS_DIM) + iter * ZEUS_DIM + i] =
         x_raw[i];
           }
         }*/
@@ -214,13 +217,13 @@ namespace bfgs {
       // if we broek out because we hit the max numberof iterations, then its a
       // surrender
       if (MAX_ITER == iter) {
-        write_result<DIM>(r,
-                          0,
-                          f(x_arr),
-                          x_arr.data(),
-                          util::calculate_gradient_norm<DIM>(g_arr),
-                          iter,
-                          idx);
+        write_result<ZEUS_DIM>(r,
+                               0,
+                               f(x_arr),
+                               x_arr.data(),
+                               util::calculate_gradient_norm<ZEUS_DIM>(g_arr),
+                               iter,
+                               idx);
       }
       deviceResults[idx] = r.fval;
       result[idx] = r;
@@ -387,11 +390,8 @@ namespace bfgs {
     }
 
     template <typename Function,
-              /// Launch sequential BFGS optimization with N independent
-              /// optimizations. Each thread performs one complete BFGS
-              /// optimization independently.
-              std::size_t DIM = zeus::fn_traits<Function>::arity>
-    Result<DIM>
+              std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity>
+    zeus::Result<ZEUS_DIM>
     launch(size_t N,
            const int pso_iter,
            const int MAX_ITER,
@@ -411,14 +411,14 @@ namespace bfgs {
       int blockSize, minGridSize;
 
       cudaOccupancyMaxPotentialBlockSize(
-        &minGridSize, &blockSize, optimize<Function, DIM, 128>, 0, N);
+        &minGridSize, &blockSize, optimize<Function, ZEUS_DIM, 128>, 0, N);
       // printf("\nRecommended block size: %d\n", blockSize);
-      dbuf deviceResults;
+      DoubleBuffer deviceResults;
       try {
-        deviceResults = dbuf(N);
+        deviceResults = DoubleBuffer(N);
       }
       catch (const CudaError& e) {
-        Result<DIM> result;
+        zeus::Result<ZEUS_DIM> result;
         result.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
         return result;
       }
@@ -458,30 +458,30 @@ namespace bfgs {
       cudaEventCreate(&stopOpt);
       cudaEventRecord(startOpt);
 
-      result_buffer<DIM> d_results;
+      ResultBuffer<ZEUS_DIM> d_results;
       try {
-        d_results = result_buffer<DIM>(N);
+        d_results = ResultBuffer<ZEUS_DIM>(N);
       }
       catch (const CudaError& e) {
-        Result<DIM> result;
+        zeus::Result<ZEUS_DIM> result;
         result.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
         return result;
       }
       if (save_trajectories) {
-        optimize<Function, DIM, 128>
+        optimize<Function, ZEUS_DIM, 128>
           <<<optGrid, optBlock>>>(f,
                                   lower,
                                   upper,
                                   pso_results_device,
-                                  util::non_null{deviceResults.data()},
+                                  util::NonNull{deviceResults.data()},
                                   deviceTrajectory,
                                   (int)N,
                                   MAX_ITER,
                                   requiredConverged,
                                   tolerance,
-                                  util::non_null{d_results.data()},
-                                  util::non_null{states},
-                                  util::non_null{d_ctx},
+                                  util::NonNull{d_results.data()},
+                                  util::NonNull{states},
+                                  util::NonNull{d_ctx},
                                   true,
                                   d_ad_cycles,
                                   d_ad_calls,
@@ -489,20 +489,20 @@ namespace bfgs {
                                   d_bfgs_calls,
                                   d_total_cycles);
       } else {
-        optimize<Function, DIM, 128>
+        optimize<Function, ZEUS_DIM, 128>
           <<<optGrid, optBlock>>>(f,
                                   lower,
                                   upper,
                                   pso_results_device,
-                                  util::non_null{deviceResults.data()},
+                                  util::NonNull{deviceResults.data()},
                                   nullptr,
                                   (int)N,
                                   MAX_ITER,
                                   requiredConverged,
                                   tolerance,
-                                  util::non_null{d_results.data()},
-                                  util::non_null{states},
-                                  util::non_null{d_ctx},
+                                  util::NonNull{d_results.data()},
+                                  util::NonNull{states},
+                                  util::NonNull{d_ctx},
                                   false,
                                   d_ad_cycles,
                                   d_ad_calls,
@@ -514,7 +514,7 @@ namespace bfgs {
       if (err != cudaSuccess) {
         std::fprintf(
           stderr, "BFGS kernel launch failed: %s\n", cudaGetErrorString(err));
-        Result<DIM> result;
+        zeus::Result<ZEUS_DIM> result;
         result.status = 4;
         return result;
       }
@@ -522,7 +522,7 @@ namespace bfgs {
       if (err != cudaSuccess) {
         std::fprintf(
           stderr, "bfgs kernel runtime error: %s\n", cudaGetErrorString(err));
-        Result<DIM> result;
+        zeus::Result<ZEUS_DIM> result;
         result.status = 4;
         return result;
       }
@@ -556,16 +556,16 @@ namespace bfgs {
                                                         optBlock,
                                                         d_total_cycles);
 
-      std::vector<Result<DIM>> h_results(N);
+      std::vector<zeus::Result<ZEUS_DIM>> h_results(N);
       cudaMemcpy(h_results.data(),
-                 d_results,
-                 N * sizeof(Result<DIM>),
+                 d_results.data(),
+                 N * sizeof(zeus::Result<ZEUS_DIM>),
                  cudaMemcpyDeviceToHost);
-      Convergence c = util::dump_data_2_file<DIM>(
+      Convergence c = util::dump_data_2_file<ZEUS_DIM>(
         N, h_results.data(), fun_name, pso_iter, run);
 
-      Result best =
-        launch_reduction<DIM>(N, deviceResults.data(), h_results.data());
+      zeus::Result<ZEUS_DIM> best =
+        launch_reduction<ZEUS_DIM>(N, deviceResults.data(), h_results.data());
       best.c = c;
       best.ad = ad_metrics;
       best.bfgs = bfgs_metrics;

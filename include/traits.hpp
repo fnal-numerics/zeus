@@ -1,21 +1,29 @@
 #pragma once
 #include <cstddef>
+#include <type_traits>
 
 namespace zeus {
   /// Primary template for function traits extraction (intentionally undefined).
   /// Specializations below provide compile-time introspection of callable types
   /// to extract arity (dimensionality) and argument types for Zeus
   /// optimization.
-  template <typename F>
-  struct fn_traits;
+  template <typename...>
+  using VoidT = void;
 
-  /// Specialization for templated callable classes (e.g., Foo<N>, Gaussian<N>).
-  /// Extracts dimensionality N from class templates that accept std::size_t
-  /// as a template parameter.
-  /// Used for objective functions defined as:
-  ///   template<std::size_t N> class Functor { T operator()(std::array<T,N>) }.
+  template <typename F, typename = void>
+  struct FnTraits {
+    static constexpr std::size_t arity = 0;
+  };
+
+  // Specialization for types that have a static 'arity' member.
+  template <typename F>
+  struct FnTraits<F, VoidT<decltype(F::arity)>> {
+    static constexpr std::size_t arity = F::arity;
+  };
+
+  // Fallback for templated functors without 'arity' member.
   template <template <std::size_t> class Functor, std::size_t N>
-  struct fn_traits<Functor<N>> {
+  struct FnTraits<Functor<N>> {
     static constexpr std::size_t arity = N;
   };
 }

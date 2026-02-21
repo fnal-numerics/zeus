@@ -8,14 +8,14 @@
 template <typename T>
 class DeviceMatrix {
 private:
-  T* data_ = nullptr;    ///< Device heap pointer
-  std::size_t cols_ = 0; ///< Number of columns
-  std::size_t rows_ = 0; ///< Number of rows
+  T* data_ = nullptr; ///< Device heap pointer
+  int cols_ = 0;      ///< Number of columns
+  int rows_ = 0;      ///< Number of rows
 
 public:
   __device__ DeviceMatrix(
-    std::size_t rows,
-    std::size_t cols); ///< Allocate rows×cols matrix on device heap
+    int rows,
+    int cols); ///< Allocate rows×cols matrix on device heap
   DeviceMatrix(const DeviceMatrix&) = delete;
   DeviceMatrix& operator=(const DeviceMatrix&) = delete;
   __device__ DeviceMatrix(DeviceMatrix&&) = delete;
@@ -25,15 +25,14 @@ public:
   __device__ void release(); ///< Free device heap memory and reset dimensions
   __device__ T* data();      ///< Raw pointer to device heap data
   __device__ const T* data() const; ///< Raw pointer to device heap data (const)
-  __device__ std::size_t rows() const; ///< Number of rows
-  __device__ std::size_t cols() const; ///< Number of columns
+  __device__ int rows() const;      ///< Number of rows
+  __device__ int cols() const;      ///< Number of columns
   __device__ T& operator()(
-    std::size_t i,
-    std::size_t j); ///< Access element at (i,j) in row-major order
-  __device__ const T& operator()(std::size_t i, std::size_t j)
+    int i,
+    int j); ///< Access element at (i,j) in row-major order
+  __device__ const T& operator()(int i, int j)
     const; ///< Access element at (i,j) in row-major order (const)
-  __device__ void set(std::size_t i,
-                      std::size_t j,
+  __device__ void set(int i, int j,
                       const T& x); ///< Set element at (i,j)
 };
 
@@ -43,10 +42,10 @@ public:
 
 template <typename T>
 __device__
-DeviceMatrix<T>::DeviceMatrix(std::size_t rows, std::size_t cols)
+DeviceMatrix<T>::DeviceMatrix(int rows, int cols)
   : data_(nullptr), rows_(rows), cols_(cols)
 {
-  const std::size_t sz = rows_ * cols_ * sizeof(T);
+  const std::size_t sz = static_cast<size_t>(rows_) * cols_ * sizeof(T);
   data_ = static_cast<T*>(malloc(sz));
   if (!data_)
     asm("trap;");
@@ -84,14 +83,14 @@ DeviceMatrix<T>::data() const
 }
 
 template <typename T>
-__device__ std::size_t
+__device__ int
 DeviceMatrix<T>::rows() const
 {
   return rows_;
 }
 
 template <typename T>
-__device__ std::size_t
+__device__ int
 DeviceMatrix<T>::cols() const
 {
   return cols_;
@@ -99,21 +98,21 @@ DeviceMatrix<T>::cols() const
 
 template <typename T>
 __device__ T&
-DeviceMatrix<T>::operator()(std::size_t i, std::size_t j)
+DeviceMatrix<T>::operator()(int i, int j)
 {
-  return data_[i * cols_ + j];
+  return data_[static_cast<size_t>(i) * cols_ + j];
 }
 
 template <typename T>
 __device__ const T&
-DeviceMatrix<T>::operator()(std::size_t i, std::size_t j) const
+DeviceMatrix<T>::operator()(int i, int j) const
 {
-  return data_[i * cols_ + j];
+  return data_[static_cast<size_t>(i) * cols_ + j];
 }
 
 template <typename T>
 __device__ void
-DeviceMatrix<T>::set(std::size_t i, std::size_t j, const T& x)
+DeviceMatrix<T>::set(int i, int j, const T& x)
 {
-  data_[i * cols_ + j] = x;
+  data_[static_cast<size_t>(i) * cols_ + j] = x;
 }

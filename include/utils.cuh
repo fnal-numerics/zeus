@@ -16,15 +16,15 @@ inline double* const KERNEL_ERROR = const_cast<double*>(&kernel_error);
 namespace util {
 
   template <typename T>
-  struct non_null {
+  struct NonNull {
     T ptr;
 
-    __host__ __device__ explicit non_null(const T p) : ptr(p)
+    __host__ __device__ explicit NonNull(const T p) : ptr(p)
     {
 #ifndef __CUDA_ARCH__
       if (p == nullptr) {
         throw std::invalid_argument(
-          "util::non_null: construction from nullptr");
+          "util::NonNull: construction from nullptr");
       }
 #endif
     }
@@ -32,13 +32,13 @@ namespace util {
     template <typename U,
               typename = std::enable_if_t<std::is_convertible_v<U, T>>>
     __host__ __device__
-    non_null(const non_null<U>& other)
+    NonNull(const NonNull<U>& other)
       : ptr(other.get())
     {}
 
     // Disable construction from nullptr literal
-    non_null(std::nullptr_t) = delete;
-    non_null& operator=(std::nullptr_t) = delete;
+    NonNull(std::nullptr_t) = delete;
+    NonNull& operator=(std::nullptr_t) = delete;
 
     __host__ __device__ T
     get() const
@@ -346,7 +346,7 @@ namespace util {
     return lower + (upper + (-lower)) * curand_uniform_double(state);
   }
 
-  __global__ void setup_curand_states(non_null<curandState*> states,
+  __global__ void setup_curand_states(NonNull<curandState*> states,
                                       uint64_t seed,
                                       int N);
 

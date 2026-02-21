@@ -18,22 +18,22 @@ ck(cudaError_t e, const char* msg)
 // Kernels that use DeviceMatrix on device
 template <typename T>
 __global__ void
-kernel_fill_and_copy(T* out, std::size_t rows, std::size_t cols, T base)
+kernel_fill_and_copy(T* out, int rows, int cols, T base)
 {
   // Single thread constructs, fills, and copies out the matrix.
   if (threadIdx.x == 0 && blockIdx.x == 0) {
     DeviceMatrix<T> M(rows, cols);
 
     // Fill with base + (i * cols + j)
-    for (std::size_t i = 0; i < rows; ++i) {
-      for (std::size_t j = 0; j < cols; ++j) {
+    for (int i = 0; i < rows; ++i) {
+      for (int j = 0; j < cols; ++j) {
         M(i, j) = static_cast<T>(base + static_cast<T>(i * cols + j));
       }
     }
 
     // Copy to global out buffer (row-major) so host can validate
-    for (std::size_t i = 0; i < rows; ++i) {
-      for (std::size_t j = 0; j < cols; ++j) {
+    for (int i = 0; i < rows; ++i) {
+      for (int j = 0; j < cols; ++j) {
         out[i * cols + j] = M(i, j);
       }
     }
@@ -43,9 +43,9 @@ kernel_fill_and_copy(T* out, std::size_t rows, std::size_t cols, T base)
 
 template <typename T>
 static void
-run_fill_and_check(std::size_t rows, std::size_t cols, T base)
+run_fill_and_check(int rows, int cols, T base)
 {
-  const std::size_t N = rows * cols;
+  const int N = rows * cols;
 
   // Device buffer for results
   T* d_out = nullptr;
@@ -80,21 +80,17 @@ TEST_CASE("DeviceMatrix is non-copyable and non-assignable", "[traits]")
 
 TEST_CASE("DeviceMatrix<int> fill and readback small", "[functional][int]")
 {
-  // Ensure enough device heap for device-side malloc/free
-  ck(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 8 << 20), "set heap limit");
   run_fill_and_check<int>(3, 4, 10);
 }
 
 TEST_CASE("DeviceMatrix<double> fill and readback rectangular",
           "[functional][double]")
 {
-  ck(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1 << 20), "set heap limit");
   run_fill_and_check<double>(5, 2, 1.5);
 }
 
 TEST_CASE("Repeated construction/destruction test", "[lifecycle]")
 {
-  ck(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1 << 20), "set heap limit");
   for (int k = 0; k < 5; ++k) {
     run_fill_and_check<std::int32_t>(2, 3, k * 100);
   }

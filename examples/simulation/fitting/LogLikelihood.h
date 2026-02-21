@@ -9,6 +9,7 @@
 // The Poisson mean in bin i is: a * (1-x)^b / (x^(c + d*ln(x)))
 class LogLikelihood {
 public:
+  static constexpr std::size_t arity = 4;
   LogLikelihood(std::vector<int> const& bin_counts,
                 std::vector<double> const& bin_centers)
     : counts(bin_counts), centers(bin_centers),
@@ -65,7 +66,7 @@ private:
 };
 
 namespace zeus {
-template<> struct fn_traits<LogLikelihood> {
+template<> struct FnTraits<LogLikelihood> {
   static constexpr std::size_t arity = 4;
 };
 }

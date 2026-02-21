@@ -5,16 +5,16 @@ using Catch::Approx;
 
 using namespace zeus;
 
-TEST_CASE("allocation of small buffer succeeds", "[dbuf]")
+TEST_CASE("allocation of small buffer succeeds", "[DoubleBuffer]")
 {
-  dbuf buf(4);
+  DoubleBuffer buf(4);
   REQUIRE(buf.size() == 4);
   REQUIRE(buf.data() != nullptr);
 }
 
-TEST_CASE("zero-length buffer behaves correctly", "[dbuf]")
+TEST_CASE("zero-length buffer behaves correctly", "[DoubleBuffer]")
 {
-  dbuf buf(0);
+  DoubleBuffer buf(0);
   REQUIRE(buf.size() == 0);
   REQUIRE(buf.data() == nullptr);
 
@@ -31,29 +31,29 @@ TEST_CASE("zero-length buffer behaves correctly", "[dbuf]")
   REQUIRE(buf.copy_to_host(nullptr, 0) == 0);
 }
 
-TEST_CASE("ctor from host array + copy_to_host round-trips", "[dbuf]")
+TEST_CASE("ctor from host array + copy_to_host round-trips", "[DoubleBuffer]")
 {
   std::array<double, 3> host = {{1.1, 2.2, 3.3}};
-  dbuf buf(host);
+  DoubleBuffer buf(host);
   auto out = buf.copy_to_host();
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("copy_to_host(vector&) overload", "[dbuf]")
+TEST_CASE("copy_to_host(vector&) overload", "[DoubleBuffer]")
 {
   std::array<double, 2> host = {{4.4, 5.5}};
-  dbuf buf(host);
+  DoubleBuffer buf(host);
   std::vector<double> out;
   int status = buf.copy_to_host(out);
   REQUIRE(status == 0);
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("copy ctor performs deep copy", "[dbuf]")
+TEST_CASE("copy ctor performs deep copy", "[DoubleBuffer]")
 {
   std::array<double, 2> host = {{6.6, 7.7}};
-  dbuf a(host);
-  dbuf b(a);
+  DoubleBuffer a(host);
+  DoubleBuffer b(a);
   // modify original on device
   std::vector<double> modified = a.copy_to_host();
   modified[0] = 9.9;
@@ -63,15 +63,15 @@ TEST_CASE("copy ctor performs deep copy", "[dbuf]")
   REQUIRE(vb[1] == host[1]);
 }
 
-TEST_CASE("copy assignment (self and distinct) is safe", "[dbuf]")
+TEST_CASE("copy assignment (self and distinct) is safe", "[DoubleBuffer]")
 {
-  dbuf a(5);
+  DoubleBuffer a(5);
   void* old_d = a.data();
   a = a; // self-assign
   REQUIRE(a.size() == 5);
   REQUIRE(a.data() == old_d); // self-assignment shouldn't reallocate
 
-  dbuf b(3);
+  DoubleBuffer b(3);
   b = a;
   REQUIRE(b.size() == 5);
   REQUIRE(a.size() == 5);
@@ -79,19 +79,20 @@ TEST_CASE("copy assignment (self and distinct) is safe", "[dbuf]")
   REQUIRE(b.copy_to_host() == a.copy_to_host()); // contents should match
 }
 
-TEST_CASE("raw-pointer copy_to_host size-mismatch yields error", "[dbuf]")
+TEST_CASE("raw-pointer copy_to_host size-mismatch yields error",
+          "[DoubleBuffer]")
 {
   std::array<double, 2> host = {{8.8, 9.9}};
-  dbuf buf(host);
+  DoubleBuffer buf(host);
   double small[1];
   REQUIRE(buf.copy_to_host(small, 1) != 0);
 }
 
-TEST_CASE("move constructor transfers ownership", "[dbuf]")
+TEST_CASE("move constructor transfers ownership", "[DoubleBuffer]")
 {
   std::array<double, 3> host = {{1.0, 2.0, 3.0}};
-  dbuf a(host);
-  dbuf b(std::move(a));
+  DoubleBuffer a(host);
+  DoubleBuffer b(std::move(a));
 
   REQUIRE(b.size() == 3);
   REQUIRE(a.size() == 0);
@@ -101,11 +102,11 @@ TEST_CASE("move constructor transfers ownership", "[dbuf]")
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("move assignment transfers ownership", "[dbuf]")
+TEST_CASE("move assignment transfers ownership", "[DoubleBuffer]")
 {
   std::array<double, 2> host = {{5.5, 6.6}};
-  dbuf a(host);
-  dbuf b(10);
+  DoubleBuffer a(host);
+  DoubleBuffer b(10);
   b = std::move(a);
 
   REQUIRE(b.size() == 2);
@@ -117,18 +118,19 @@ TEST_CASE("move assignment transfers ownership", "[dbuf]")
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("repeated allocate/free does not crash", "[dbuf][destructor]")
+TEST_CASE("repeated allocate/free does not crash", "[DoubleBuffer][destructor]")
 {
   // Create and destroy a buffer 1000 times
   for (int i = 0; i < 1000; ++i) {
-    dbuf buf(1024);
+    DoubleBuffer buf(1024);
     REQUIRE(buf.size() == 1024);
     REQUIRE(buf.data() != nullptr);
     // destructor runs at end of each iteration
   }
 }
 
-TEST_CASE("destructor actually frees device memory", "[dbuf][destructor]")
+TEST_CASE("destructor actually frees device memory",
+          "[DoubleBuffer][destructor]")
 {
   size_t free_before, total;
   // query free/total device memory before
@@ -137,7 +139,7 @@ TEST_CASE("destructor actually frees device memory", "[dbuf][destructor]")
 
   {
     // allocate ~8 MB
-    dbuf buf(1024 * 1024);
+    DoubleBuffer buf(1024 * 1024);
     REQUIRE(buf.data() != nullptr);
     // destructor will run at the end of this scope
   }
@@ -150,9 +152,10 @@ TEST_CASE("destructor actually frees device memory", "[dbuf][destructor]")
   REQUIRE(free_after >= free_before);
 }
 
-TEST_CASE("default constructor creates empty buffer", "[dbuf][default-ctor]")
+TEST_CASE("default constructor creates empty buffer",
+          "[DoubleBuffer][default-ctor]")
 {
-  dbuf buf;
+  DoubleBuffer buf;
   REQUIRE(buf.size() == 0);
   REQUIRE(buf.data() == nullptr);
 
@@ -163,13 +166,13 @@ TEST_CASE("default constructor creates empty buffer", "[dbuf][default-ctor]")
   // should be safe to destroy (destructor shouldn't call cudaFree on nullptr)
 }
 
-TEST_CASE("swap exchanges buffer contents", "[dbuf][swap]")
+TEST_CASE("swap exchanges buffer contents", "[DoubleBuffer][swap]")
 {
   std::array<double, 3> host_a = {{1.0, 2.0, 3.0}};
   std::array<double, 2> host_b = {{4.0, 5.0}};
 
-  dbuf a(host_a);
-  dbuf b(host_b);
+  DoubleBuffer a(host_a);
+  DoubleBuffer b(host_b);
 
   double* ptr_a = a.data();
   double* ptr_b = b.data();
@@ -194,11 +197,11 @@ TEST_CASE("swap exchanges buffer contents", "[dbuf][swap]")
   REQUIRE(vec_b == std::vector<double>(host_a.begin(), host_a.end()));
 }
 
-TEST_CASE("swap with empty buffer", "[dbuf][swap]")
+TEST_CASE("swap with empty buffer", "[DoubleBuffer][swap]")
 {
   std::array<double, 2> host = {{7.0, 8.0}};
-  dbuf a(host);
-  dbuf b; // default constructed
+  DoubleBuffer a(host);
+  DoubleBuffer b; // default constructed
 
   double* ptr_a = a.data();
   size_t size_a = a.size();
@@ -214,10 +217,10 @@ TEST_CASE("swap with empty buffer", "[dbuf][swap]")
   REQUIRE(vec_b == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("implicit conversion to raw pointer", "[dbuf][conversion]")
+TEST_CASE("implicit conversion to raw pointer", "[DoubleBuffer][conversion]")
 {
   std::array<double, 3> host = {{1.5, 2.5, 3.5}};
-  dbuf buf(host);
+  DoubleBuffer buf(host);
 
   // implicit conversion to T*
   double* raw_ptr = buf;
@@ -232,18 +235,18 @@ TEST_CASE("implicit conversion to raw pointer", "[dbuf][conversion]")
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("implicit conversion for empty buffer", "[dbuf][conversion]")
+TEST_CASE("implicit conversion for empty buffer", "[DoubleBuffer][conversion]")
 {
-  dbuf buf;
+  DoubleBuffer buf;
   double* raw_ptr = buf;
   REQUIRE(raw_ptr == nullptr);
 }
 
-TEST_CASE("operator== compares pointer and size", "[dbuf][equality]")
+TEST_CASE("operator== compares pointer and size", "[DoubleBuffer][equality]")
 {
   std::array<double, 3> host = {{1.0, 2.0, 3.0}};
-  dbuf a(host);
-  dbuf b(host); // different buffer with same contents
+  DoubleBuffer a(host);
+  DoubleBuffer b(host); // different buffer with same contents
 
   // different buffers should not be equal (different pointers)
   REQUIRE_FALSE(a == b);
@@ -254,28 +257,28 @@ TEST_CASE("operator== compares pointer and size", "[dbuf][equality]")
   REQUIRE(b == b);
 }
 
-TEST_CASE("operator== for empty buffers", "[dbuf][equality]")
+TEST_CASE("operator== for empty buffers", "[DoubleBuffer][equality]")
 {
-  dbuf a;
-  dbuf b;
+  DoubleBuffer a;
+  DoubleBuffer b;
 
   // two default-constructed buffers should be equal (both nullptr, size 0)
   REQUIRE(a == b);
 
-  dbuf c(0); // explicitly constructed with size 0
+  DoubleBuffer c(0); // explicitly constructed with size 0
   REQUIRE(a == c);
 }
 
-TEST_CASE("operator== after move", "[dbuf][equality]")
+TEST_CASE("operator== after move", "[DoubleBuffer][equality]")
 {
   std::array<double, 2> host = {{5.0, 6.0}};
-  dbuf a(host);
+  DoubleBuffer a(host);
   double* ptr = a.data();
 
-  dbuf b(std::move(a));
+  DoubleBuffer b(std::move(a));
 
   // a should now be empty
-  dbuf empty;
+  DoubleBuffer empty;
   REQUIRE(a == empty);
 
   // b should have the original pointer

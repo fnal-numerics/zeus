@@ -8,7 +8,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-set(CMAKE_CUDA_ARCHITECTURES native)
+if(NOT CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 80)
+endif()
 
 # Default to shared libraries if not specified
 if(NOT DEFINED BUILD_SHARED_LIBS)
@@ -34,7 +36,6 @@ add_library(zeus
     src/util.cpp
     src/pso.cu
     src/exception.cpp
-
     include/util.hpp
     include/utils.cuh
     include/cuda_buffer.cuh

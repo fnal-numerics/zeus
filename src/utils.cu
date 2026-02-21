@@ -40,8 +40,10 @@ namespace util {
     printf("GPU reporting %.2f GB free of %.2f GB total\n",
            freeBytes / (1024.0 * 1024.0 * 1024.0),
            total / (1024.0 * 1024.0 * 1024.0));
-    size_t newHeap = freeBytes;
-    cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
+    // Use a reasonable heap size (up to 1GB or 50% of free memory, whichever is
+    // smaller)
+    size_t newHeap = std::min(freeBytes / 2, (size_t)1024 * 1024 * 1024);
+    err = cudaDeviceSetLimit(cudaLimitMallocHeapSize, newHeap);
     if (err != cudaSuccess) {
       printf("Failed to set heap to %zu bytes: %s\n",
              newHeap,
@@ -92,7 +94,7 @@ namespace util {
   }
 
   __global__ void
-  setup_curand_states(util::non_null<curandState*> states, uint64_t seed, int N)
+  setup_curand_states(util::NonNull<curandState*> states, uint64_t seed, int N)
   {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < N) {

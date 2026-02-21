@@ -26,7 +26,7 @@ namespace bfgs {
     cudaEventCreate(&t1);
     cudaEventRecord(t0);
     util::setup_curand_states<<<blocks, threads>>>(
-      util::non_null{d_states}, seed, N);
+      util::NonNull{d_states}, seed, N);
     cudaEventRecord(t1);
     cudaEventSynchronize(t1);
     cudaEventElapsedTime(&ms_rand, t0, t1);

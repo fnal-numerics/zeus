@@ -14,6 +14,7 @@ using namespace zeus;
 
 // 1D quadratic function for testing
 struct Quadratic {
+  static constexpr std::size_t arity = 1;
   __device__ double
   operator()(const std::array<double, 1>& x) const
   {
@@ -373,6 +374,7 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
 constexpr int DIM = 2;
 
 struct GoodObjective {
+  static constexpr std::size_t arity = DIM;
   // templated call operator: accepts an array of DualNumber<DIM>
   template <class T>
   __device__ T
@@ -387,6 +389,7 @@ struct GoodObjective {
 };
 
 struct BadObjective {
+  static constexpr std::size_t arity = DIM;
   // takes array of doubles, not DualNumber!
   __device__ double
   operator()(const std::array<double, DIM>& x) const
@@ -399,19 +402,19 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
 {
   const int N = 1, MAX_ITER = 1, requiredConverged = 1;
   const double lower = 0.0, upper = 1.0, tolerance = 1e-6;
-  
+
   // Allocate required device pointers
   float ms_rand = 0.0f;
   curandState* states = bfgs::initialize_states(N, 42, ms_rand);
-  
+
   double* d_pso;
   cudaMalloc(&d_pso, N * DIM * sizeof(double));
-  
+
   double* d_results;
   cudaMalloc(&d_results, N * sizeof(double));
-  
-  Result<DIM>* d_out;
-  cudaMalloc(&d_out, N * sizeof(Result<DIM>));
+
+  zeus::Result<DIM>* d_out;
+  cudaMalloc(&d_out, N * sizeof(zeus::Result<DIM>));
 
   // Allocate context
   util::BFGSContext* d_ctx;
@@ -425,16 +428,16 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
                  lower,
                  upper,
                  d_pso,
-                 util::non_null{d_results},
+                 util::NonNull{d_results},
                  nullptr,
                  N,
                  MAX_ITER,
                  requiredConverged,
                  tolerance,
-                 util::non_null{d_out},
-                 util::non_null{states},
-                 util::non_null{d_ctx});
-  
+                 util::NonNull{d_out},
+                 util::NonNull{states},
+                 util::NonNull{d_ctx});
+
   cudaFree(d_ctx);
   cudaFree(d_out);
   cudaFree(d_results);

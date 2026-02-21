@@ -158,8 +158,9 @@ namespace util {
   //   f(x,y) = -(y+47) sin\Bigl(\sqrt{\Bigl|x/2+y+47\Bigr|}\Bigr)
   //            - x sin\Bigl(\sqrt{\Bigl|x-(y+47)\Bigr|}\Bigr)
 
-template<size_t D>
+template<std::size_t D>
 struct Rosenbrock {
+  static constexpr std::size_t arity = D;
   template<typename T>
   __host__ __device__
   T operator()(const std::array<T,D>& x) const {
@@ -168,8 +169,9 @@ struct Rosenbrock {
 };
 
 
-template<size_t D>
+template<std::size_t D>
 struct Rastrigin {
+  static constexpr std::size_t arity = D;
   template<typename T>
   __host__ __device__
   T operator()(std::array<T,D> const& x) const {
@@ -177,8 +179,9 @@ struct Rastrigin {
   }
 };
 
-template<size_t D>
+template<std::size_t D>
 struct Ackley {
+  static constexpr std::size_t arity = D;
   template<typename T>
   __host__ __device__
   T operator()(std::array<T,D> const& x) const {
@@ -186,8 +189,9 @@ struct Ackley {
   }
 };
  
-template <size_t D>
+template <std::size_t D>
 struct Himmelblau {
+  static constexpr std::size_t arity = D;
   template<typename T>
   __host__ __device__ 
   T operator()(std::array<T,D> const& x) const {   
@@ -195,8 +199,9 @@ struct Himmelblau {
   }
 };
 
-template <size_t D>
+template <std::size_t D>
 struct GoldsteinPrice {
+  static constexpr std::size_t arity = D;
   template<typename T>
   __host__ __device__
   T operator()(std::array<T,D> const& x) const

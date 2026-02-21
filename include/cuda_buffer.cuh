@@ -12,23 +12,23 @@ namespace zeus {
   /// Manages device memory lifetime with automatic cleanup and supports
   /// deep copy semantics for safe resource management.
   template <typename T>
-  struct cuda_buffer {
+  struct CudaBuffer {
     T* d = nullptr; ///< Device pointer
     size_t sz = 0;  ///< Number of elements
 
-    cuda_buffer() noexcept = default;
-    explicit cuda_buffer(std::size_t n); ///< Allocate n elements on device
+    CudaBuffer() noexcept = default;
+    explicit CudaBuffer(std::size_t n); ///< Allocate n elements on device
     template <std::size_t N>
-    explicit cuda_buffer(
-      const std::array<T, N>& host);   ///< Allocate and copy from host array
-    cuda_buffer(cuda_buffer const& o); ///< Deep copy from device to device
-    cuda_buffer& operator=(
-      cuda_buffer const& o);               ///< Copy-assign via copy-and-swap
-    cuda_buffer(cuda_buffer&& o) noexcept; ///< Move constructor
-    cuda_buffer& operator=(cuda_buffer&& o) noexcept; ///< Move assignment
-    ~cuda_buffer();                                   ///< Free device memory
+    explicit CudaBuffer(
+      const std::array<T, N>& host); ///< Allocate and copy from host array
+    CudaBuffer(CudaBuffer const& o); ///< Deep copy from device to device
+    CudaBuffer& operator=(
+      CudaBuffer const& o);              ///< Copy-assign via copy-and-swap
+    CudaBuffer(CudaBuffer&& o) noexcept; ///< Move constructor
+    CudaBuffer& operator=(CudaBuffer&& o) noexcept; ///< Move assignment
+    ~CudaBuffer();                                  ///< Free device memory
 
-    void swap(cuda_buffer& o) noexcept;  ///< Swap device pointers and sizes
+    void swap(CudaBuffer& o) noexcept;   ///< Swap device pointers and sizes
     T* data() const noexcept;            ///< Raw device pointer accessor
     operator T*() const noexcept;        ///< Implicit conversion to raw pointer
     size_t size() const noexcept;        ///< Number of elements
@@ -44,7 +44,7 @@ namespace zeus {
   // ──────────────────────────────────────────────────────────────────────────
 
   template <typename T>
-  cuda_buffer<T>::cuda_buffer(std::size_t n) : d(nullptr), sz(n)
+  CudaBuffer<T>::CudaBuffer(std::size_t n) : d(nullptr), sz(n)
   {
     if (sz > 0) {
       auto st = cudaMalloc(&d, sz * sizeof(T));
@@ -55,7 +55,7 @@ namespace zeus {
 
   template <typename T>
   template <std::size_t N>
-  cuda_buffer<T>::cuda_buffer(const std::array<T, N>& host) : d(nullptr), sz(N)
+  CudaBuffer<T>::CudaBuffer(const std::array<T, N>& host) : d(nullptr), sz(N)
   {
     if (sz > 0) {
       cudaError_t st = cudaMalloc(&d, sz * sizeof(T));
@@ -70,7 +70,7 @@ namespace zeus {
   }
 
   template <typename T>
-  cuda_buffer<T>::cuda_buffer(cuda_buffer const& o) : d(nullptr), sz(o.sz)
+  CudaBuffer<T>::CudaBuffer(CudaBuffer const& o) : d(nullptr), sz(o.sz)
   {
     if (sz > 0) {
       auto st = cudaMalloc(&d, sz * sizeof(T));
@@ -85,26 +85,26 @@ namespace zeus {
   }
 
   template <typename T>
-  cuda_buffer<T>&
-  cuda_buffer<T>::operator=(cuda_buffer const& o)
+  CudaBuffer<T>&
+  CudaBuffer<T>::operator=(CudaBuffer const& o)
   {
     if (this != &o) {
-      cuda_buffer temp(o);
+      CudaBuffer temp(o);
       swap(temp);
     }
     return *this;
   }
 
   template <typename T>
-  cuda_buffer<T>::cuda_buffer(cuda_buffer&& o) noexcept : d(o.d), sz(o.sz)
+  CudaBuffer<T>::CudaBuffer(CudaBuffer&& o) noexcept : d(o.d), sz(o.sz)
   {
     o.d = nullptr;
     o.sz = 0;
   }
 
   template <typename T>
-  cuda_buffer<T>&
-  cuda_buffer<T>::operator=(cuda_buffer&& o) noexcept
+  CudaBuffer<T>&
+  CudaBuffer<T>::operator=(CudaBuffer&& o) noexcept
   {
     if (this != &o) {
       if (d)
@@ -118,7 +118,7 @@ namespace zeus {
   }
 
   template <typename T>
-  cuda_buffer<T>::~cuda_buffer()
+  CudaBuffer<T>::~CudaBuffer()
   {
     if (d)
       cudaFree(d);
@@ -127,7 +127,7 @@ namespace zeus {
 
   template <typename T>
   void
-  cuda_buffer<T>::swap(cuda_buffer& o) noexcept
+  CudaBuffer<T>::swap(CudaBuffer& o) noexcept
   {
     using std::swap;
     swap(d, o.d);
@@ -136,27 +136,27 @@ namespace zeus {
 
   template <typename T>
   T*
-  cuda_buffer<T>::data() const noexcept
+  CudaBuffer<T>::data() const noexcept
   {
     return d;
   }
 
   template <typename T>
-  cuda_buffer<T>::operator T*() const noexcept
+  CudaBuffer<T>::operator T*() const noexcept
   {
     return d;
   }
 
   template <typename T>
   size_t
-  cuda_buffer<T>::size() const noexcept
+  CudaBuffer<T>::size() const noexcept
   {
     return sz;
   }
 
   template <typename T>
   std::vector<T>
-  cuda_buffer<T>::copy_to_host() const
+  CudaBuffer<T>::copy_to_host() const
   {
     std::vector<T> out(sz);
     if (sz > 0) {
@@ -170,7 +170,7 @@ namespace zeus {
 
   template <typename T>
   int
-  cuda_buffer<T>::copy_to_host(std::vector<T>& out) const
+  CudaBuffer<T>::copy_to_host(std::vector<T>& out) const
   {
     out.resize(sz);
     if (sz > 0) {
@@ -184,7 +184,7 @@ namespace zeus {
 
   template <typename T>
   int
-  cuda_buffer<T>::copy_to_host(T* out, size_t n) const
+  CudaBuffer<T>::copy_to_host(T* out, size_t n) const
   {
     if (n != sz)
       return 1;
@@ -199,11 +199,11 @@ namespace zeus {
 
   template <typename T>
   bool
-  operator==(cuda_buffer<T> const& a, cuda_buffer<T> const& b)
+  operator==(CudaBuffer<T> const& a, CudaBuffer<T> const& b)
   {
     return a.d == b.d && a.sz == b.sz;
   }
 
-  // template alieses
-  using dbuf = cuda_buffer<double>;
+  // template aliases
+  using DoubleBuffer = CudaBuffer<double>;
 }
