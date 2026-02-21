@@ -3,6 +3,7 @@
 #include <curand_kernel.h> // for curandState
 #include <cassert>
 #include <stdexcept>
+#include <concepts>
 
 #include "util.hpp"
 #include "device_matrix.cuh"
@@ -28,8 +29,8 @@ namespace util {
 #endif
     }
 
-    template <typename U,
-              typename = std::enable_if_t<std::is_convertible_v<U, T>>>
+    template <typename U>
+      requires std::convertible_to<U, T>
     __host__ __device__
     NonNull(const NonNull<U>& other)
       : ptr(other.get())

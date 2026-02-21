@@ -9,11 +9,11 @@ endif()
 
 project(Zeus LANGUAGES CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 # (Default is now set before project(); nothing needed here.)
@@ -192,5 +192,23 @@ if(ZEUS_BUILD_TESTS)
       message(FATAL_ERROR "❌ bad_objectives.cu unexpectedly compiled!\n${BAD_OUT}")
     else()
       message(STATUS "✅ bad_objectives.cu failed to compile as expected.")
+    endif()
+
+    # Bad objectives with C++20 concepts test (compile-time failure verification)
+    set(BAD_CONCEPTS_SRC "${CMAKE_CURRENT_SOURCE_DIR}/test/bad_objectives_concepts.cu")
+    try_compile(BAD_CONCEPTS_OK
+      "${CMAKE_CURRENT_BINARY_DIR}"
+      "${BAD_CONCEPTS_SRC}"
+      CMAKE_FLAGS
+        "-DCMAKE_CUDA_STANDARD=20"
+        "-DCMAKE_CXX_STANDARD=20"
+      LINK_LIBRARIES zeus
+      OUTPUT_VARIABLE BAD_CONCEPTS_OUT
+    )
+
+    if(BAD_CONCEPTS_OK)
+      message(FATAL_ERROR "❌ bad_objectives_concepts.cu unexpectedly compiled!\n${BAD_CONCEPTS_OUT}")
+    else()
+      message(STATUS "✅ bad_objectives_concepts.cu failed to compile as expected (concept violations detected).")
     endif()
 endif()

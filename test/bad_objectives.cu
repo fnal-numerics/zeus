@@ -74,5 +74,4 @@ main()
 {
   instantiate_bad1();
   instantiate_bad2();
-  return 0;
 }

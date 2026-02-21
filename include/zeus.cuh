@@ -142,6 +142,7 @@ namespace zeus {
   } // namespace impl
 
   template <typename Function, std::size_t ZEUS_DIM = FnTraits<Function>::arity>
+    requires ZeusObjective<Function, ZEUS_DIM>
   auto
   Zeus(Function const& f,
        double lower,
@@ -156,18 +157,6 @@ namespace zeus {
        int run,
        bool parallel = true)
   {
-    static_assert(
-      std::is_same_v<decltype(f(
-                       std::declval<const std::array<double, ZEUS_DIM>&>())),
-                     double>,
-      "Your objective must be callable as f(std::array<double,ZEUS_DIM>) -> "
-      "double");
-    static_assert(
-      std::is_same_v<decltype(std::declval<Function>()(
-                       std::declval<std::array<dual::DualNumber, ZEUS_DIM>>())),
-                     dual::DualNumber>,
-      "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> T "
-      "fun(const std::array<T,N>) { ... }\n");
     return impl::Zeus(f,
                       lower,
                       upper,
