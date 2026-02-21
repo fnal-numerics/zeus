@@ -394,14 +394,16 @@ TEST_CASE("digamma well-known values", "[dual][digamma]")
 
   const double gamma = 0.5772156649015328606; // Euler-Mascheroni constant
   REQUIRE_THAT(dual::digamma(1.0),
-               WithinRel(-gamma, 1e-12) || WithinAbs(-gamma, 1e-12));
+               WithinRel(-gamma, 1.1e-13) || WithinAbs(-gamma, 1.1e-13));
   REQUIRE_THAT(dual::digamma(2.0),
-               WithinRel(1.0 - gamma, 1e-12) || WithinAbs(1.0 - gamma, 1e-12));
+               WithinRel(1.0 - gamma, 1.1e-13) ||
+                 WithinAbs(1.0 - gamma, 1.1e-13));
   REQUIRE_THAT(dual::digamma(3.0),
-               WithinRel(1.5 - gamma, 1e-12) || WithinAbs(1.5 - gamma, 1e-12));
+               WithinRel(1.5 - gamma, 1.1e-13) ||
+                 WithinAbs(1.5 - gamma, 1.1e-13));
   REQUIRE_THAT(dual::digamma(0.5),
-               WithinRel(-gamma - 2.0 * std::log(2.0), 1e-12) ||
-                 WithinAbs(-gamma - 2.0 * std::log(2.0), 1e-12));
+               WithinRel(-gamma - 2.0 * std::log(2.0), 1.1e-13) ||
+                 WithinAbs(-gamma - 2.0 * std::log(2.0), 1.1e-13));
 }
 
 TEST_CASE("digamma near poles and around poles", "[dual][digamma][poles]")
@@ -414,20 +416,35 @@ TEST_CASE("digamma near poles and around poles", "[dual][digamma][poles]")
   const double near_zero_left = dual::digamma(-eps);
   REQUIRE(near_zero_right < 0.0);
   REQUIRE(near_zero_left > 0.0);
-  REQUIRE_THAT(near_zero_right, WithinRel(-1.0 / eps, 1e-6));
-  REQUIRE_THAT(near_zero_left, WithinRel(1.0 / eps, 1e-6));
+  REQUIRE_THAT(near_zero_right, WithinRel(-1.0 / eps, 1.2e-7));
+  REQUIRE_THAT(near_zero_left, WithinRel(1.0 / eps, 1.2e-7));
 
   const double near_minus_one_right = dual::digamma(-1.0 + eps);
   const double near_minus_one_left = dual::digamma(-1.0 - eps);
   REQUIRE(near_minus_one_right < 0.0);
   REQUIRE(near_minus_one_left > 0.0);
-  REQUIRE_THAT(near_minus_one_right, WithinRel(-1.0 / eps, 1e-6));
-  REQUIRE_THAT(near_minus_one_left, WithinRel(1.0 / eps, 1e-6));
+  REQUIRE_THAT(near_minus_one_right, WithinRel(-1.0 / eps, 1.2e-7));
+  REQUIRE_THAT(near_minus_one_left, WithinRel(1.0 / eps, 1.2e-7));
 
   const double near_minus_two_right = dual::digamma(-2.0 + eps);
   const double near_minus_two_left = dual::digamma(-2.0 - eps);
   REQUIRE(near_minus_two_right < 0.0);
   REQUIRE(near_minus_two_left > 0.0);
-  REQUIRE_THAT(near_minus_two_right, WithinRel(-1.0 / eps, 1e-6));
-  REQUIRE_THAT(near_minus_two_left, WithinRel(1.0 / eps, 1e-6));
+  REQUIRE_THAT(near_minus_two_right, WithinRel(-1.0 / eps, 1.2e-7));
+  REQUIRE_THAT(near_minus_two_left, WithinRel(1.0 / eps, 1.2e-7));
+}
+
+TEST_CASE("digamma exact poles", "[dual][digamma][poles]")
+{
+  const double at_zero = dual::digamma(0.0);
+  const double at_minus_one = dual::digamma(-1.0);
+  const double at_minus_two = dual::digamma(-2.0);
+
+  REQUIRE(!std::isfinite(at_zero));
+  REQUIRE(!std::isfinite(at_minus_one));
+  REQUIRE(!std::isfinite(at_minus_two));
+
+  REQUIRE(std::isinf(at_zero));
+  REQUIRE(std::isinf(at_minus_one));
+  REQUIRE(std::isinf(at_minus_two));
 }
