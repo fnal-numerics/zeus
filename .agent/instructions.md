@@ -15,6 +15,9 @@ To activate these project rules globally, copy the following sections into your 
 - **Strict Index Boundary**: Treat the git "staged" area (index) as a read-only boundary during analysis tasks. Do not run `git add` unless specifically requested.
 - **Explicit Command Requirement**: Never run `git add`, `git commit`, or `git push` without an explicit user command for that specific action.
 
+## Code Formatting
+- Run `clang-format -i --style=file` on each `.cu`, `.cpp`, `.cuh`, `.h`, and `.hpp` file you create or modify.
+
 ## Development Environment
 - Code can not be built or tested locally. All building and testing must be done on Perlmutter.
 - Use `make` targets for routine tasks (remote-sync, remote-build, remote-test, etc.)
