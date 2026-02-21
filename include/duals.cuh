@@ -121,10 +121,13 @@ namespace dual {
   // ──────────────────────────────────────────────────────────────────────────
 
   /// Absolute value of a dual number.
-  __host__ __device__ inline dual::DualNumber
-  abs(const dual::DualNumber& a)
+  static __inline__ __host__ __device__ DualNumber
+  abs(const DualNumber& a)
   {
-    return (a.real < 0.0) ? dual::DualNumber(-a.real, -a.dual) : a;
+    if (a.real == 0.0) {
+      return DualNumber(0.0, std::numeric_limits<double>::quiet_NaN());
+    }
+    return (a.real < 0.0) ? DualNumber(-a.real, -a.dual) : a;
   }
 
   /// Sine of a dual number.

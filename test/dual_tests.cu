@@ -77,6 +77,36 @@ test_div(const double* a, const double* b, double* r, double* d)
   d[0] = R.dual; // store dual part = 0.0
 }
 
+// Kernel for abs: tests abs(3.0 + 2.0e) = (3.0 + 2.0e)  [positive real]
+__global__ void
+test_abs_pos(const double* x, const double* dx, double* r, double* d)
+{
+  DualNumber D{x[0], dx[0]};   // load D = 3.0 + 2.0e
+  DualNumber R = dual::abs(D); // R.real = 3.0; R.dual = 2.0
+  r[0] = R.real;
+  d[0] = R.dual;
+}
+
+// Kernel for abs: tests abs(-3.0 + 2.0e) = (3.0 + -2.0e)  [negative real]
+__global__ void
+test_abs_neg(const double* x, const double* dx, double* r, double* d)
+{
+  DualNumber D{x[0], dx[0]};   // load D = -3.0 + 2.0e
+  DualNumber R = dual::abs(D); // R.real = 3.0; R.dual = -2.0
+  r[0] = R.real;
+  d[0] = R.dual;
+}
+
+// Kernel for abs: tests abs(0.0 + 1.5e)  [zero real — derivative undefined]
+__global__ void
+test_abs_zero(const double* x, const double* dx, double* r, double* d)
+{
+  DualNumber D{x[0], dx[0]};   // load D = 0.0 + 1.5e
+  DualNumber R = dual::abs(D); // R.real = 0.0; R.dual = NaN
+  r[0] = R.real;
+  d[0] = R.dual;
+}
+
 // Kernel for sin: tests sin(π/6 + 1e) = (0.5 + 0.866025e)
 __global__ void
 test_sin(const double* x, const double* dx, double* r, double* d)
@@ -263,6 +293,66 @@ TEST_CASE("operator/(): (6+2e)/(3+1e)=2+0e", "[dual][div]")
   REQUIRE(outD == Approx(0.0).margin(1e-12));
 
   FREE4(dA, dB, dR, dD);
+}
+
+TEST_CASE("operator abs(): abs(3+2e)=3+2e", "[dual][abs]")
+{
+  double x = 3.0, dx = 2.0, outR, outD;
+  double *dX, *dDX, *dR, *dD;
+  ALLOC_COPY(dX, &x, sizeof(x));
+  ALLOC_COPY(dDX, &dx, sizeof(dx));
+  cudaMalloc(&dR, sizeof(double));
+  cudaMalloc(&dD, sizeof(double));
+
+  test_abs_pos<<<1, 1>>>(dX, dDX, dR, dD);
+  cudaDeviceSynchronize();
+  cudaMemcpy(&outR, dR, sizeof(double), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&outD, dD, sizeof(double), cudaMemcpyDeviceToHost);
+
+  REQUIRE(outR == Approx(3.0).margin(1e-12));
+  REQUIRE(outD == Approx(2.0).margin(1e-12));
+
+  FREE4(dX, dDX, dR, dD);
+}
+
+TEST_CASE("operator abs(): abs(-3+2e)=3-2e", "[dual][abs]")
+{
+  double x = -3.0, dx = 2.0, outR, outD;
+  double *dX, *dDX, *dR, *dD;
+  ALLOC_COPY(dX, &x, sizeof(x));
+  ALLOC_COPY(dDX, &dx, sizeof(dx));
+  cudaMalloc(&dR, sizeof(double));
+  cudaMalloc(&dD, sizeof(double));
+
+  test_abs_neg<<<1, 1>>>(dX, dDX, dR, dD);
+  cudaDeviceSynchronize();
+  cudaMemcpy(&outR, dR, sizeof(double), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&outD, dD, sizeof(double), cudaMemcpyDeviceToHost);
+
+  REQUIRE(outR == Approx(3.0).margin(1e-12));
+  REQUIRE(outD == Approx(-2.0).margin(1e-12));
+
+  FREE4(dX, dDX, dR, dD);
+}
+
+TEST_CASE("operator abs(): abs(0+1.5e) has real=0, dual=NaN", "[dual][abs]")
+{
+  double x = 0.0, dx = 1.5, outR, outD;
+  double *dX, *dDX, *dR, *dD;
+  ALLOC_COPY(dX, &x, sizeof(x));
+  ALLOC_COPY(dDX, &dx, sizeof(dx));
+  cudaMalloc(&dR, sizeof(double));
+  cudaMalloc(&dD, sizeof(double));
+
+  test_abs_zero<<<1, 1>>>(dX, dDX, dR, dD);
+  cudaDeviceSynchronize();
+  cudaMemcpy(&outR, dR, sizeof(double), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&outD, dD, sizeof(double), cudaMemcpyDeviceToHost);
+
+  REQUIRE(outR == Approx(0.0).margin(1e-12));
+  REQUIRE(std::isnan(outD));
+
+  FREE4(dX, dDX, dR, dD);
 }
 
 TEST_CASE("operator sin(): sin(π/6)+1e -> 0.5+0.866e", "[dual][sin]")
