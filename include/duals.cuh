@@ -14,37 +14,38 @@ namespace dual {
     double real; ///< Real part of the dual number
     double dual; ///< Dual part (derivative) of the dual number
 
-    __host__ __device__ DualNumber(
+    __host__ __device__ constexpr DualNumber(
       double real = 0.0,
       double dual =
         0.0); ///< Construct a dual number with given real and dual parts.
 
-    __host__ __device__ DualNumber operator-() const; ///< Unary minus operator.
+    __host__ __device__ constexpr DualNumber operator-()
+      const; ///< Unary minus operator.
 
-    __host__ __device__ DualNumber& operator+=(
+    __host__ __device__ constexpr DualNumber& operator+=(
       const DualNumber& rhs); ///< Compound addition assignment.
 
-    __host__ __device__ DualNumber
-    operator+(const DualNumber& rhs) const; ///< Binary addition operator.
+    __host__ __device__ constexpr DualNumber operator+(
+      const DualNumber& rhs) const; ///< Binary addition operator.
 
-    __host__ __device__ DualNumber
-    operator-(const DualNumber& rhs) const; ///< Binary subtraction operator.
+    __host__ __device__ constexpr DualNumber operator-(
+      const DualNumber& rhs) const; ///< Binary subtraction operator.
 
-    __host__ __device__ DualNumber
-    operator*(const DualNumber& rhs) const; ///< Binary multiplication operator.
+    __host__ __device__ constexpr DualNumber operator*(
+      const DualNumber& rhs) const; ///< Binary multiplication operator.
 
-    __host__ __device__ DualNumber
-    operator/(const DualNumber& rhs) const; ///< Binary division operator.
+    __host__ __device__ constexpr DualNumber operator/(
+      const DualNumber& rhs) const; ///< Binary division operator.
 
-    __host__ __device__ friend DualNumber operator-(
+    __host__ __device__ friend constexpr DualNumber operator-(
       double lhs,
       const DualNumber& rhs); ///< Subtraction of a dual number from a double.
 
-    __host__ __device__ friend DualNumber operator*(
+    __host__ __device__ friend constexpr DualNumber operator*(
       double lhs,
       const DualNumber& rhs); ///< Multiplication of a double and a dual number.
 
-    __host__ __device__ DualNumber& operator-=(
+    __host__ __device__ constexpr DualNumber& operator-=(
       const DualNumber& rhs); ///< Compound subtraction assignment.
   };
 
@@ -52,17 +53,18 @@ namespace dual {
   // Implementation
   // ──────────────────────────────────────────────────────────────────────────
 
-  __host__ __device__ inline DualNumber::DualNumber(double real, double dual)
+  __host__ __device__ constexpr inline DualNumber::DualNumber(double real,
+                                                              double dual)
     : real(real), dual(dual)
   {}
 
-  __host__ __device__ inline DualNumber
+  __host__ __device__ constexpr inline DualNumber
   DualNumber::operator-() const
   {
     return DualNumber(-real, -dual);
   }
 
-  __host__ __device__ inline DualNumber&
+  __host__ __device__ constexpr inline DualNumber&
   DualNumber::operator+=(const DualNumber& rhs)
   {
     real += rhs.real;
@@ -70,25 +72,25 @@ namespace dual {
     return *this;
   }
 
-  __host__ __device__ inline DualNumber
+  __host__ __device__ constexpr inline DualNumber
   DualNumber::operator+(const DualNumber& rhs) const
   {
     return DualNumber(real + rhs.real, dual + rhs.dual);
   }
 
-  __host__ __device__ inline DualNumber
+  __host__ __device__ constexpr inline DualNumber
   DualNumber::operator-(const DualNumber& rhs) const
   {
     return DualNumber(real - rhs.real, dual - rhs.dual);
   }
 
-  __host__ __device__ inline DualNumber
+  __host__ __device__ constexpr inline DualNumber
   DualNumber::operator*(const DualNumber& rhs) const
   {
     return DualNumber(real * rhs.real, dual * rhs.real + real * rhs.dual);
   }
 
-  __host__ __device__ inline DualNumber
+  __host__ __device__ constexpr inline DualNumber
   DualNumber::operator/(const DualNumber& rhs) const
   {
     double denom = rhs.real * rhs.real;
@@ -96,19 +98,19 @@ namespace dual {
                       (dual * rhs.real - real * rhs.dual) / denom);
   }
 
-  __host__ __device__ inline DualNumber
+  __host__ __device__ constexpr inline DualNumber
   operator-(double lhs, const DualNumber& rhs)
   {
     return DualNumber(lhs - rhs.real, -rhs.dual);
   }
 
-  __host__ __device__ inline DualNumber
+  __host__ __device__ constexpr inline DualNumber
   operator*(double lhs, const DualNumber& rhs)
   {
     return DualNumber(lhs * rhs.real, lhs * rhs.dual);
   }
 
-  __host__ __device__ inline DualNumber&
+  __host__ __device__ constexpr inline DualNumber&
   DualNumber::operator-=(const DualNumber& rhs)
   {
     real -= rhs.real;
@@ -121,7 +123,7 @@ namespace dual {
   // ──────────────────────────────────────────────────────────────────────────
 
   /// Absolute value of a dual number.
-  static __inline__ __host__ __device__ DualNumber
+  static constexpr __inline__ __host__ __device__ DualNumber
   abs(const DualNumber& a)
   {
     if (a.real == 0.0) {
