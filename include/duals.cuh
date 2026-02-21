@@ -118,6 +118,20 @@ namespace dual {
     return *this;
   }
 
+  /// Equality: both real and dual parts must be identical.
+  __host__ __device__ constexpr inline bool
+  operator==(const DualNumber& lhs, const DualNumber& rhs)
+  {
+    return lhs.real == rhs.real && lhs.dual == rhs.dual;
+  }
+
+  /// Inequality: complement of operator==.
+  __host__ __device__ constexpr inline bool
+  operator!=(const DualNumber& lhs, const DualNumber& rhs)
+  {
+    return !(lhs == rhs);
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
   // Mathematical functions
   // ──────────────────────────────────────────────────────────────────────────

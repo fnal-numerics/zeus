@@ -295,7 +295,37 @@ TEST_CASE("operator/(): (6+2e)/(3+1e)=2+0e", "[dual][div]")
   FREE4(dA, dB, dR, dD);
 }
 
+// Compile-time proof that operator== and operator!= are truly constexpr.
+static_assert(DualNumber(1.0, 2.0) == DualNumber(1.0, 2.0), "== broken");
+static_assert(DualNumber(1.0, 2.0) != DualNumber(9.0, 2.0), "!= broken (real)");
+static_assert(DualNumber(1.0, 2.0) != DualNumber(1.0, 9.0), "!= broken (dual)");
+
+TEST_CASE("operator==: equal dual numbers compare equal", "[dual][eq]")
+{
+  DualNumber a(3.0, 1.5);
+  DualNumber b(3.0, 1.5);
+  REQUIRE(a == b);
+  REQUIRE_FALSE(a != b);
+}
+
+TEST_CASE("operator==: different real parts compare unequal", "[dual][eq]")
+{
+  DualNumber a(3.0, 1.5);
+  DualNumber b(4.0, 1.5);
+  REQUIRE(a != b);
+  REQUIRE_FALSE(a == b);
+}
+
+TEST_CASE("operator==: different dual parts compare unequal", "[dual][eq]")
+{
+  DualNumber a(3.0, 1.5);
+  DualNumber b(3.0, 2.5);
+  REQUIRE(a != b);
+  REQUIRE_FALSE(a == b);
+}
+
 TEST_CASE("operator abs(): abs(3+2e)=3+2e", "[dual][abs]")
+
 {
   double x = 3.0, dx = 2.0, outR, outD;
   double *dX, *dDX, *dR, *dD;
