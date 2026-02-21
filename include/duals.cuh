@@ -210,7 +210,7 @@ namespace dual {
   digamma(double x)
   {
     if (x < 0.5) {
-      // gamma(x) = gamma(1-x) - pi cot(pi x)
+      // digamma(x) = digamma(1-x) - pi cot(pi x)
       return digamma(1.0 - x) - pi() / ::tan(pi() * x);
     }
     double acc = 0.0;
@@ -220,13 +220,13 @@ namespace dual {
     }
     const double inv = 1.0 / x;
     const double inv2 = inv * inv;
-    // gamma(x) ~ ln x − 1/(2x) − 1/(12x^2) + 1/(120x^4) − 1/(252x^6) +
+    // digamma(x) ~ ln x − 1/(2x) − 1/(12x^2) + 1/(120x^4) − 1/(252x^6) +
     // 1/(240x^8) − 1/(132x^10)
     const double s =
-      -1.0 / 12.0 +
-      inv2 *
-        (1.0 / 120.0 +
-         inv2 * (-1.0 / 252.0 + inv2 * (1.0 / 240.0 + inv2 * (-1.0 / 132.0))));
+      inv2 * (-1.0 / 12.0 +
+              inv2 * (1.0 / 120.0 +
+                      inv2 * (-1.0 / 252.0 +
+                              inv2 * (1.0 / 240.0 + inv2 * (-1.0 / 132.0)))));
     return acc + ::log(x) - 0.5 * inv + s;
   }
 
