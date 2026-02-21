@@ -42,6 +42,7 @@ add_library(zeus
     src/util.cpp
     src/pso.cu
     src/exception.cpp
+    src/duals.cu
     include/util.hpp
     include/utils.cuh
     include/cuda_buffer.cuh
