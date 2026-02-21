@@ -3,6 +3,8 @@
 #include <cassert>
 #include <array>
 #include <cmath>
+#include <type_traits>
+#include <utility>
 
 namespace dual {
 
