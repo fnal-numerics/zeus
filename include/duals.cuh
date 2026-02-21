@@ -272,10 +272,10 @@ namespace dual {
   /// Calculate the gradient of a function using automatic differentiation.
   template <class Function,
             std::size_t DIM,
-            class = std::enable_if_t<std::is_same_v<
-              decltype(std::declval<Function>()(
-                std::declval<std::array<dual::DualNumber, DIM>>())),
-              dual::DualNumber>>>
+            class = std::enable_if_t<
+              std::is_same_v<decltype(std::declval<Function>()(
+                               std::declval<std::array<DualNumber, DIM>>())),
+                             DualNumber>>>
   __device__ void
   calculateGradientUsingAD(
     Function const& f,
@@ -283,7 +283,7 @@ namespace dual {
     std::array<double, DIM>& grad)        // output derivative vector
   {
     // build dual‐array on stack
-    std::array<dual::DualNumber, DIM> xDual;
+    std::array<DualNumber, DIM> xDual;
 #pragma unroll
     for (std::size_t i = 0; i < DIM; ++i) {
       xDual[i].real = x_arr[i];
@@ -293,9 +293,9 @@ namespace dual {
     // partials
 #pragma unroll
     for (std::size_t i = 0; i < DIM; ++i) {
-      xDual[i].dual = 1.0;                // derivative w.r.t. dimension i
-      dual::DualNumber result = f(xDual); // evaluate the function using AD
-      grad[i] = result.dual;              // store derivative
+      xDual[i].dual = 1.0;          // derivative w.r.t. dimension i
+      DualNumber result = f(xDual); // evaluate the function using AD
+      grad[i] = result.dual;        // store derivative
       xDual[i].dual = 0.0;
     }
   }
