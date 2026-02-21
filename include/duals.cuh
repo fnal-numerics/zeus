@@ -194,10 +194,10 @@ namespace dual {
   }
 
   /// Returns the value of pi.
-  static __inline__ __host__ __device__ double
+  static constexpr __host__ __device__ double
   pi()
   {
-    return ::acos(-1.0);
+    return 3.14159265358979323846;
   }
 
   /// Digamma function for a double.
