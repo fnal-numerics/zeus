@@ -16,7 +16,10 @@ To activate these project rules globally, copy the following sections into your 
 - **Explicit Command Requirement**: Never run `git add`, `git commit`, or `git push` without an explicit user command for that specific action.
 
 ## Code Formatting
-- Run `clang-format -i --style=file` on each `.cu`, `.cpp`, `.cuh`, `.h`, and `.hpp` file you create or modify.
+- **Mandatory after every edit**: run `clang-format -i --style=file` on each
+	modified `.cu`, `.cpp`, `.cuh`, `.h`, and `.hpp` file before responding.
+- This is a required per-file step and must not be skipped.
+- Do **not** use `make format` as a substitute for this requirement.
 
 ## Development Environment
 - Code can not be built or tested locally. All building and testing must be done on Perlmutter.

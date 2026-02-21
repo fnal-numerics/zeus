@@ -13,9 +13,7 @@ To ensure Antigravity respects the project's safety boundaries and commit standa
 
 ## Development Workflow
 AI agents should use the project `Makefile` for routine tasks:
-- `make format`: Reformat code and documentation (using clang-format).
-- `make lint`: Run all linting checks.
-- `make test`: Run the local test suite.
 - `make remote-sync`: Sync files to Perlmutter.
 - `make remote-build`: Build on Perlmutter.
 - `make remote-test`: Run tests on Perlmutter.
+**Do not assume the code can be built or run locally.**
