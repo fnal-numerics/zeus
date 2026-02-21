@@ -50,11 +50,11 @@ namespace zeus {
          int run,
          bool parallel)
     {
-      util::set_stack_size();
+      util::setStackSize();
       float ms_rand = 0.0f;
-      curandState* states = bfgs::initialize_states(N, seed, ms_rand);
+      curandState* states = bfgs::initializeStates(N, seed, ms_rand);
       // save trajectories?
-      bool save_trajectories = util::askUser2saveTrajectories();
+      bool save_trajectories = util::askUserToSaveTrajectories();
       double* deviceTrajectory = nullptr;
       // DoubleBuffer is CudaBuffer<double>
       DoubleBuffer trajBuffer(0);
@@ -120,19 +120,19 @@ namespace zeus {
           f);
       }
       double error =
-        util::calculate_euclidean_error(fun_name, best.coordinates, ZEUS_DIM);
-      util::append_results_2_tsv(ZEUS_DIM,
-                                 N,
-                                 fun_name,
-                                 ms_init,
-                                 ms_pso,
-                                 ms_opt,
-                                 ms_rand,
-                                 MAX_ITER,
-                                 PSO_ITER,
-                                 error,
-                                 run,
-                                 best);
+        util::calculateEuclideanError(fun_name, best.coordinates, ZEUS_DIM);
+      util::appendResultsToTsv(ZEUS_DIM,
+                               N,
+                               fun_name,
+                               ms_init,
+                               ms_pso,
+                               ms_opt,
+                               ms_rand,
+                               MAX_ITER,
+                               PSO_ITER,
+                               error,
+                               run,
+                               best);
       cudaError_t cuda_error = cudaGetLastError();
       if (cuda_error != cudaSuccess) {
         printf("CUDA error: %s\n", cudaGetErrorString(cuda_error));

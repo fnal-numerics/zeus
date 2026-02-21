@@ -6,7 +6,8 @@
 
 using namespace zeus_examples;
 
-int main(int argc, char* argv[])
+int
+main(int argc, char* argv[])
 {
   OptimizationParams params;
   if (!parse_args(argc, argv, params)) {
@@ -17,8 +18,8 @@ int main(int argc, char* argv[])
   print_params(params);
   std::cout << "\n";
 
-  util::set_stack_size();
-  
+  util::setStackSize();
+
   auto f = util::Ackley<2>{};
   auto result = zeus::Zeus(f,
                            params.lower_bound,
@@ -34,20 +35,28 @@ int main(int argc, char* argv[])
 
   std::cout << "\n=== Optimization Result ===\n";
   std::cout << "Status: " << result.status << " ";
-  if (result.status == 0) std::cout << "(Surrendered - max iterations reached)";
-  else if (result.status == 1) std::cout << "(Converged)";
-  else if (result.status == 2) std::cout << "(Stopped by flag)";
-  else if (result.status == 3) std::cout << "(CUDA memory allocation failure)";
-  else if (result.status == 4) std::cout << "(CUDA runtime error)";
+  if (result.status == 0)
+    std::cout << "(Surrendered - max iterations reached)";
+  else if (result.status == 1)
+    std::cout << "(Converged)";
+  else if (result.status == 2)
+    std::cout << "(Stopped by flag)";
+  else if (result.status == 3)
+    std::cout << "(CUDA memory allocation failure)";
+  else if (result.status == 4)
+    std::cout << "(CUDA runtime error)";
   std::cout << "\n";
-  std::cout << "Function value: " << std::scientific << result.fval << std::defaultfloat << "\n";
-  std::cout << "Gradient norm: " << std::scientific << result.gradientNorm << std::defaultfloat << "\n";
+  std::cout << "Function value: " << std::scientific << result.fval
+            << std::defaultfloat << "\n";
+  std::cout << "Gradient norm: " << std::scientific << result.gradientNorm
+            << std::defaultfloat << "\n";
   std::cout << "Iterations: " << result.iter << "\n";
   std::cout << "Optimization time: " << result.ms_opt << " ms\n";
   std::cout << "Best coordinates: (";
   for (int i = 0; i < 2; ++i) {
     std::cout << std::setprecision(10) << result.coordinates[i];
-    if (i < 1) std::cout << ", ";
+    if (i < 1)
+      std::cout << ", ";
   }
   std::cout << ")\n\n";
 

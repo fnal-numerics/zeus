@@ -19,32 +19,32 @@ TEST_CASE("zero-length buffer behaves correctly", "[DoubleBuffer]")
   REQUIRE(buf.data() == nullptr);
 
   // vector-return
-  auto v = buf.copy_to_host();
+  auto v = buf.copyToHost();
   REQUIRE(v.empty());
 
   // vector& overload
   std::vector<double> out;
-  REQUIRE(buf.copy_to_host(out) == 0);
+  REQUIRE(buf.copyToHost(out) == 0);
   REQUIRE(out.empty());
 
   // raw-pointer overload with n=0
-  REQUIRE(buf.copy_to_host(nullptr, 0) == 0);
+  REQUIRE(buf.copyToHost(nullptr, 0) == 0);
 }
 
-TEST_CASE("ctor from host array + copy_to_host round-trips", "[DoubleBuffer]")
+TEST_CASE("ctor from host array + copyToHost round-trips", "[DoubleBuffer]")
 {
   std::array<double, 3> host = {{1.1, 2.2, 3.3}};
   DoubleBuffer buf(host);
-  auto out = buf.copy_to_host();
+  auto out = buf.copyToHost();
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("copy_to_host(vector&) overload", "[DoubleBuffer]")
+TEST_CASE("copyToHost(vector&) overload", "[DoubleBuffer]")
 {
   std::array<double, 2> host = {{4.4, 5.5}};
   DoubleBuffer buf(host);
   std::vector<double> out;
-  int status = buf.copy_to_host(out);
+  int status = buf.copyToHost(out);
   REQUIRE(status == 0);
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
@@ -55,10 +55,10 @@ TEST_CASE("copy ctor performs deep copy", "[DoubleBuffer]")
   DoubleBuffer a(host);
   DoubleBuffer b(a);
   // modify original on device
-  std::vector<double> modified = a.copy_to_host();
+  std::vector<double> modified = a.copyToHost();
   modified[0] = 9.9;
   // b should still have original values
-  auto vb = b.copy_to_host();
+  auto vb = b.copyToHost();
   REQUIRE(vb[0] == host[0]);
   REQUIRE(vb[1] == host[1]);
 }
@@ -76,16 +76,15 @@ TEST_CASE("copy assignment (self and distinct) is safe", "[DoubleBuffer]")
   REQUIRE(b.size() == 5);
   REQUIRE(a.size() == 5);
   REQUIRE(b.data() != a.data()); // deep copy should give distinct pointers
-  REQUIRE(b.copy_to_host() == a.copy_to_host()); // contents should match
+  REQUIRE(b.copyToHost() == a.copyToHost()); // contents should match
 }
 
-TEST_CASE("raw-pointer copy_to_host size-mismatch yields error",
-          "[DoubleBuffer]")
+TEST_CASE("raw-pointer copyToHost size-mismatch yields error", "[DoubleBuffer]")
 {
   std::array<double, 2> host = {{8.8, 9.9}};
   DoubleBuffer buf(host);
   double small[1];
-  REQUIRE(buf.copy_to_host(small, 1) != 0);
+  REQUIRE(buf.copyToHost(small, 1) != 0);
 }
 
 TEST_CASE("move constructor transfers ownership", "[DoubleBuffer]")
@@ -98,7 +97,7 @@ TEST_CASE("move constructor transfers ownership", "[DoubleBuffer]")
   REQUIRE(a.size() == 0);
   REQUIRE(a.data() == nullptr);
 
-  auto out = b.copy_to_host();
+  auto out = b.copyToHost();
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
@@ -114,7 +113,7 @@ TEST_CASE("move assignment transfers ownership", "[DoubleBuffer]")
   REQUIRE(b.data() != nullptr);
   REQUIRE(a.data() == nullptr);
 
-  auto out = b.copy_to_host();
+  auto out = b.copyToHost();
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
@@ -160,7 +159,7 @@ TEST_CASE("default constructor creates empty buffer",
   REQUIRE(buf.data() == nullptr);
 
   // should be safe to copy to host
-  auto v = buf.copy_to_host();
+  auto v = buf.copyToHost();
   REQUIRE(v.empty());
 
   // should be safe to destroy (destructor shouldn't call cudaFree on nullptr)
@@ -190,8 +189,8 @@ TEST_CASE("swap exchanges buffer contents", "[DoubleBuffer][swap]")
   REQUIRE(b.size() == size_a);
 
   // verify contents
-  auto vec_a = a.copy_to_host();
-  auto vec_b = b.copy_to_host();
+  auto vec_a = a.copyToHost();
+  auto vec_b = b.copyToHost();
 
   REQUIRE(vec_a == std::vector<double>(host_b.begin(), host_b.end()));
   REQUIRE(vec_b == std::vector<double>(host_a.begin(), host_a.end()));
@@ -213,7 +212,7 @@ TEST_CASE("swap with empty buffer", "[DoubleBuffer][swap]")
   REQUIRE(b.size() == size_a);
   REQUIRE(b.data() == ptr_a);
 
-  auto vec_b = b.copy_to_host();
+  auto vec_b = b.copyToHost();
   REQUIRE(vec_b == std::vector<double>(host.begin(), host.end()));
 }
 

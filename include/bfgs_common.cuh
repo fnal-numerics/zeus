@@ -12,7 +12,7 @@ namespace bfgs {
   /// Allocates device memory and launches kernel to set up PRNG states.
   /// Returns pointer to device memory containing initialized states.
   inline curandState*
-  initialize_states(int N, int seed, float& ms_rand)
+  initializeStates(int N, int seed, float& ms_rand)
   {
     // PRNG setup
     curandState* d_states;
@@ -25,7 +25,7 @@ namespace bfgs {
     cudaEventCreate(&t0);
     cudaEventCreate(&t1);
     cudaEventRecord(t0);
-    util::setup_curand_states<<<blocks, threads>>>(
+    util::setupCurandStates<<<blocks, threads>>>(
       util::NonNull{d_states}, seed, N);
     cudaEventRecord(t1);
     cudaEventSynchronize(t1);
@@ -38,13 +38,13 @@ namespace bfgs {
   /// Used by BFGS kernels to record optimization outcomes.
   template <int DIM>
   __device__ void
-  write_result(Result<DIM>& r,
-               int status,
-               double fval,
-               const double* coordinates,
-               double gradientNorm,
-               int iter,
-               int idx)
+  writeResult(Result<DIM>& r,
+              int status,
+              double fval,
+              const double* coordinates,
+              double gradientNorm,
+              int iter,
+              int idx)
   {
     r.status = status;
     r.iter = iter;
@@ -61,7 +61,7 @@ namespace bfgs {
   /// then prints and returns the corresponding Result.
   template <int DIM>
   Result<DIM>
-  launch_reduction(int N, double* deviceResults, Result<DIM> const* h_results)
+  launchReduction(int N, double* deviceResults, Result<DIM> const* h_results)
   {
     // ArgMin & final print
     int* d_argmin_idx;

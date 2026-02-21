@@ -38,9 +38,9 @@ namespace pso {
     const double vel_range = (upper - lower) * 0.1;
     // init position & velocity
     for (int d = 0; d < DIM; ++d) {
-      double rx = util::generate_random_double(&localState, lower, upper);
+      double rx = util::generateRandomDouble(&localState, lower, upper);
       double rv =
-        util::generate_random_double(&localState, -vel_range, vel_range);
+        util::generateRandomDouble(&localState, -vel_range, vel_range);
 
       X[i * DIM + d] = rx;
       V[i * DIM + d] = rv;
@@ -98,8 +98,8 @@ namespace pso {
     curandState localState = states[i];
     // update velocity & position
     for (int d = 0; d < DIM; ++d) {
-      double r1 = util::generate_random_double(&localState, 0.0, 1.0);
-      double r2 = util::generate_random_double(&localState, 0.0, 1.0);
+      double r1 = util::generateRandomDouble(&localState, 0.0, 1.0);
+      double r2 = util::generateRandomDouble(&localState, 0.0, 1.0);
 
       double xi = X[i * DIM + d];
       double vi = V[i * DIM + d];
@@ -280,8 +280,8 @@ namespace pso {
         0, N, dX.data(), dV.data(), fun, out, hX, hV);
 #endif
       // copy back and print initial global best
-      auto hostGBestVal = dGBestVal.copy_to_host();
-      auto hostGBestX = dGBestX.copy_to_host();
+      auto hostGBestVal = dGBestVal.copyToHost();
+      auto hostGBestX = dGBestX.copyToHost();
       printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
       for (int d = 0; d < DIM; ++d)
         printf(" %.4f", hostGBestX[d]);
@@ -317,8 +317,8 @@ namespace pso {
           throw CudaError(cudaGetLastError(), "PSO iterKernel failed");
         float ms_iter = 0;
         cudaEventElapsedTime(&ms_iter, t0, t1);
-        hostGBestVal = dGBestVal.copy_to_host();
-        hostGBestX = dGBestX.copy_to_host();
+        hostGBestVal = dGBestVal.copyToHost();
+        hostGBestX = dGBestX.copyToHost();
         // saveIteration<Function, DIM>(iter, N, dX, dV, f, out, hX, hV);
         ms_pso += ms_iter;
       } // end pso loop

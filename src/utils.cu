@@ -6,7 +6,7 @@ namespace bfgs {}
 namespace util {
 
   void
-  set_stack_size()
+  setStackSize()
   {
     // logic to set the stact size limit to 65 kB per thread
     size_t currentStackSize = 0;
@@ -94,7 +94,7 @@ namespace util {
   }
 
   __global__ void
-  setup_curand_states(util::NonNull<curandState*> states, uint64_t seed, int N)
+  setupCurandStates(util::NonNull<curandState*> states, uint64_t seed, int N)
   {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < N) {

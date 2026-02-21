@@ -23,8 +23,7 @@ namespace util {
     {
 #ifndef __CUDA_ARCH__
       if (p == nullptr) {
-        throw std::invalid_argument(
-          "util::NonNull: construction from nullptr");
+        throw std::invalid_argument("util::NonNull: construction from nullptr");
       }
 #endif
     }
@@ -71,7 +70,7 @@ namespace util {
     (cudaFree(ptrs), ...);
   }
 
-  void set_stack_size();
+  void setStackSize();
 
   // The following utility functions are implemented in the header (and marked
   // inline) to ensure they are available to user code that instantiates Zeus
@@ -91,7 +90,7 @@ namespace util {
 
   // return a random double in [minVal, maxVal)
   __device__ inline double
-  random_double(uint64_t& state, double minVal, double maxVal)
+  randomDouble(uint64_t& state, double minVal, double maxVal)
   {
     uint64_t z = splitmix64(state);
     double u = (z >> 11) * (1.0 / 9007199254740992.0);
@@ -99,7 +98,7 @@ namespace util {
   }
 
   __device__ inline double
-  dot_product_device(const double* a, const double* b, int size)
+  dotProductDevice(const double* a, const double* b, int size)
   {
     double sum = 0.0;
     for (int i = 0; i < size; ++i) {
@@ -109,10 +108,10 @@ namespace util {
   }
 
   __device__ inline void
-  outer_product_device(const double* v1,
-                       const double* v2,
-                       double* result,
-                       int size)
+  outerProductDevice(const double* v1,
+                     const double* v2,
+                     double* result,
+                     int size)
   {
     for (int i = 0; i < size; ++i) {
       for (int j = 0; j < size; ++j) {
@@ -126,7 +125,7 @@ namespace util {
 
   template <int DIM>
   __device__ double
-  calculate_gradient_norm(const double* g)
+  calculateGradientNorm(const double* g)
   {
     double grad_norm = 0.0;
     for (int i = 0; i < DIM; ++i) {
@@ -137,9 +136,9 @@ namespace util {
 
   template <int DIM>
   __device__ void
-  compute_search_direction(double* p,
-                           const DeviceMatrix<double>* H,
-                           const double* g)
+  computeSearchDirection(double* p,
+                         const DeviceMatrix<double>* H,
+                         const double* g)
   {
     for (int i = 0; i < DIM; i++) {
       double sum = 0.0;
@@ -153,24 +152,24 @@ namespace util {
   // overload to take arrays
   template <int DIM>
   __device__ double
-  calculate_gradient_norm(const std::array<double, DIM>& g_arr)
+  calculateGradientNorm(const std::array<double, DIM>& g_arr)
   {
-    return calculate_gradient_norm<DIM>(g_arr.data());
+    return calculateGradientNorm<DIM>(g_arr.data());
   }
 
   template <int DIM>
   __device__ void
-  compute_search_direction(std::array<double, DIM>& p_arr,
-                           const DeviceMatrix<double>* H,
-                           const std::array<double, DIM>& g_arr)
+  computeSearchDirection(std::array<double, DIM>& p_arr,
+                         const DeviceMatrix<double>* H,
+                         const std::array<double, DIM>& g_arr)
   {
-    compute_search_direction<DIM>(p_arr.data(), H, g_arr.data());
+    computeSearchDirection<DIM>(p_arr.data(), H, g_arr.data());
   }
 
   // wrap kernel definitions extern "C" block so that their symbols are exported
   // with C linkage
   __device__ inline void
-  vector_add(const double* a, const double* b, double* result, int size)
+  vectorAdd(const double* a, const double* b, double* result, int size)
   {
     for (int i = 0; i < size; ++i) {
       result[i] = a[i] + b[i];
@@ -178,7 +177,7 @@ namespace util {
   }
 
   __device__ inline void
-  vector_scale(const double* a, double scalar, double* result, int dim)
+  vectorScale(const double* a, double scalar, double* result, int dim)
   {
     for (int i = 0; i < dim; ++i) {
       result[i] = a[i] * scalar;
@@ -186,7 +185,7 @@ namespace util {
   }
 
   __device__ inline void
-  initialize_identity_matrix(DeviceMatrix<double>* H, int dim)
+  initializeIdentityMatrix(DeviceMatrix<double>* H, int dim)
   {
     for (int i = 0; i < dim; ++i) {
       for (int j = 0; j < dim; ++j) {
@@ -208,7 +207,7 @@ namespace util {
   }
 
   __device__ inline void
-  initialize_identity_matrix_device(double* H, int n)
+  initializeIdentityMatrixDevice(double* H, int n)
   {
     for (int i = 0; i < n; ++i) {
       for (int j = 0; j < n; ++j) {
@@ -219,7 +218,7 @@ namespace util {
 
   template <int DIM>
   __device__ inline void
-  matrix_multiply_device(const double* A, const double* B, double* C)
+  matrixMultiplyDevice(const double* A, const double* B, double* C)
   {
     for (int i = 0; i < DIM; ++i) {
       for (int j = 0; j < DIM; ++j) {
@@ -235,17 +234,17 @@ namespace util {
   // BFGS update with compile-time dimension
   template <int DIM>
   __device__ void
-  bfgs_update(DeviceMatrix<double>* H,
-              const double* s,
-              const double* y,
-              double sTy,
-              DeviceMatrix<double>* Htmp)
+  bfgsUpdate(DeviceMatrix<double>* H,
+             const double* s,
+             const double* y,
+             double sTy,
+             DeviceMatrix<double>* Htmp)
   {
     if (::fabs(sTy) < 1e-14)
       return;
     double rho = 1.0 / sTy;
 
-    initialize_identity_matrix(Htmp, DIM);
+    initializeIdentityMatrix(Htmp, DIM);
     // Compute H_new element-wise without allocating large temporary matrices.
     // H_new = (I - rho * s * y^T) * H * (I - rho * y * s^T) + rho * s * s^T
 
@@ -278,7 +277,7 @@ namespace util {
 
   // overloaded identity fill
   __device__ inline void
-  initialize_identity_matrix(double* H, int dim)
+  initializeIdentityMatrix(double* H, int dim)
   {
     for (int i = 0; i < dim; ++i)
       for (int j = 0; j < dim; ++j)
@@ -288,7 +287,7 @@ namespace util {
   // overloaded search direction
   template <int DIM>
   __device__ inline void
-  compute_search_direction(double* p, const double* H, const double* g)
+  computeSearchDirection(double* p, const double* H, const double* g)
   {
     for (int i = 0; i < DIM; ++i) {
       double sum = 0.0;
@@ -302,7 +301,7 @@ namespace util {
   // overloaded BFGS‐update
   template <int DIM>
   __device__ inline void
-  bfgs_update(double* H, const double* s, const double* y, double sTy)
+  bfgsUpdate(double* H, const double* s, const double* y, double sTy)
   {
     if (fabs(sTy) < 1e-14)
       return;
@@ -331,7 +330,7 @@ namespace util {
 
   // function to calculate scalar directional direvative d = g * p
   __device__ inline double
-  directional_derivative(const double* grad, const double* p, int dim)
+  directionalDerivative(const double* grad, const double* p, int dim)
   {
     double d = 0.0;
     for (int i = 0; i < dim; ++i) {
@@ -341,26 +340,26 @@ namespace util {
   }
 
   __device__ inline double
-  generate_random_double(curandState* state, double lower, double upper)
+  generateRandomDouble(curandState* state, double lower, double upper)
   {
     return lower + (upper + (-lower)) * curand_uniform_double(state);
   }
 
-  __global__ void setup_curand_states(NonNull<curandState*> states,
-                                      uint64_t seed,
-                                      int N);
+  __global__ void setupCurandStates(NonNull<curandState*> states,
+                                    uint64_t seed,
+                                    int N);
 
   template <typename Function, int DIM>
   __device__ double
-  line_search(double f0,
-              const double* x,
-              const double* p,
-              const double* g,
-              Function const& f)
+  lineSearch(double f0,
+             const double* x,
+             const double* p,
+             const double* g,
+             Function const& f)
   {
     const double c1 = 0.3;
     double alpha = 1.0;
-    double ddir = dot_product_device(g, p, DIM);
+    double ddir = dotProductDevice(g, p, DIM);
     std::array<double, DIM> xTemp;
     for (int i = 0; i < 20; i++) {
       for (int j = 0; j < DIM; j++) {
@@ -377,14 +376,14 @@ namespace util {
   // overload that takes arrays
   template <typename Function, std::size_t DIM>
   __host__ __device__ double
-  line_search(double current_best,
-              const std::array<double, DIM>& x_arr,
-              const std::array<double, DIM>& p_arr,
-              const std::array<double, DIM>& g_arr,
-              Function const& f)
+  lineSearch(double current_best,
+             const std::array<double, DIM>& x_arr,
+             const std::array<double, DIM>& p_arr,
+             const std::array<double, DIM>& g_arr,
+             Function const& f)
   {
     // forward to your existing pointer‐based routine
-    return line_search<Function, DIM>(
+    return lineSearch<Function, DIM>(
       current_best, x_arr.data(), p_arr.data(), g_arr.data(), f);
   }
 

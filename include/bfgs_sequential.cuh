@@ -57,14 +57,14 @@ namespace bfgs {
       zeus::Result<ZEUS_DIM> r;
       for (int i = 0; i < ZEUS_DIM; i++)
         x_arr[i] = 7.0;
-      write_result<ZEUS_DIM>(r,
-                             /*status=*/-1,
-                             /*fval=*/333777.0,
-                             /*coordinates=*/x_arr.data(),
-                             /*norm=*/69.0,
-                             /*iter*/ 0,
-                             idx);
-      util::initialize_identity_matrix(&H, ZEUS_DIM);
+      writeResult<ZEUS_DIM>(r,
+                            /*status=*/-1,
+                            /*fval=*/333777.0,
+                            /*coordinates=*/x_arr.data(),
+                            /*norm=*/69.0,
+                            /*iter*/ 0,
+                            idx);
+      util::initializeIdentityMatrix(&H, ZEUS_DIM);
       int num_steps = 0, iter;
       double x_raw[ZEUS_DIM];
       // initialize x either from PSO array or fallback by RNG
@@ -72,7 +72,7 @@ namespace bfgs {
       for (int d = 0; d < ZEUS_DIM; ++d) {
         x_raw[d] = pso_array ?
                      pso_array[idx * ZEUS_DIM + d] :
-                     util::generate_random_double(&states[idx], lower, upper);
+                     util::generateRandomDouble(&states[idx], lower, upper);
         x_arr[d] = x_raw[d];
         g_arr[d] = 0.0;
         states[idx] = localState;
@@ -105,22 +105,21 @@ namespace bfgs {
           // the next time any thread does atomicAdd(&d_stopFlag, 0) it’ll see 1
           // and break. printf("thread %d get outta dodge cuz we converged...",
           // idx);
-          write_result<ZEUS_DIM>(r,
-                                 2,
-                                 f(x_arr),
-                                 x_arr.data(),
-                                 util::calculate_gradient_norm<ZEUS_DIM>(g_arr),
-                                 iter,
-                                 idx);
+          writeResult<ZEUS_DIM>(r,
+                                2,
+                                f(x_arr),
+                                x_arr.data(),
+                                util::calculateGradientNorm<ZEUS_DIM>(g_arr),
+                                iter,
+                                idx);
           break;
         }
         num_steps++;
-        util::compute_search_direction<ZEUS_DIM>(
-          p_arr, &H, g_arr); // p = -H * g
+        util::computeSearchDirection<ZEUS_DIM>(p_arr, &H, g_arr); // p = -H * g
 
         // use the alpha obtained from the line search
-        double alpha = util::line_search<Function, ZEUS_DIM>(
-          bestVal, x_arr, p_arr, g_arr, f);
+        double alpha =
+          util::lineSearch<Function, ZEUS_DIM>(bestVal, x_arr, p_arr, g_arr, f);
         if (alpha == 0.0) {
           printf("Alpha is zero, no movement in iteration=%d\n", iter);
           alpha = 1e-3;
@@ -150,11 +149,11 @@ namespace bfgs {
 
         // calculate the the dot product between the change in x and change in
         // gradient using new point
-        double delta_dot = util::dot_product_device(delta_x, delta_g, ZEUS_DIM);
+        double delta_dot = util::dotProductDevice(delta_x, delta_g, ZEUS_DIM);
 
         unsigned long long b0 = clock64();
         // bfgs update on H
-        util::bfgs_update<ZEUS_DIM>(&H, delta_x, delta_g, delta_dot, &Htmp);
+        util::bfgsUpdate<ZEUS_DIM>(&H, delta_x, delta_g, delta_dot, &Htmp);
         // only update x and g for next iteration if the new minima is smaller
         // than previous double min =
         unsigned long long b1 = clock64();
@@ -169,11 +168,10 @@ namespace bfgs {
           }
         }
         // refactor? yes
-        double grad_norm = util::calculate_gradient_norm<ZEUS_DIM>(g_arr);
+        double grad_norm = util::calculateGradientNorm<ZEUS_DIM>(g_arr);
         // catch not finite gradient norm or function value
         if (!isfinite(grad_norm) || !isfinite(fnew)) {
-          write_result<ZEUS_DIM>(
-            r, 5, fnew, x_arr.data(), grad_norm, iter, idx);
+          writeResult<ZEUS_DIM>(r, 5, fnew, x_arr.data(), grad_norm, iter, idx);
           break;
         }
         if (grad_norm < tolerance) {
@@ -181,7 +179,7 @@ namespace bfgs {
           int oldCount = atomicAdd(&ctx->convergedCount, 1);
           int newCount = oldCount + 1;
           double fcurr = f(x_arr);
-          write_result<ZEUS_DIM>(
+          writeResult<ZEUS_DIM>(
             r, 1, fcurr, x_arr.data(), grad_norm, iter, idx);
           // if we just hit the threshold set by the user, the VERY FIRST thread
           // to do so sets ctx->stopFlag=1 so everyone else exits on their next
@@ -217,13 +215,13 @@ namespace bfgs {
       // if we broek out because we hit the max numberof iterations, then its a
       // surrender
       if (MAX_ITER == iter) {
-        write_result<ZEUS_DIM>(r,
-                               0,
-                               f(x_arr),
-                               x_arr.data(),
-                               util::calculate_gradient_norm<ZEUS_DIM>(g_arr),
-                               iter,
-                               idx);
+        writeResult<ZEUS_DIM>(r,
+                              0,
+                              f(x_arr),
+                              x_arr.data(),
+                              util::calculateGradientNorm<ZEUS_DIM>(g_arr),
+                              iter,
+                              idx);
       }
       deviceResults[idx] = r.fval;
       result[idx] = r;
@@ -561,11 +559,11 @@ namespace bfgs {
                  d_results.data(),
                  N * sizeof(zeus::Result<ZEUS_DIM>),
                  cudaMemcpyDeviceToHost);
-      Convergence c = util::dump_data_2_file<ZEUS_DIM>(
+      Convergence c = util::dumpDataToFile<ZEUS_DIM>(
         N, h_results.data(), fun_name, pso_iter, run);
 
       zeus::Result<ZEUS_DIM> best =
-        launch_reduction<ZEUS_DIM>(N, deviceResults.data(), h_results.data());
+        launchReduction<ZEUS_DIM>(N, deviceResults.data(), h_results.data());
       best.c = c;
       best.ad = ad_metrics;
       best.bfgs = bfgs_metrics;

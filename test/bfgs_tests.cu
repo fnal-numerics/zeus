@@ -24,41 +24,41 @@ struct Quadratic {
 
 // Kernel to wrap util::line_search in 1D
 __global__ void
-test_line_search(const double* x,
-                 const double* p,
-                 const double* g,
-                 double f0,
-                 double* out)
+testLineSearch(const double* x,
+               const double* p,
+               const double* g,
+               double f0,
+               double* out)
 {
-  out[0] = util::line_search<Quadratic, 1>(f0, x, p, g, Quadratic());
+  out[0] = util::lineSearch<Quadratic, 1>(f0, x, p, g, Quadratic());
 }
 
 // Kernel to wrap gradient‐norm
 __global__ void
-test_grad_norm(const double* g, double* out)
+testGradNorm(const double* g, double* out)
 {
-  out[0] = util::calculate_gradient_norm<2>(g);
+  out[0] = util::calculateGradientNorm<2>(g);
 }
 
 // Kernel to wrap identity initialization
 __global__ void
-test_identity(double* H, int dim)
+testIdentity(double* H, int dim)
 {
-  util::initialize_identity_matrix(H, dim);
+  util::initializeIdentityMatrix(H, dim);
 }
 
 // Kernel to wrap search direction (H * -g)
 __global__ void
-test_search_dir(const double* H, const double* g, double* p)
+testSearchDir(const double* H, const double* g, double* p)
 {
-  util::compute_search_direction<3>(p, H, g);
+  util::computeSearchDirection<3>(p, H, g);
 }
 
 // Kernel to wrap BFGS update
 __global__ void
-test_bfgs_update(double* H, const double* dx, const double* dg, double dot)
+testBfgsUpdate(double* H, const double* dx, const double* dg, double dot)
 {
-  util::bfgs_update<2>(H, dx, dg, dot);
+  util::bfgsUpdate<2>(H, dx, dg, dot);
 }
 
 /*
@@ -79,7 +79,7 @@ Check: 0 ≤ 0.4 ? Yes, so we stop with α=0.5.
 
 Thus the correct expected step-size is 0.5.
 */
-TEST_CASE("device line_search on x^2 from x=1 gives α=1", "[bfgs][line_search]")
+TEST_CASE("device lineSearch on x^2 from x=1 gives α=1", "[bfgs][line_search]")
 {
   double hX[1] = {1.0}, hP[1] = {-2.0}, hG[1] = {2.0};
   double *dX, *dP, *dG, *dOut;
@@ -92,7 +92,7 @@ TEST_CASE("device line_search on x^2 from x=1 gives α=1", "[bfgs][line_search]"
   cudaMemcpy(dG, hG, sizeof(hG), cudaMemcpyHostToDevice);
 
   double f0 = 1.0;
-  test_line_search<<<1, 1>>>(dX, dP, dG, f0, dOut);
+  testLineSearch<<<1, 1>>>(dX, dP, dG, f0, dOut);
   cudaDeviceSynchronize();
 
   double alpha;
@@ -113,7 +113,7 @@ TEST_CASE("device gradient‐norm of [3,4] is 5", "[bfgs][norm]")
   cudaMalloc(&dOut, sizeof(double));
   cudaMemcpy(dG, hG, sizeof(hG), cudaMemcpyHostToDevice);
 
-  test_grad_norm<<<1, 1>>>(dG, dOut);
+  testGradNorm<<<1, 1>>>(dG, dOut);
   cudaDeviceSynchronize();
   cudaMemcpy(&out, dOut, sizeof(double), cudaMemcpyDeviceToHost);
 
@@ -130,7 +130,7 @@ TEST_CASE("device identity init sets H=I for 3×3", "[bfgs][identity]")
   double* dH;
   cudaMalloc(&dH, sizeof(hH));
 
-  test_identity<<<1, 1>>>(dH, DIM);
+  testIdentity<<<1, 1>>>(dH, DIM);
   cudaDeviceSynchronize();
   cudaMemcpy(hH, dH, sizeof(hH), cudaMemcpyDeviceToHost);
 
@@ -142,7 +142,7 @@ TEST_CASE("device identity init sets H=I for 3×3", "[bfgs][identity]")
   cudaFree(dH);
 }
 
-TEST_CASE("device compute_search_direction uses H=I -> p=-g for 3D",
+TEST_CASE("device computeSearchDirection uses H=I -> p=-g for 3D",
           "[bfgs][direction]")
 {
   constexpr int DIM = 3;
@@ -159,7 +159,7 @@ TEST_CASE("device compute_search_direction uses H=I -> p=-g for 3D",
   cudaMemcpy(dH, hH, sizeof(hH), cudaMemcpyHostToDevice);
   cudaMemcpy(dG, hG, sizeof(hG), cudaMemcpyHostToDevice);
 
-  test_search_dir<<<1, 1>>>(dH, dG, dP);
+  testSearchDir<<<1, 1>>>(dH, dG, dP);
   cudaDeviceSynchronize();
   cudaMemcpy(hP, dP, sizeof(hP), cudaMemcpyDeviceToHost);
 
@@ -171,7 +171,7 @@ TEST_CASE("device compute_search_direction uses H=I -> p=-g for 3D",
   cudaFree(dP);
 }
 
-TEST_CASE("device bfgs_update updates H correctly for a 2D step",
+TEST_CASE("device bfgsUpdate updates H correctly for a 2D step",
           "[bfgs][update]")
 {
   constexpr int DIM = 2;
@@ -190,7 +190,7 @@ TEST_CASE("device bfgs_update updates H correctly for a 2D step",
   cudaMemcpy(ddg, dg, sizeof(dg), cudaMemcpyHostToDevice);
 
   double dot = 2.0;
-  test_bfgs_update<<<1, 1>>>(dH, ddx, ddg, dot);
+  testBfgsUpdate<<<1, 1>>>(dH, ddx, ddg, dot);
   cudaDeviceSynchronize();
   cudaMemcpy(hH, dH, sizeof(hH), cudaMemcpyDeviceToHost);
 
@@ -224,7 +224,7 @@ TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
 
   // curand states
   float ms_rand = 0.0f;
-  curandState* d_states = bfgs::initialize_states(N, int(seed), ms_rand);
+  curandState* d_states = bfgs::initializeStates(N, int(seed), ms_rand);
 
   // correctly typed args
   double* deviceTrajectory = nullptr;
@@ -280,7 +280,7 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
 
   double* hostResults = new double[N];
   float ms_rand = 0.0f;
-  auto d_states = bfgs::initialize_states(N, /*seed=*/123, ms_rand);
+  auto d_states = bfgs::initializeStates(N, /*seed=*/123, ms_rand);
 
   double* deviceTrajectory = nullptr;
   float ms_opt = 0;
@@ -333,7 +333,7 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
 
   // curand states
   float ms_rand = 0.0f;
-  curandState* d_states = bfgs::initialize_states(N, int(seed), ms_rand);
+  curandState* d_states = bfgs::initializeStates(N, int(seed), ms_rand);
 
   // correctly typed args
   double* deviceTrajectory = nullptr;
@@ -405,7 +405,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
 
   // Allocate required device pointers
   float ms_rand = 0.0f;
-  curandState* states = bfgs::initialize_states(N, 42, ms_rand);
+  curandState* states = bfgs::initializeStates(N, 42, ms_rand);
 
   double* d_pso;
   cudaMalloc(&d_pso, N * DIM * sizeof(double));

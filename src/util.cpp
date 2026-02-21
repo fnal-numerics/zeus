@@ -3,7 +3,7 @@
 namespace util {
 
   bool
-  askUser2saveTrajectories()
+  askUserToSaveTrajectories()
   {
     std::cout << "Save optimization trajectories? (y/n): ";
     char ans;
@@ -19,9 +19,9 @@ namespace util {
   }
 
   double
-  calculate_euclidean_error(const std::string fun_name,
-                            const double* coordinates,
-                            const int dim)
+  calculateEuclideanError(const std::string fun_name,
+                          const double* coordinates,
+                          const int dim)
   {
     double sum_sq = 0.0;
 
@@ -39,19 +39,19 @@ namespace util {
       double dx = coordinates[0] - 0.0;
       double dy = coordinates[1] - (-1.0);
       sum_sq = dx * dx + dy * dy;
-    } else {//if (fun_name == "rastrigin" ||
-           //    fun_name ==
-           //      "ackley") { // both rastrigin and ackley have the same
-           //                  // coordinates for the global minimum
+    } else { // if (fun_name == "rastrigin" ||
+      //    fun_name ==
+      //      "ackley") { // both rastrigin and ackley have the same
+      //                  // coordinates for the global minimum
       for (int i = 0; i < dim; ++i) {
         sum_sq += coordinates[i] * coordinates[i];
       }
     }
     return std::sqrt(sum_sq);
-  } // end calculate_euclidean_error
+  } // end calculateEuclideanError
   /*
   template <std::size_t DIM> void
-  append_results_2_tsv(const int dim,
+  appendResultsToTsv(const int dim,
                        const int N,
                        const std::string fun_name,
                        float ms_init,
@@ -62,7 +62,7 @@ namespace util {
                        const int pso_iter,
                        const double error,
                        const int run,
-		       const Result<DIM>& best)
+                       const Result<DIM>& best)
   {
     std::string filename = "zeus_" + std::to_string(dim) + "d_results.tsv";
     std::ofstream outfile(filename, std::ios::app);
@@ -77,8 +77,10 @@ namespace util {
     }
     // if file is new or empty, let us write the header
     if (file_empty) {
-      outfile << "\tBFGS_ms_per_call\tBFGS_calls_per_thread_mean\tBFGS_fraction\tBFGS_block95\tBFGS_serialized"
-        << "fun\trun\tN\tkernel\tms_per_call\tcalls_per_thread_mean\tad_fraction\tblock95\tserialized\tBFGS_ms_per_call\tBFGS_call_per_thread_mean\tBFGS_fraction\tBFGS_block95\tBFGS_serialized\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\t"
+      outfile <<
+  "\tBFGS_ms_per_call\tBFGS_calls_per_thread_mean\tBFGS_fraction\tBFGS_block95\tBFGS_serialized"
+        <<
+  "fun\trun\tN\tkernel\tms_per_call\tcalls_per_thread_mean\tad_fraction\tblock95\tserialized\tBFGS_ms_per_call\tBFGS_call_per_thread_mean\tBFGS_fraction\tBFGS_block95\tBFGS_serialized\tclaimed\tactual\tsurrender\tstopped\tidx\tstatus\t"
            "bfgs_iter\tpso_iter\ttime\terror\tfval\tnorm";
       for (int i = 0; i < dim; i++)
         outfile << "\tcoord_" << i;
@@ -95,9 +97,14 @@ namespace util {
       // printf("bfgs time = total time = %.4f ms\n", time_seconds);
     }
     outfile << fun_name << "\t" << run << "\t" << N << "\t" << ms_opt << "\t"
-          << best.ad.ms_per_call << "\t" << best.ad.calls_per_thread_mean <<"\t" <<best.ad.fraction_of_kernel <<  "\t" << best.ad.block95 << "\t" << best.ad.serialized << "\t"
-          << "\t" << best.bfgs.ms_per_call << "\t" << best.bfgs.calls_per_thread_mean << "\t" << best.bfgs.fraction_of_kernel << "\t" << best.bfgs.block95 << "\t" << best.bfgs.serialized << "\t" 
-	  << best.c.claimed << "\t" << best.c.actual << "\t" << best.c.surrendered << "\t" << best.c.stopped << "\t" << best.idx
+          << best.ad.ms_per_call << "\t" << best.ad.calls_per_thread_mean <<"\t"
+  <<best.ad.fraction_of_kernel <<  "\t" << best.ad.block95 << "\t" <<
+  best.ad.serialized << "\t"
+          << "\t" << best.bfgs.ms_per_call << "\t" <<
+  best.bfgs.calls_per_thread_mean << "\t" << best.bfgs.fraction_of_kernel <<
+  "\t" << best.bfgs.block95 << "\t" << best.bfgs.serialized << "\t"
+          << best.c.claimed << "\t" << best.c.actual << "\t" <<
+  best.c.surrendered << "\t" << best.c.stopped << "\t" << best.idx
           << "\t" << best.status << "\t" << max_iter << "\t" << pso_iter << "\t"
           << time_seconds << "\t" << std::scientific << error << "\t"
           << best.fval << "\t" << best.gradientNorm << "\t";
@@ -108,7 +115,6 @@ namespace util {
     }
     outfile << "\n";
     outfile.close();
-    // printf("results are saved to %s", filename.c_str());
-  } // end append_results_2_tsv
+  } // end appendResultsToTsv
 */
 } // end namespace util

@@ -55,7 +55,7 @@ namespace bfgs {
 
     /// Compile-time tile size selection based on problem dimensionality.
     template <int ZEUS_DIM>
-    struct tile_size {
+    struct tileSize {
       static constexpr int value = (ZEUS_DIM >= 32 ? 32 :
                                     ZEUS_DIM >= 16 ? 16 :
                                     ZEUS_DIM >= 8  ? 8 :
@@ -69,20 +69,20 @@ namespace bfgs {
               std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity,
               int TS>
     __global__ void
-    optimize_tiles(Function f,
-                   const double lower,
-                   const double upper,
-                   const double* pso_array,
-                   util::NonNull<double*> deviceResults,
-                   double* deviceTrajectory,
-                   int N,
-                   const int MAX_ITER,
-                   const int requiredConverged,
-                   const double tolerance,
-                   util::NonNull<zeus::Result<ZEUS_DIM>*> result,
-                   util::NonNull<curandState*> states,
-                   util::NonNull<util::BFGSContext*> ctx,
-                   bool save_trajectories = false)
+    optimizeTiles(Function f,
+                  const double lower,
+                  const double upper,
+                  const double* pso_array,
+                  util::NonNull<double*> deviceResults,
+                  double* deviceTrajectory,
+                  int N,
+                  const int MAX_ITER,
+                  const int requiredConverged,
+                  const double tolerance,
+                  util::NonNull<zeus::Result<ZEUS_DIM>*> result,
+                  util::NonNull<curandState*> states,
+                  util::NonNull<util::BFGSContext*> ctx,
+                  bool save_trajectories = false)
     {
 
       static_assert(
@@ -123,13 +123,13 @@ namespace bfgs {
       // init
       if (tile.thread_rank() == 0) {
         *done_flag = 0;
-        util::initialize_identity_matrix(&H, ZEUS_DIM);
+        util::initializeIdentityMatrix(&H, ZEUS_DIM);
 
         curandState localState = states[tile_global_id];
         for (int d = 0; d < ZEUS_DIM; ++d) {
           double v = pso_array ?
                        pso_array[tile_global_id * ZEUS_DIM + d] :
-                       util::generate_random_double(&localState, lower, upper);
+                       util::generateRandomDouble(&localState, lower, upper);
           x_arr[d] = v;
           g_arr[d] = 0.0;
           x_shared[d] = v; // publish to tile
@@ -156,14 +156,13 @@ namespace bfgs {
         // Global stop check
         if (tile.thread_rank() == 0) {
           if (atomicAdd(&ctx->stopFlag, 0) != 0) {
-            write_result<ZEUS_DIM>(
-              r,
-              2,
-              f(x_arr),
-              x_arr.data(),
-              util::calculate_gradient_norm<ZEUS_DIM>(g_arr),
-              iter,
-              tile_global_id);
+            writeResult<ZEUS_DIM>(r,
+                                  2,
+                                  f(x_arr),
+                                  x_arr.data(),
+                                  util::calculateGradientNorm<ZEUS_DIM>(g_arr),
+                                  iter,
+                                  tile_global_id);
             *done_flag = 1;
           }
         }
@@ -173,9 +172,8 @@ namespace bfgs {
 
         // Lane 0: compute search direction & step
         if (tile.thread_rank() == 0) {
-          util::compute_search_direction<ZEUS_DIM>(
-            p_arr, &H, g_arr); // p = -H g
-          double alpha = util::line_search<Function, ZEUS_DIM>(
+          util::computeSearchDirection<ZEUS_DIM>(p_arr, &H, g_arr); // p = -H g
+          double alpha = util::lineSearch<Function, ZEUS_DIM>(
             bestVal, x_arr, p_arr, g_arr, f);
           if (alpha == 0.0) {
             printf(
@@ -207,8 +205,8 @@ namespace bfgs {
 
           const double fnew = f(x_new);
           const double delta_dot =
-            util::dot_product_device(delta_x, delta_g, ZEUS_DIM);
-          util::bfgs_update<ZEUS_DIM>(&H, delta_x, delta_g, delta_dot, &Htmp);
+            util::dotProductDevice(delta_x, delta_g, ZEUS_DIM);
+          util::bfgsUpdate<ZEUS_DIM>(&H, delta_x, delta_g, delta_dot, &Htmp);
 
           if (fnew < bestVal) {
             bestVal = fnew;
@@ -218,16 +216,15 @@ namespace bfgs {
             }
           }
 
-          const double grad_norm =
-            util::calculate_gradient_norm<ZEUS_DIM>(g_arr);
+          const double grad_norm = util::calculateGradientNorm<ZEUS_DIM>(g_arr);
           if (!isfinite(grad_norm) || !isfinite(fnew)) {
-            write_result<ZEUS_DIM>(
+            writeResult<ZEUS_DIM>(
               r, 5, fnew, x_arr.data(), grad_norm, iter, tile_global_id);
             *done_flag = 1;
           } else if (grad_norm < tolerance) {
             const int oldCount = atomicAdd(&ctx->convergedCount, 1);
             const double fcurr = f(x_arr);
-            write_result<ZEUS_DIM>(
+            writeResult<ZEUS_DIM>(
               r, 1, fcurr, x_arr.data(), grad_norm, iter, tile_global_id);
             if (oldCount + 1 == requiredConverged) {
               atomicExch(&ctx->stopFlag, 1);
@@ -246,13 +243,13 @@ namespace bfgs {
       // Max-iters surrender
       if (tile.thread_rank() == 0) {
         if (!*done_flag && iter == MAX_ITER) {
-          write_result<ZEUS_DIM>(r,
-                                 0,
-                                 f(x_arr),
-                                 x_arr.data(),
-                                 util::calculate_gradient_norm<ZEUS_DIM>(g_arr),
-                                 iter,
-                                 tile_global_id);
+          writeResult<ZEUS_DIM>(r,
+                                0,
+                                f(x_arr),
+                                x_arr.data(),
+                                util::calculateGradientNorm<ZEUS_DIM>(g_arr),
+                                iter,
+                                tile_global_id);
         }
         deviceResults[tile_global_id] = r.fval;
         result[tile_global_id] = r;
@@ -293,7 +290,7 @@ namespace bfgs {
            Function f)
     {
       // choose tile size per ZEUS_DIM and block siz
-      constexpr int TS = tile_size<ZEUS_DIM>::value; // 1,2,4,8,16,32
+      constexpr int TS = tileSize<ZEUS_DIM>::value; // 1,2,4,8,16,32
       int dev = 0;
       cudaGetDevice(&dev);
       cudaDeviceProp props{};
@@ -349,7 +346,7 @@ namespace bfgs {
         d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
 
       // launch the tile-per-BFGS kernel
-      optimize_tiles<Function, (int)ZEUS_DIM, TS>
+      optimizeTiles<Function, (int)ZEUS_DIM, TS>
         <<<optGrid, optBlock, shmemBytes>>>(
           f,
           lower,
@@ -396,10 +393,10 @@ namespace bfgs {
                  N * sizeof(zeus::Result<ZEUS_DIM>),
                  cudaMemcpyDeviceToHost);
 
-      Convergence c = util::dump_data_2_file<ZEUS_DIM>(
+      Convergence c = util::dumpDataToFile<ZEUS_DIM>(
         N, h_results.data(), fun_name, pso_iter, run);
       zeus::Result<ZEUS_DIM> best =
-        launch_reduction<ZEUS_DIM>(N, deviceResults.data(), h_results.data());
+        launchReduction<ZEUS_DIM>(N, deviceResults.data(), h_results.data());
       best.c = c;
       return best;
     }

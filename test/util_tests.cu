@@ -14,15 +14,15 @@ using Catch::Approx;
 __global__ void
 testVectorAddKernel(const double* a, const double* b, double* r, int n)
 {
-  util::vector_add(a, b, r, n);
+  util::vectorAdd(a, b, r, n);
 }
 __global__ void
 testVectorScaleKernel(const double* a, double s, double* r, int n)
 {
-  util::vector_scale(a, s, r, n);
+  util::vectorScale(a, s, r, n);
 }
 
-TEST_CASE("vector_add works on small arrays", "[utils][vector]")
+TEST_CASE("vectorAdd works on small arrays", "[utils][vector]")
 {
   constexpr int N = 5;
   double hA[N] = {1, 2, 3, 4, 5}, hB[N] = {5, 4, 3, 2, 1}, hR[N] = {0};
@@ -43,7 +43,7 @@ TEST_CASE("vector_add works on small arrays", "[utils][vector]")
   cudaFree(dR);
 }
 
-TEST_CASE("vector_scale works for small arrays", "[utils][vector]")
+TEST_CASE("vectorScale works for small arrays", "[utils][vector]")
 {
   constexpr int N = 5;
   double hA[N] = {1, 2, 3, 4, 5}, hR[N] = {0};

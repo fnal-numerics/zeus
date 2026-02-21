@@ -28,15 +28,15 @@ namespace zeus {
     CudaBuffer& operator=(CudaBuffer&& o) noexcept; ///< Move assignment
     ~CudaBuffer();                                  ///< Free device memory
 
-    void swap(CudaBuffer& o) noexcept;   ///< Swap device pointers and sizes
-    T* data() const noexcept;            ///< Raw device pointer accessor
-    operator T*() const noexcept;        ///< Implicit conversion to raw pointer
-    size_t size() const noexcept;        ///< Number of elements
-    std::vector<T> copy_to_host() const; ///< Copy to new host vector
-    int copy_to_host(
+    void swap(CudaBuffer& o) noexcept; ///< Swap device pointers and sizes
+    T* data() const noexcept;          ///< Raw device pointer accessor
+    operator T*() const noexcept;      ///< Implicit conversion to raw pointer
+    size_t size() const noexcept;      ///< Number of elements
+    std::vector<T> copyToHost() const; ///< Copy to new host vector
+    int copyToHost(
       std::vector<T>& out) const; ///< Copy to existing vector, returns status
-    int copy_to_host(T* out,
-                     size_t n) const; ///< Copy to raw pointer, returns status
+    int copyToHost(T* out,
+                   size_t n) const; ///< Copy to raw pointer, returns status
   };
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -142,7 +142,8 @@ namespace zeus {
   }
 
   template <typename T>
-  CudaBuffer<T>::operator T*() const noexcept
+  CudaBuffer<T>::
+  operator T*() const noexcept
   {
     return d;
   }
@@ -156,7 +157,7 @@ namespace zeus {
 
   template <typename T>
   std::vector<T>
-  CudaBuffer<T>::copy_to_host() const
+  CudaBuffer<T>::copyToHost() const
   {
     std::vector<T> out(sz);
     if (sz > 0) {
@@ -170,7 +171,7 @@ namespace zeus {
 
   template <typename T>
   int
-  CudaBuffer<T>::copy_to_host(std::vector<T>& out) const
+  CudaBuffer<T>::copyToHost(std::vector<T>& out) const
   {
     out.resize(sz);
     if (sz > 0) {
@@ -184,7 +185,7 @@ namespace zeus {
 
   template <typename T>
   int
-  CudaBuffer<T>::copy_to_host(T* out, size_t n) const
+  CudaBuffer<T>::copyToHost(T* out, size_t n) const
   {
     if (n != sz)
       return 1;
