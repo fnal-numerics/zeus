@@ -10,7 +10,7 @@ REMOTE_DIR ?= zeus
 .PHONY: help build format lint test \
 	optimize-rosenbrock optimize-rastrigin optimize-ackley \
 	optimize-goldstein-price optimize-himmelblau run-examples \
-	remote-sync remote-build remote-test remote-test-non-null remote-clean remote-shell
+	remote-sync remote-build remote-test remote-test-dual remote-test-non-null remote-clean remote-shell
 
 help:
 	@echo ""
@@ -36,6 +36,7 @@ help:
 	@echo "  make remote-sync          - Mirror local changes to $(REMOTE_HOST):$(REMOTE_DIR)"
 	@echo "  make remote-build         - Build Zeus on $(REMOTE_HOST) via SSH"
 	@echo "  make remote-test          - Run ctest on $(REMOTE_HOST) via SSH"
+	@echo "  make remote-test-dual     - Run only [dual] Catch2 tests on $(REMOTE_HOST)"
 	@echo "  make remote-test-non-null - Build and run non_null tests on $(REMOTE_HOST)"
 	@echo "  make remote-clean         - Remove build directory on $(REMOTE_HOST)"
 	@echo "  make remote-shell         - Open interactive SSH shell on $(REMOTE_HOST)"
@@ -87,6 +88,10 @@ remote-build:
 remote-test:
 	@echo "🧪 Running tests on $(REMOTE_HOST)..."
 	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; cd build && ctest --output-on-failure"
+
+remote-test-dual:
+	@echo "🧪 Running only [dual] tests on $(REMOTE_HOST)..."
+	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; cd build && ./unit_test '[dual]'"
 
 remote-test-non-null: remote-sync
 	@echo "🧪 Running non_null tests on $(REMOTE_HOST)..."
