@@ -313,7 +313,7 @@ TEST_CASE("pso::launch throws cuda_exception<3> when overflowing the memory")
                                           42,
                                           states,
                                           Fn{})),
-                    cuda_exception<4>);
+                    cuda_exception);
 
   cudaFree(states);
   // clean up the scrap buffers so the rest of the suite runs ‐─
@@ -348,7 +348,7 @@ TEST_CASE("pso::launch throws cuda_exception<4> when the kernel launch fails",
   REQUIRE_THROWS_AS(
     (pso::launch<Fn, DIM>(
       PSO_ITER, N, -2.0, 2.0, ms_init, ms_pso, 99, states, Fn{})),
-    cuda_exception<4>);
+    cuda_exception);
 
   cudaFree(states);
 }
@@ -372,7 +372,7 @@ TEST_CASE("pso::launch throws cuda_exception<3> when cudaMalloc fails",
   REQUIRE_THROWS_AS(
     (pso::launch<Fn, DIM>(
       PSO_ITER, N, -2.0, 2.0, ms_init, ms_pso, 42, states, Fn{})),
-    cuda_exception<3>);
+    cuda_exception);
 
   cudaFree(states);
 }

@@ -417,12 +417,10 @@ namespace bfgs {
       try {
         deviceResults = dbuf(N);
       }
-      catch (const cuda_exception<3>& e) {
+      catch (const cuda_exception& e) {
         Result<DIM> result;
-        result.status = 3;
+        result.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
         return result;
-        // throw cuda_exception<3>(std::string("bfgs::launch: failed to
-        // cudaMalloc deviceResults (") + e.what() + ")\n"); //allocation failed
       }
       dim3 optBlock(blockSize);
       dim3 optGrid((N + blockSize - 1) / blockSize);
@@ -464,11 +462,10 @@ namespace bfgs {
       try {
         d_results = result_buffer<DIM>(N);
       }
-      catch (const cuda_exception<3>& e) {
+      catch (const cuda_exception& e) {
         Result<DIM> result;
-        result.status = 3;
+        result.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
         return result;
-        // throw; // allocation failed
       }
       if (save_trajectories) {
         optimize<Function, DIM, 128>

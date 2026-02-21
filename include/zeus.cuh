@@ -70,16 +70,12 @@ namespace zeus {
             PSO_ITER, N, lower, upper, ms_init, ms_pso, seed, states, f);
           // printf("pso init: %.2f main loop: %.2f", ms_init, ms_pso);
         }
-        catch (cuda_exception<3>&) {
+        catch (const cuda_exception& e) {
           Result<DIM> r;
-          r.status = 3;
+          r.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
           return r;
         }
-        catch (cuda_exception<4>&) {
-          Result<DIM> r;
-          r.status = 4;
-          return r;
-        }
+
       } // end if pso_iter > 0
 
       Result<DIM> best;

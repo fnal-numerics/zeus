@@ -49,7 +49,7 @@ namespace zeus {
     if (sz > 0) {
       auto st = cudaMalloc(&d, sz * sizeof(T));
       if (st != cudaSuccess)
-        throw cuda_exception<3>("cudaMalloc failed");
+        throw cuda_exception(st, "cudaMalloc failed");
     }
   }
 
@@ -60,11 +60,11 @@ namespace zeus {
     if (sz > 0) {
       cudaError_t st = cudaMalloc(&d, sz * sizeof(T));
       if (st != cudaSuccess)
-        throw cuda_exception<3>("cudaMalloc failed in array ctor");
+        throw cuda_exception(st, "cudaMalloc failed in array ctor");
       st = cudaMemcpy(d, host.data(), sz * sizeof(T), cudaMemcpyHostToDevice);
       if (st != cudaSuccess) {
         cudaFree(d);
-        throw cuda_exception<4>("cudaMemcpy H->D failed in array ctor");
+        throw cuda_exception(st, "cudaMemcpy H->D failed in array ctor");
       }
     }
   }
@@ -75,11 +75,11 @@ namespace zeus {
     if (sz > 0) {
       auto st = cudaMalloc(&d, sz * sizeof(T));
       if (st != cudaSuccess)
-        throw cuda_exception<3>("cudaMalloc failed in copy ctor");
+        throw cuda_exception(st, "cudaMalloc failed in copy ctor");
       st = cudaMemcpy(d, o.d, sz * sizeof(T), cudaMemcpyDeviceToDevice);
       if (st != cudaSuccess) {
         cudaFree(d);
-        throw cuda_exception<4>("cudaMemcpy D->D failed in copy ctor");
+        throw cuda_exception(st, "cudaMemcpy D->D failed in copy ctor");
       }
     }
   }
@@ -142,8 +142,7 @@ namespace zeus {
   }
 
   template <typename T>
-  cuda_buffer<T>::
-  operator T*() const noexcept
+  cuda_buffer<T>::operator T*() const noexcept
   {
     return d;
   }
@@ -164,7 +163,7 @@ namespace zeus {
       auto st =
         cudaMemcpy(out.data(), d, sz * sizeof(T), cudaMemcpyDeviceToHost);
       if (st != cudaSuccess)
-        throw cuda_exception<4>("cudaMemcpy D→H failed");
+        throw cuda_exception(st, "cudaMemcpy D→H failed");
     }
     return out;
   }

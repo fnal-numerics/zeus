@@ -212,9 +212,10 @@ namespace pso {
            total / 1e9);
     printf("Need %.2f GB for PSO buffers\n", need / 1e9);
     if (need > freeBytes) {
-
-      throw cuda_exception<3>("Not enough device memory for PSO buffers");
+      throw cuda_exception(cudaErrorMemoryAllocation,
+                           "Not enough device memory for PSO buffers");
     }
+
     // once we know we have enough memory, we can allocate it
     try { // resource acquisition is initialization
       dbuf dX(sizeX);
@@ -259,7 +260,7 @@ namespace pso {
       cudaEventRecord(t1);
       cudaEventSynchronize(t1);
       if (cudaGetLastError() != cudaSuccess)
-        throw cuda_exception<4>("PSO initKernel failed");
+        throw cuda_exception(cudaGetLastError(), "PSO initKernel failed");
       cudaEventElapsedTime(&ms_init, t0, t1);
 #if (0)
       std::vector<double> hX(N * DIM), hV(N * DIM);
@@ -309,7 +310,7 @@ namespace pso {
         cudaEventRecord(t1);
         cudaEventSynchronize(t1);
         if (cudaGetLastError() != cudaSuccess)
-          throw cuda_exception<4>("PSO iterKernel failed");
+          throw cuda_exception(cudaGetLastError(), "PSO iterKernel failed");
         float ms_iter = 0;
         cudaEventElapsedTime(&ms_iter, t0, t1);
         hostGBestVal = dGBestVal.copy_to_host();
@@ -322,8 +323,7 @@ namespace pso {
       cudaEventDestroy(t1);
       return dPBestX; // return the personal best for each particle
     }
-    catch (cuda_exception<3>&) {
-      // allocation failure
+    catch (const cuda_exception&) {
       throw;
     }
   }
