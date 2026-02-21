@@ -70,7 +70,7 @@ namespace zeus {
             PSO_ITER, N, lower, upper, ms_init, ms_pso, seed, states, f);
           // printf("pso init: %.2f main loop: %.2f", ms_init, ms_pso);
         }
-        catch (const cuda_exception& e) {
+        catch (const CudaError& e) {
           Result<DIM> r;
           r.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
           return r;

@@ -314,7 +314,7 @@ namespace bfgs {
       try {
         deviceResults = dbuf(N);
       }
-      catch (const cuda_exception& e) {
+      catch (const CudaError& e) {
         Result<DIM> r{};
         r.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
         return r;
@@ -324,7 +324,7 @@ namespace bfgs {
       try {
         d_results = result_buffer<DIM>(N);
       }
-      catch (const cuda_exception& e) {
+      catch (const CudaError& e) {
         Result<DIM> r{};
         r.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
         return r;
