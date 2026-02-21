@@ -187,12 +187,15 @@ namespace dual {
   }
 
   /// Power of a dual number raised to a double exponent.
-  template <typename T>
-  static __inline__ __host__ __device__ T
-  pow(const T& base, double exponent)
+  static __inline__ __host__ __device__ DualNumber
+  pow(const DualNumber& base, double exponent)
   {
-    return T(::pow(base.real, exponent),
-             exponent * ::pow(base.real, exponent - 1) * base.dual);
+    const double br = base.real;
+    const double pr = ::pow(br, exponent);
+    if (br == 0.0) {
+      return DualNumber(pr, exponent * ::pow(br, exponent - 1.0) * base.dual);
+    }
+    return DualNumber(pr, exponent * pr / br * base.dual);
   }
 
   /// Returns the value of pi.
