@@ -6,6 +6,7 @@
 #include <limits>
 #include <type_traits>
 #include <utility>
+#include "traits.hpp"
 
 namespace dual {
 
@@ -237,17 +238,9 @@ namespace dual {
     return DualNumber(lr, x.dual * dg);
   }
 
-  /// Helper to enable function if it returns DualNumber for given dimension.
-  template<typename Function, std::size_t DIM>
-  using enable_if_returns_dual_t = std::enable_if_t<
-    std::is_same_v<
-      std::invoke_result_t<Function, std::array<DualNumber, DIM>>,
-      DualNumber>>;
-
   /// Calculate the gradient of a function using automatic differentiation.
-  template <typename Function,
-            std::size_t DIM,
-            typename = enable_if_returns_dual_t<Function, DIM>>
+  template <typename Function, std::size_t DIM>
+    requires zeus::ZeusObjective<Function, DIM>
   __device__ void
   calculateGradientUsingAD(
     Function const& f,

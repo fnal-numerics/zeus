@@ -14,6 +14,7 @@ namespace bfgs {
     /// Each thread performs one independent BFGS optimization using
     /// automatic differentiation for gradient computation.
     template <typename Function, int ZEUS_DIM, unsigned int blockSize>
+      requires zeus::ZeusObjective<Function, ZEUS_DIM>
     __global__ void
     optimize(Function f,
              const double lower,
@@ -35,14 +36,6 @@ namespace bfgs {
              int* bfgs_calls_out = nullptr,
              unsigned long long* total_cycles_out = nullptr)
     {
-      static_assert(
-        std::is_same_v<
-          decltype(std::declval<Function>()(
-            std::declval<std::array<dual::DualNumber, ZEUS_DIM>>())),
-          dual::DualNumber>,
-        "\n\n> This objective is not templated.\nMake it\n\ttemplate<class T> "
-        "T "
-        "fun(const std::array<T,N>) { ... }\n");
       int idx = blockIdx.x * blockDim.x + threadIdx.x;
       if (idx >= N)
         return;

@@ -68,6 +68,7 @@ namespace bfgs {
     template <typename Function,
               std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity,
               int TS>
+      requires zeus::ZeusObjective<Function, ZEUS_DIM>
     __global__ void
     optimizeTiles(Function f,
                   const double lower,
@@ -84,15 +85,6 @@ namespace bfgs {
                   util::NonNull<util::BFGSContext*> ctx,
                   bool save_trajectories = false)
     {
-
-      static_assert(
-        std::is_same_v<
-          decltype(std::declval<Function>()(
-            std::declval<std::array<dual::DualNumber, ZEUS_DIM>>())),
-          dual::DualNumber>,
-        "Objective must be templated: template<class T> T f(const "
-        "std::array<T,ZEUS_DIM>&)");
-
       // partition the block into tiles of size TS
       auto block = cg::this_thread_block();
       auto tile = cg::tiled_partition<TS>(block);
