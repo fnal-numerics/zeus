@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.25)
 
 # Must be set before project() so that it takes effect when CMake initializes
 # the CUDA language. If the user passes -DCMAKE_CUDA_ARCHITECTURES=... on the

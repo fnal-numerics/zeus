@@ -227,7 +227,7 @@ namespace dual {
   }
 
   /// Digamma function for a double.
-  __inline__ __host__ __device__ double digamma(double x);
+  __host__ __device__ double digamma(double x);
 
   /// Log-gamma function for a dual number.
   static __inline__ __host__ __device__ DualNumber
