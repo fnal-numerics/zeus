@@ -18,10 +18,18 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 # (Default is now set before project(); nothing needed here.)
 
-# Default to shared libraries if not specified
-if(NOT DEFINED BUILD_SHARED_LIBS)
-    set(BUILD_SHARED_LIBS ON)
+# Zeus requires static libraries: nvlink cannot extract device objects from a
+# shared library (.so), so BUILD_SHARED_LIBS=ON would silently break every
+# executable that uses -rdc=true (relocatable device code).
+if(BUILD_SHARED_LIBS)
+    message(FATAL_ERROR
+        "BUILD_SHARED_LIBS=ON is not supported by Zeus.\n"
+        "CUDA separable compilation (-rdc=true) requires that all device code "
+        "be available to nvlink as static object files at build time. "
+        "A shared library cannot satisfy this requirement.\n"
+        "Please configure with -DBUILD_SHARED_LIBS=OFF (the default).")
 endif()
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Zeus requires static libraries" FORCE)
 
 # Options
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -54,7 +62,6 @@ add_library(zeus
     include/device_matrix.cuh
     include/duals.cuh
     include/exception.hpp
-    include/fun.h
     include/matrix.hpp
     include/pso.cuh
     include/traits.hpp
@@ -129,13 +136,19 @@ if(ZEUS_BUILD_EXAMPLES)
         target_compile_options(optimize_${optimizer} PRIVATE ${OPTIMIZER_FLAGS})
     endforeach()
 
-    set_source_files_properties(examples/metaprogramming_t.cpp PROPERTIES LANGUAGE CUDA)
-    add_executable(zeus_test examples/metaprogramming_t.cpp)
-    target_link_libraries(zeus_test PRIVATE zeus)
-    target_compile_options(zeus_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda -expt-relaxed-constexpr -lineinfo>)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_compile_options(zeus_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G>)
-    endif()
+    # Dijet spectrum fit (HEP real-world example)
+    add_executable(fit_dijet_spectrum examples/fit_dijet_spectrum.cu)
+    target_include_directories(fit_dijet_spectrum PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples)
+    target_link_libraries(fit_dijet_spectrum PRIVATE zeus)
+    target_compile_options(fit_dijet_spectrum PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda -expt-relaxed-constexpr -O3 --use_fast_math -Xptxas=-O3 -rdc=true>)
+
+    # Gaussian + neural-network weight fitting examples
+    add_executable(optimize_gaussian_nn examples/optimize_gaussian_nn.cu)
+    target_include_directories(optimize_gaussian_nn PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples)
+    target_link_libraries(optimize_gaussian_nn PRIVATE zeus)
+    target_compile_options(optimize_gaussian_nn PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda -expt-relaxed-constexpr -O3 --use_fast_math -Xptxas=-O3 -rdc=true>)
 endif()
 
 # Tests
@@ -166,6 +179,7 @@ if(ZEUS_BUILD_TESTS)
     )
     
     set_target_properties(unit_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    target_include_directories(unit_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples)
     target_compile_options(unit_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
     target_compile_definitions(unit_test PRIVATE UNIT_TEST)
     target_link_libraries(unit_test PRIVATE zeus Catch2::Catch2WithMain)

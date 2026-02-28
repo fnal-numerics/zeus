@@ -5,29 +5,28 @@
 namespace dual {
 
   /// Digamma function for a double.
+  /// Uses the Stirling asymptotic series with reflection and argument
+  /// reduction.
   __host__ __device__ double
   digamma(double x)
   {
     // Digamma has simple poles at x = 0, -1, -2, ...
-    // Handle these exact values explicitly so behavior is deterministic and
-    // does not depend on tan(pi*x) roundoff in the reflection path.
-    if (x <= 0.0 && x == ::floor(x)) {
+    if (x <= 0.0 && x == ::floor(x))
       return std::numeric_limits<double>::infinity();
-    }
 
-    if (x < 0.5) {
-      // digamma(x) = digamma(1-x) - pi cot(pi x)
+    if (x < 0.5)
+      // Reflection: digamma(x) = digamma(1-x) - pi*cot(pi*x)
       return digamma(1.0 - x) - pi() / ::tan(pi() * x);
-    }
+
     double acc = 0.0;
     while (x < 8.0) {
       acc -= 1.0 / x;
       x += 1.0;
     }
+
     const double inv = 1.0 / x;
     const double inv2 = inv * inv;
-    // digamma(x) ~ ln x − 1/(2x) − 1/(12x^2) + 1/(120x^4) − 1/(252x^6) +
-    // 1/(240x^8) − 1/(132x^10) + 691/(32760x^12)
+    // Asymptotic series: digamma(x) ~ ln x - 1/(2x) - sum B_{2k}/(2k * x^{2k})
     const double s =
       inv2 *
       (-1.0 / 12.0 +

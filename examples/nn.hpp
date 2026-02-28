@@ -5,6 +5,7 @@
 template <size_t In, size_t H, size_t Out>
 struct NeuralNet {
   static constexpr size_t P = In * H + H + H * Out + Out;
+  static constexpr size_t arity = P;
 
   // host & device buffers
   Matrix<double> x_host{In, 1};

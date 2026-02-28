@@ -226,7 +226,7 @@ namespace dual {
     return 3.14159265358979323846;
   }
 
-  /// Digamma function for a double.
+  /// Digamma function for a double (defined in duals.cu).
   __host__ __device__ double digamma(double x);
 
   /// Log-gamma function for a dual number.
