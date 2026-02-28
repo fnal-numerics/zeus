@@ -1,7 +1,7 @@
 #include <catch2/catch_all.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 using Catch::Approx;
-#include "cuda_buffer.cuh"
+#include "cuda_buffer.hpp"
 
 using namespace zeus;
 

@@ -10,7 +10,7 @@
 #include "bfgs_sequential.cuh"
 #include "bfgs_parallel.cuh"
 #include "traits.hpp"
-#include "cuda_buffer.cuh"
+#include "cuda_buffer.hpp"
 
 __device__ int d_stopFlag = 0;
 __device__ int d_convergedCount = 0;

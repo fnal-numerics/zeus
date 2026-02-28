@@ -11,7 +11,7 @@
 #include <cmath> // for std::sqrt
 #include <limits>
 
-#include "cuda_buffer.cuh"
+#include "cuda_buffer.hpp"
 
 struct Metrics {
   // label for printing "AD", "BFGS"

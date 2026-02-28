@@ -53,12 +53,12 @@ add_library(zeus
     src/duals.cu
     include/util.hpp
     include/utils.cuh
-    include/cuda_buffer.cuh
+    include/cuda_buffer.hpp
     include/zeus.cuh
     include/bfgs_common.cuh
     include/bfgs_parallel.cuh
     include/bfgs_sequential.cuh
-    include/context.cuh
+    include/context.hpp
     include/device_matrix.cuh
     include/duals.cuh
     include/exception.hpp

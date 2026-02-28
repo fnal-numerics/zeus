@@ -1,7 +1,7 @@
 #pragma once
 #include <curand_kernel.h>
 #include "utils.cuh"
-#include "cuda_buffer.cuh"
+#include "cuda_buffer.hpp"
 #include "traits.hpp"
 
 using namespace zeus;

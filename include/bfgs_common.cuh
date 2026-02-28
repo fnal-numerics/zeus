@@ -4,7 +4,7 @@
 #include <cuda_runtime.h>
 
 #include "utils.cuh"
-#include "context.cuh"
+#include "context.hpp"
 
 namespace bfgs {
 
