@@ -6,8 +6,8 @@
 echo "⚙️  Setting up Perlmutter environment..."
 
 # Load required modules
-module load cmake/3.24.3
-module load gcc/12.2.0
+module load cmake
+module load gcc
 module load cudatoolkit
 
 # Unset Cray wrappers to use standard GCC/G++

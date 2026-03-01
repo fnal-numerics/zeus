@@ -74,7 +74,12 @@ run-examples: optimize-rosenbrock optimize-rastrigin optimize-ackley optimize-go
 
 remote-sync:
 	@echo "🚀 Syncing local files to $(REMOTE_HOST):$(REMOTE_DIR)..."
-	rsync -avz --exclude '.git/' --exclude 'build/' --exclude '.remote_config' ./ $(REMOTE_HOST):$(REMOTE_DIR)/
+	rsync -avz --delete \
+	    --filter=':- .gitignore' \
+	    --exclude '.git/' \
+	    --exclude 'build/' \
+	    --exclude '.remote_config' \
+	    ./ $(REMOTE_HOST):$(REMOTE_DIR)/
 
 remote-clean:
 	@echo "🛠️ Cleaning up on $(REMOTE_HOST)..."
@@ -83,7 +88,7 @@ remote-clean:
 
 remote-build:
 	@echo "🛠️ Building on $(REMOTE_HOST)..."
-	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DZEUS_BUILD_TESTS=ON .. && cmake --build . -j"
+	ssh $(REMOTE_HOST) "set -e; cd $(REMOTE_DIR); if [ -f remote_env.sh ]; then . ./remote_env.sh; fi; mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DZEUS_BUILD_TESTS=ON ..; cmake --build . -j"
 
 remote-test:
 	@echo "🧪 Running tests on $(REMOTE_HOST)..."

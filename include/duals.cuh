@@ -225,8 +225,8 @@ namespace dual {
     return 3.14159265358979323846;
   }
 
-  /// Digamma function for a double.
-  __inline__ __host__ __device__ double digamma(double x);
+  /// Digamma function for a double (defined in duals.cu).
+  __host__ __device__ double digamma(double x);
 
   /// Log-gamma function for a dual number.
   static __inline__ __host__ __device__ DualNumber
@@ -238,11 +238,10 @@ namespace dual {
   }
 
   /// Helper to enable function if it returns DualNumber for given dimension.
-  template<typename Function, std::size_t DIM>
+  template <typename Function, std::size_t DIM>
   using enable_if_returns_dual_t = std::enable_if_t<
-    std::is_same_v<
-      std::invoke_result_t<Function, std::array<DualNumber, DIM>>,
-      DualNumber>>;
+    std::is_same_v<std::invoke_result_t<Function, std::array<DualNumber, DIM>>,
+                   DualNumber>>;
 
   /// Calculate the gradient of a function using automatic differentiation.
   template <typename Function,

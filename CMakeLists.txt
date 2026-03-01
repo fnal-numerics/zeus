@@ -18,10 +18,18 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 # (Default is now set before project(); nothing needed here.)
 
-# Default to shared libraries if not specified
-if(NOT DEFINED BUILD_SHARED_LIBS)
-    set(BUILD_SHARED_LIBS ON)
+# Zeus requires static libraries: nvlink cannot extract device objects from a
+# shared library (.so), so BUILD_SHARED_LIBS=ON would silently break every
+# executable that uses -rdc=true (relocatable device code).
+if(BUILD_SHARED_LIBS)
+    message(FATAL_ERROR
+        "BUILD_SHARED_LIBS=ON is not supported by Zeus.\n"
+        "CUDA separable compilation (-rdc=true) requires that all device code "
+        "be available to nvlink as static object files at build time. "
+        "A shared library cannot satisfy this requirement.\n"
+        "Please configure with -DBUILD_SHARED_LIBS=OFF (the default).")
 endif()
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Zeus requires static libraries" FORCE)
 
 # Options
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -166,6 +174,7 @@ if(ZEUS_BUILD_TESTS)
     )
     
     set_target_properties(unit_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    target_include_directories(unit_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples)
     target_compile_options(unit_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
     target_compile_definitions(unit_test PRIVATE UNIT_TEST)
     target_link_libraries(unit_test PRIVATE zeus Catch2::Catch2WithMain)
