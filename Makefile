@@ -10,7 +10,8 @@ REMOTE_DIR ?= zeus
 .PHONY: help build format lint test \
 	optimize-rosenbrock optimize-rastrigin optimize-ackley \
 	optimize-goldstein-price optimize-himmelblau run-examples \
-	remote-sync remote-build remote-test remote-test-dual remote-test-non-null remote-clean remote-shell
+	remote-sync remote-build remote-test remote-test-dual remote-test-non-null \
+	remote-optimize remote-clean remote-shell
 
 help:
 	@echo ""
@@ -38,6 +39,8 @@ help:
 	@echo "  make remote-test          - Run ctest on $(REMOTE_HOST) via SSH"
 	@echo "  make remote-test-dual     - Run only [dual] Catch2 tests on $(REMOTE_HOST)"
 	@echo "  make remote-test-non-null - Build and run non_null tests on $(REMOTE_HOST)"
+	@echo "  make remote-optimize      - Run optimization on $(REMOTE_HOST) and copy results back (compressed)"
+	@echo "                             Usage: make remote-optimize FUNC=rosenbrock ARGS=\"...\" FILE=out.tsv"
 	@echo "  make remote-clean         - Remove build directory on $(REMOTE_HOST)"
 	@echo "  make remote-shell         - Open interactive SSH shell on $(REMOTE_HOST)"
 	@echo ""
@@ -101,6 +104,16 @@ remote-test-dual:
 remote-test-non-null: remote-sync
 	@echo "🧪 Running non_null tests on $(REMOTE_HOST)..."
 	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DZEUS_BUILD_TESTS=ON .. && cmake --build . -j && ./non_null_tests"
+
+remote-optimize: remote-sync remote-build
+	@if [ -z "$(FUNC)" ] || [ -z "$(ARGS)" ] || [ -z "$(FILE)" ]; then \
+		echo "Usage: make remote-optimize FUNC=<name> ARGS=\"<args>\" FILE=<filename>"; \
+		exit 1; \
+	fi
+	@echo "🏃 Running optimize_$(FUNC) on $(REMOTE_HOST)..."
+	ssh $(REMOTE_HOST) "set -e; cd $(REMOTE_DIR); if [ -f remote_env.sh ]; then . ./remote_env.sh; fi; cd build && ./optimize_$(FUNC) $(ARGS) --save-trajectories $(FILE) && bzip2 -f $(FILE)"
+	@echo "📥 Copying $(FILE).bz2 back to local machine..."
+	scp $(REMOTE_HOST):$(REMOTE_DIR)/build/$(FILE).bz2 ./$(FILE).bz2
 
 remote-shell:
 	ssh -t $(REMOTE_HOST) "cd $(REMOTE_DIR); bash --login"

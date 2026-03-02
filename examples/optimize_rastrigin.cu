@@ -31,7 +31,9 @@ main(int argc, char* argv[])
                            "rastrigin",
                            params.tolerance,
                            params.seed,
-                           params.run_id);
+                           params.run_id,
+                           true,
+                           params.trajectory_file);
 
   std::cout << "\n=== Optimization Result ===\n";
   std::cout << "Status: " << result.status << " ";

@@ -1,5 +1,9 @@
 #include "utils.cuh"
 #include <string>
+#include <fstream>
+#include <string_view>
+#include <iomanip>
+#include <cmath>
 
 namespace bfgs {}
 
@@ -54,26 +58,34 @@ namespace util {
     }
   }
 
+  __global__ void
+  fillWithNaN_kernel(double* d_ptr, size_t n)
+  {
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+      d_ptr[idx] = NAN;
+    }
+  }
+
+  cudaError_t
+  fillWithNaN(double* d_ptr, size_t n)
+  {
+    if (n == 0)
+      return cudaSuccess;
+    int blockSize = 256;
+    int gridSize = (n + blockSize - 1) / blockSize;
+    fillWithNaN_kernel<<<gridSize, blockSize>>>(d_ptr, n);
+    return cudaGetLastError();
+  }
+
   cudaError_t
   writeTrajectoryData(double* hostTrajectory,
                       int N,
                       int MAX_ITER,
                       int DIM,
-                      const std::string& fun_name,
-                      const std::string& basePath)
+                      std::string_view filename)
   {
-    // construct the directory path and create it.
-    std::string dirPath = basePath + "/" + fun_name + "/" +
-                          std::to_string(DIM) + "d/" +
-                          std::to_string(MAX_ITER * N) + "/trajectories";
-    std::filesystem::create_directories(dirPath);
-    // createOutputDirs(dirPath);
-
-    // the final filename.
-    std::string filename = dirPath + "/" + std::to_string(MAX_ITER) + "it_" +
-                           std::to_string(N) + ".tsv";
-
-    std::ofstream stepOut(filename);
+    std::ofstream stepOut(std::string{filename});
     stepOut << "OptIndex\tStep";
     for (int d = 0; d < DIM; d++)
       stepOut << "\tX_" << d;
@@ -83,8 +95,12 @@ namespace util {
       for (int it = 0; it < MAX_ITER; it++) {
         stepOut << i << "\t" << it;
         for (int d = 0; d < DIM; d++) {
-          stepOut << "\t"
-                  << hostTrajectory[i * (MAX_ITER * DIM) + it * DIM + d];
+          double v = hostTrajectory[trajectoryIndex(it, d, i, DIM, N)];
+          if (std::isnan(v)) {
+            stepOut << "\tNaN";
+          } else {
+            stepOut << "\t" << v;
+          }
         }
         stepOut << "\n";
       }
@@ -96,9 +112,9 @@ namespace util {
   __global__ void
   setupCurandStates(util::NonNull<curandState*> states, uint64_t seed, int N)
   {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < N) {
-      curand_init(seed, idx, 0, &states[idx]);
+    int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (thread_id < N) {
+      curand_init(seed, thread_id, 0, &states[thread_id]);
     }
   }
 

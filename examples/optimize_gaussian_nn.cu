@@ -17,7 +17,7 @@ static constexpr std::size_t D = 5;
 // with diagonal entries 1 + (D-1)*off and off-diagonal entries off.
 // The unique global minimum is at x = 0 with f = 0.
 static void
-run_gaussian(std::size_t N, int bfgs, int run)
+run_gaussian(std::size_t N, int bfgs, int run, std::string_view trajectory_file)
 {
   using T = double;
   constexpr T off = T(0.5);
@@ -30,8 +30,19 @@ run_gaussian(std::size_t N, int bfgs, int run)
   Gaussian<D> g{C};
 
   std::cout << "--- " << D << "D Gaussian minimisation ---\n";
-  auto res =
-    zeus::Zeus(g, -5.0, 5.0, N, bfgs, 10, 100, "gaussian", 1e-8, 42, run);
+  auto res = zeus::Zeus(g,
+                        -5.0,
+                        5.0,
+                        N,
+                        bfgs,
+                        10,
+                        100,
+                        "gaussian",
+                        1e-8,
+                        42,
+                        run,
+                        true,
+                        trajectory_file);
   std::cout << "global minimum: " << res.fval << "  (expected 0.0)\n\n";
 }
 
@@ -43,7 +54,10 @@ run_gaussian(std::size_t N, int bfgs, int run)
 // deliberately under-determined (one sample, many weights) to stress-test the
 // PSO phase on a high-dimensional, flat loss surface.
 static void
-run_neural_net(std::size_t N, int bfgs, int run)
+run_neural_net(std::size_t N,
+               int bfgs,
+               int run,
+               std::string_view trajectory_file)
 {
   constexpr size_t In = 5;
   constexpr size_t H = 15;
@@ -61,8 +75,19 @@ run_neural_net(std::size_t N, int bfgs, int run)
   NeuralNet<In, H, Out> objective{x0, y0};
 
   std::cout << "--- " << P << "D neural-net weight fitting ---\n";
-  auto res = zeus::Zeus(
-    objective, -20.0, 20.0, N, bfgs, 2, 10, "neural_net", 1e-6, 42, run);
+  auto res = zeus::Zeus(objective,
+                        -20.0,
+                        20.0,
+                        N,
+                        bfgs,
+                        2,
+                        10,
+                        "neural_net",
+                        1e-6,
+                        42,
+                        run,
+                        true,
+                        trajectory_file);
   std::cout << "final loss: " << res.fval << "\n\n";
 }
 
@@ -73,19 +98,31 @@ run_neural_net(std::size_t N, int bfgs, int run)
 int
 main(int argc, char* argv[])
 {
-  if (argc != 4) {
+  if (argc < 4) {
     std::cerr << "Usage: " << argv[0]
-              << " <num_optimizations> <max_bfgs_iter> <run_id>\n";
+              << " <num_optimizations> <max_bfgs_iter> <run_id> "
+                 "[--save-trajectories <filename>]\n";
     return 1;
   }
   const std::size_t N = std::stoul(argv[1]);
   const int bfgs = std::stoi(argv[2]);
   const int run = std::stoi(argv[3]);
 
+  std::string trajectory_file;
+  for (int i = 4; i < argc; ++i) {
+    std::string arg = argv[i];
+    if (arg == "--save-trajectories" && i + 1 < argc) {
+      trajectory_file = argv[++i];
+    } else {
+      std::cerr << "Unknown argument: " << arg << "\n";
+      return 1;
+    }
+  }
+
   util::setStackSize();
 
-  run_gaussian(N, bfgs, run);
-  run_neural_net(N, bfgs, run);
+  run_gaussian(N, bfgs, run, trajectory_file);
+  run_neural_net(N, bfgs, run, trajectory_file);
 
   return 0;
 }

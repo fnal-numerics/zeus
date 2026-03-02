@@ -57,7 +57,7 @@ namespace zeus {
 
 namespace util {
 
-  bool askUserToSaveTrajectories();
+
 
   double calculateEuclideanError(const std::string fun_name,
                                  const double* coordinates,

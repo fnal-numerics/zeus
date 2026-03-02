@@ -2,15 +2,6 @@
 
 namespace util {
 
-  bool
-  askUserToSaveTrajectories()
-  {
-    std::cout << "Save optimization trajectories? (y/n): ";
-    char ans;
-    std::cin >> ans;
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    return (ans == 'y' || ans == 'Y');
-  }
 
   void
   createOutputDirs(const std::string& path)

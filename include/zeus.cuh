@@ -48,19 +48,22 @@ namespace zeus {
          double tolerance,
          int seed,
          int run,
-         bool parallel)
+         bool parallel,
+         std::string_view trajectory_file = {})
     {
       util::setStackSize();
       float ms_rand = 0.0f;
       curandState* states = bfgs::initializeStates(N, seed, ms_rand);
       // save trajectories?
-      bool save_trajectories = util::askUserToSaveTrajectories();
+      bool save_trajectories = !trajectory_file.empty();
       double* deviceTrajectory = nullptr;
       // DoubleBuffer is CudaBuffer<double>
       DoubleBuffer trajBuffer(0);
       if (save_trajectories) {
-        trajBuffer = DoubleBuffer(size_t(N) * MAX_ITER * ZEUS_DIM);
+        size_t size = size_t(N) * MAX_ITER * ZEUS_DIM;
+        trajBuffer = DoubleBuffer(size);
         deviceTrajectory = trajBuffer.data();
+        util::fillWithNaN(deviceTrajectory, size);
       }
 
       DoubleBuffer pso_results_device(0);
@@ -137,6 +140,17 @@ namespace zeus {
       if (cuda_error != cudaSuccess) {
         printf("CUDA error: %s\n", cudaGetErrorString(cuda_error));
       }
+
+      if (save_trajectories) {
+        std::vector<double> hostTrajectory(size_t(N) * MAX_ITER * ZEUS_DIM);
+        cudaMemcpy(hostTrajectory.data(),
+                   deviceTrajectory,
+                   hostTrajectory.size() * sizeof(double),
+                   cudaMemcpyDeviceToHost);
+        util::writeTrajectoryData(
+          hostTrajectory.data(), N, MAX_ITER, ZEUS_DIM, trajectory_file);
+      }
+
       return best;
     } // end Zeus
   } // namespace impl
@@ -151,11 +165,12 @@ namespace zeus {
        int MAX_ITER,
        int PSO_ITER,
        int requiredConverged,
-       std::string fun_name,
+       std::string_view fun_name,
        double tolerance,
        int seed,
        int run,
-       bool parallel = true)
+       bool parallel = true,
+       std::string_view trajectory_file = {})
   {
     return impl::Zeus(f,
                       lower,
@@ -164,11 +179,12 @@ namespace zeus {
                       MAX_ITER,
                       PSO_ITER,
                       requiredConverged,
-                      std::move(fun_name),
+                      std::string{fun_name},
                       tolerance,
                       seed,
                       run,
-                      parallel);
+                      parallel,
+                      trajectory_file);
   }
 
 } // end zeus namespace

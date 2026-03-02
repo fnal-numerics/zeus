@@ -4,6 +4,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <concepts>
+#include <string_view>
 
 #include "util.hpp"
 #include "device_matrix.cuh"
@@ -73,6 +74,12 @@ namespace util {
 
   void setStackSize();
 
+  cudaError_t writeTrajectoryData(double* hostTrajectory,
+                                  int N,
+                                  int MAX_ITER,
+                                  int DIM,
+                                  std::string_view filename);
+
   // The following utility functions are implemented in the header (and marked
   // inline) to ensure they are available to user code that instantiates Zeus
   // templates. This avoids 'undefined reference' or CUDA registration errors
@@ -133,6 +140,15 @@ namespace util {
       grad_norm += g[i] * g[i];
     }
     return sqrt(grad_norm);
+  }
+
+  // Calculate a 1D index into the linear trajectory buffer,
+  // using a perfectly coalesced memory layout (Structure-of-Arrays).
+  __host__ __device__ inline size_t
+  trajectoryIndex(int iter, int d, int idx, int ZEUS_DIM, int N)
+  {
+    return (static_cast<size_t>(iter) * ZEUS_DIM * N) +
+           (static_cast<size_t>(d) * N) + static_cast<size_t>(idx);
   }
 
   template <int DIM>
@@ -409,5 +425,7 @@ namespace util {
     // return the previous minimum
     return __longlong_as_double(old_bits);
   }
+
+  cudaError_t fillWithNaN(double* d_ptr, size_t n);
 
 } // end namespace util

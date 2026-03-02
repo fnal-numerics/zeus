@@ -13,7 +13,10 @@ namespace bfgs {
     /// Sequential BFGS optimization kernel.
     /// Each thread performs one independent BFGS optimization using
     /// automatic differentiation for gradient computation.
-    template <typename Function, int ZEUS_DIM, unsigned int blockSize>
+    template <typename Function,
+              int ZEUS_DIM,
+              unsigned int blockSize,
+              bool SaveTrajectories>
       requires zeus::ZeusObjective<Function, ZEUS_DIM>
     __global__ void
     optimize(Function f,
@@ -29,7 +32,6 @@ namespace bfgs {
              util::NonNull<zeus::Result<ZEUS_DIM>*> result,
              util::NonNull<curandState*> states,
              util::NonNull<util::BFGSContext*> ctx,
-             bool save_trajectories = false,
              unsigned long long* ad_cycles_out = nullptr,
              int* ad_calls_out = nullptr,
              unsigned long long* bfgs_cycles_out = nullptr,
@@ -89,6 +91,12 @@ namespace bfgs {
       ad_calls += 1;
 
       for (iter = 0; iter < MAX_ITER; ++iter) {
+        if constexpr (SaveTrajectories) {
+          for (int d = 0; d < ZEUS_DIM; ++d) {
+            deviceTrajectory[util::trajectoryIndex(iter, d, idx, ZEUS_DIM, N)] =
+              x_arr[d];
+          }
+        }
         // printf("inside BeeG File System");
         //  check if somebody already asked to stop
         if (atomicAdd(&ctx->stopFlag, 0) !=
@@ -402,7 +410,11 @@ namespace bfgs {
       int blockSize, minGridSize;
 
       cudaOccupancyMaxPotentialBlockSize(
-        &minGridSize, &blockSize, optimize<Function, ZEUS_DIM, 128>, 0, N);
+        &minGridSize,
+        &blockSize,
+        optimize<Function, ZEUS_DIM, 128, false>,
+        0,
+        N);
       // printf("\nRecommended block size: %d\n", blockSize);
       DoubleBuffer deviceResults;
       try {
@@ -459,7 +471,7 @@ namespace bfgs {
         return result;
       }
       if (save_trajectories) {
-        optimize<Function, ZEUS_DIM, 128>
+        optimize<Function, ZEUS_DIM, 128, true>
           <<<optGrid, optBlock>>>(f,
                                   lower,
                                   upper,
@@ -473,14 +485,13 @@ namespace bfgs {
                                   util::NonNull{d_results.data()},
                                   util::NonNull{states},
                                   util::NonNull{d_ctx},
-                                  true,
                                   d_ad_cycles,
                                   d_ad_calls,
                                   d_bfgs_cycles,
                                   d_bfgs_calls,
                                   d_total_cycles);
       } else {
-        optimize<Function, ZEUS_DIM, 128>
+        optimize<Function, ZEUS_DIM, 128, false>
           <<<optGrid, optBlock>>>(f,
                                   lower,
                                   upper,
@@ -494,7 +505,6 @@ namespace bfgs {
                                   util::NonNull{d_results.data()},
                                   util::NonNull{states},
                                   util::NonNull{d_ctx},
-                                  false,
                                   d_ad_cycles,
                                   d_ad_calls,
                                   d_bfgs_cycles,

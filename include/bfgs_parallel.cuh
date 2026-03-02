@@ -66,8 +66,9 @@ namespace bfgs {
 
     /// Parallel BFGS kernel where each tile performs one optimization.
     template <typename Function,
-              std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity,
-              int TS>
+              std::size_t ZEUS_DIM,
+              int TS,
+              bool SaveTrajectories>
       requires zeus::ZeusObjective<Function, ZEUS_DIM>
     __global__ void
     optimizeTiles(Function f,
@@ -82,8 +83,7 @@ namespace bfgs {
                   const double tolerance,
                   util::NonNull<zeus::Result<ZEUS_DIM>*> result,
                   util::NonNull<curandState*> states,
-                  util::NonNull<util::BFGSContext*> ctx,
-                  bool save_trajectories = false)
+                  util::NonNull<util::BFGSContext*> ctx)
     {
       // partition the block into tiles of size TS
       auto block = cg::this_thread_block();
@@ -145,6 +145,14 @@ namespace bfgs {
 
       int iter = 0;
       for (; iter < MAX_ITER; ++iter) {
+        if constexpr (SaveTrajectories) {
+          if (tile.thread_rank() == 0) {
+            for (int d = 0; d < ZEUS_DIM; ++d) {
+              deviceTrajectory[util::trajectoryIndex(
+                iter, d, tile_global_id, ZEUS_DIM, N)] = x_arr[d];
+            }
+          }
+        }
         // Global stop check
         if (tile.thread_rank() == 0) {
           if (atomicAdd(&ctx->stopFlag, 0) != 0) {
@@ -338,22 +346,39 @@ namespace bfgs {
         d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
 
       // launch the tile-per-BFGS kernel
-      optimizeTiles<Function, (int)ZEUS_DIM, TS>
-        <<<optGrid, optBlock, shmemBytes>>>(
-          f,
-          lower,
-          upper,
-          pso_results_device,
-          util::NonNull{deviceResults.data()},
-          save_trajectories ? deviceTrajectory : nullptr,
-          (int)N,
-          MAX_ITER,
-          requiredConverged,
-          tolerance,
-          util::NonNull{d_results.data()},
-          util::NonNull{states},
-          util::NonNull{d_ctx},
-          save_trajectories);
+      if (save_trajectories) {
+        optimizeTiles<Function, (int)ZEUS_DIM, TS, true>
+          <<<optGrid, optBlock, shmemBytes>>>(
+            f,
+            lower,
+            upper,
+            pso_results_device,
+            util::NonNull{deviceResults.data()},
+            deviceTrajectory,
+            (int)N,
+            MAX_ITER,
+            requiredConverged,
+            tolerance,
+            util::NonNull{d_results.data()},
+            util::NonNull{states},
+            util::NonNull{d_ctx});
+      } else {
+        optimizeTiles<Function, (int)ZEUS_DIM, TS, false>
+          <<<optGrid, optBlock, shmemBytes>>>(
+            f,
+            lower,
+            upper,
+            pso_results_device,
+            util::NonNull{deviceResults.data()},
+            nullptr,
+            (int)N,
+            MAX_ITER,
+            requiredConverged,
+            tolerance,
+            util::NonNull{d_results.data()},
+            util::NonNull{states},
+            util::NonNull{d_ctx});
+      }
 
       cudaError_t err = cudaGetLastError();
       if (err != cudaSuccess) {

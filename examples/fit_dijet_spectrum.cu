@@ -93,14 +93,26 @@ write_pred_vs_true_tsv(const std::string& path,
 int
 main(int argc, char* argv[])
 {
-  if (argc != 4) {
+  if (argc < 4) {
     std::cerr << "Usage: " << argv[0]
-              << " <num_optimizations> <max_bfgs_iter> <run_id>\n";
+              << " <num_optimizations> <max_bfgs_iter> <run_id> "
+                 "[--save-trajectories <filename>]\n";
     return 1;
   }
   const size_t N = std::stoul(argv[1]);
   const int bfgs = std::stoi(argv[2]);
   const int run = std::stoi(argv[3]);
+
+  std::string trajectory_file;
+  for (int i = 4; i < argc; ++i) {
+    std::string arg = argv[i];
+    if (arg == "--save-trajectories" && i + 1 < argc) {
+      trajectory_file = argv[++i];
+    } else {
+      std::cerr << "Unknown argument: " << arg << "\n";
+      return 1;
+    }
+  }
 
   util::setStackSize();
 
@@ -127,8 +139,19 @@ main(int argc, char* argv[])
   // Parameters: a (normalisation), b, c, d (shape)
   // Search range [0, 10] covers all physically reasonable values.
   LogLikelihood ll(counts, centers);
-  auto res =
-    zeus::Zeus(ll, 0.00, 10.00, N, bfgs, 10, 100, "poisson", 1e-8, 42, run);
+  auto res = zeus::Zeus(ll,
+                        0.00,
+                        10.00,
+                        N,
+                        bfgs,
+                        10,
+                        100,
+                        "poisson",
+                        1e-8,
+                        42,
+                        run,
+                        true,
+                        trajectory_file);
 
   std::cout << "best NLL: " << res.fval << "\n";
 

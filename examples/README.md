@@ -10,11 +10,12 @@ budget, tolerance, etc.) to measure convergence rate and solution quality.
 
 ## Common Command-Line Interface
 
-Every program accepts exactly the same nine positional arguments:
+Every program accepts exactly the same nine positional arguments and an optional trajectory saving flag:
 
 ```
 <executable> <lower_bound> <upper_bound> <max_iter> <pso_iters> \
-             <required_converged> <num_optimizations> <tolerance> <seed> <run_id>
+             <required_converged> <num_optimizations> <tolerance> <seed> <run_id> \
+             [--save-trajectories <filename>]
 ```
 
 | Position | Argument | Type | Description |
@@ -28,11 +29,12 @@ Every program accepts exactly the same nine positional arguments:
 | 7 | `tolerance` | `double` | Gradient-norm convergence threshold |
 | 8 | `seed` | `int` | RNG seed for reproducible swarm initialization |
 | 9 | `run_id` | `int` | Integer label written to output, useful when sweeping over multiple runs |
+| Optional | `--save-trajectories <filename>` | `string` | Saves the optimization trajectory data to the specified TSV file |
 
 **Example:**
 
 ```bash
-./optimize_rosenbrock -5.0 5.0 10000 20 100 1024 1e-8 42 0
+./optimize_rosenbrock -5.0 5.0 10000 20 100 1024 1e-8 42 0 --save-trajectories rosen_trace.tsv
 ```
 
 ---

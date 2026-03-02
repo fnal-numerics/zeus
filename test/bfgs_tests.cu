@@ -383,7 +383,7 @@ struct GoodObjective {
     // just sum coordinates
     T sum = T(0);
     for (int i = 0; i < DIM; ++i)
-      sum = sum + x[i];
+      sum = sum + x[i] * x[i];
     return sum;
   }
 };
@@ -423,7 +423,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
   cudaMemcpy(d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
 
   // This **should compile** without error:
-  bfgs::sequential::optimize<GoodObjective, DIM, 128>
+  bfgs::sequential::optimize<GoodObjective, DIM, 128, false>
     <<<1, 128>>>(GoodObjective(),
                  lower,
                  upper,
@@ -446,7 +446,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
 
   // This **must fail** to compile, triggering static_assert:
 #if (0)
-  bfgs::sequential::optimize<BadObjective, DIM, 128>
+  bfgs::sequential::optimize<BadObjective, DIM, 128, false>
     <<<1, 128>>>(BadObjective(),
                  lower,
                  upper,
@@ -461,4 +461,75 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
                  states);
   dual::calculateGradientUsingAD(BadObjective, , ga);
 #endif
+}
+
+TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
+{
+  const int N = 1, MAX_ITER = 3, requiredConverged = 1;
+  const double lower = 0.0, upper = 1.0, tolerance = 1e-6;
+
+  float ms_rand = 0.0f;
+  curandState* states = bfgs::initializeStates(N, 42, ms_rand);
+
+  double* d_pso = nullptr;
+  double* d_results;
+  cudaMalloc(&d_results, N * sizeof(double));
+
+  double* d_trajectory = nullptr;
+  cudaMalloc(&d_trajectory, size_t(N) * DIM * MAX_ITER * sizeof(double));
+  util::fillWithNaN(d_trajectory, size_t(N) * DIM * MAX_ITER);
+
+  zeus::Result<DIM>* d_out;
+  cudaMalloc(&d_out, N * sizeof(zeus::Result<DIM>));
+
+  util::BFGSContext* d_ctx;
+  cudaMalloc(&d_ctx, sizeof(util::BFGSContext));
+  util::BFGSContext h_ctx = {0, 0};
+  cudaMemcpy(d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
+
+  bfgs::sequential::optimize<GoodObjective, DIM, 128, true>
+    <<<1, 128>>>(GoodObjective(),
+                 lower,
+                 upper,
+                 d_pso,
+                 util::NonNull{d_results},
+                 d_trajectory,
+                 N,
+                 MAX_ITER,
+                 requiredConverged,
+                 tolerance,
+                 util::NonNull{d_out},
+                 util::NonNull{states},
+                 util::NonNull{d_ctx});
+
+  cudaDeviceSynchronize();
+
+  std::vector<double> h_trajectory(N * DIM * MAX_ITER);
+  cudaMemcpy(h_trajectory.data(),
+             d_trajectory,
+             h_trajectory.size() * sizeof(double),
+             cudaMemcpyDeviceToHost);
+
+  // We should have non-NaN elements in trajectory buffer (Step 0 etc.)
+  // and potentially NaN elements (if initialized with NaN and not overwritten)
+  bool has_non_nan = false;
+  bool has_nan = false;
+  for (auto v : h_trajectory) {
+    if (!std::isnan(v)) {
+      has_non_nan = true;
+    } else {
+      has_nan = true;
+    }
+  }
+  REQUIRE(has_non_nan);
+  REQUIRE(has_nan);
+  // Note: if MAX_ITER is small and it takes all steps, has_nan might be false
+  // if every slot was written. But with fillWithNaN, we expect it to be
+  // initialized.
+
+  cudaFree(d_ctx);
+  cudaFree(d_out);
+  cudaFree(d_trajectory);
+  cudaFree(d_results);
+  cudaFree(states);
 }
