@@ -35,32 +35,35 @@ namespace zeus {
 
   namespace impl {
     template <typename Function,
+              typename StateType,
               std::size_t ZEUS_DIM = FnTraits<Function>::arity>
     zeus::Result<ZEUS_DIM>
-    Zeus(Function const& f,
-         double lower,
-         double upper,
-         size_t N,
-         int MAX_ITER,
-         int PSO_ITER,
-         int requiredConverged,
-         std::string const& fun_name,
-         double tolerance,
-         int seed,
-         int run,
-         bool parallel,
-         std::string_view trajectory_file = {})
+    ZeusInternal(Function const& f,
+                 double lower,
+                 double upper,
+                 size_t N,
+                 int MAX_ITER,
+                 int PSO_ITER,
+                 int requiredConverged,
+                 std::string const& fun_name,
+                 double tolerance,
+                 int seed,
+                 int run,
+                 bool parallel,
+                 std::string_view trajectory_file,
+                 StateType* states,
+                 float ms_rand)
     {
-      util::setStackSize();
-      float ms_rand = 0.0f;
-      curandState* states = bfgs::initializeStates(N, seed, ms_rand);
+      if (N == 0) {
+        return zeus::Result<ZEUS_DIM>{};
+      }
+
       // save trajectories?
       bool save_trajectories = !trajectory_file.empty();
       double* deviceTrajectory = nullptr;
-      // DoubleBuffer is CudaBuffer<double>
       DoubleBuffer trajBuffer(0);
       if (save_trajectories) {
-        size_t size = size_t(N) * MAX_ITER * ZEUS_DIM;
+        size_t size = size_t(N) * MAX_ITER * (ZEUS_DIM + 2);
         trajBuffer = DoubleBuffer(size);
         deviceTrajectory = trajBuffer.data();
         util::fillWithNaN(deviceTrajectory, size);
@@ -70,47 +73,44 @@ namespace zeus {
       float ms_init = 0.0f, ms_pso = 0.0f;
       if (PSO_ITER >= 0) {
         try {
-          pso_results_device = pso::launch<Function, ZEUS_DIM>(
+          pso_results_device = pso::launch<Function, ZEUS_DIM, StateType>(
             PSO_ITER, N, lower, upper, ms_init, ms_pso, seed, states, f);
-          // printf("pso init: %.2f main loop: %.2f", ms_init, ms_pso);
         }
         catch (const CudaError& e) {
           zeus::Result<ZEUS_DIM> r;
           r.status = (e.code() == cudaErrorMemoryAllocation) ? 3 : 4;
           return r;
         }
-
-      } // end if pso_iter > 0
+      }
 
       zeus::Result<ZEUS_DIM> best;
       float ms_opt = 0.0f;
       if (run != 0) {
         std::cout << "parallel" << "\n";
-        best =
-          bfgs::parallel::launch<Function, ZEUS_DIM>(N,
-                                                     PSO_ITER,
-                                                     MAX_ITER,
-                                                     upper,
-                                                     lower,
-                                                     pso_results_device.data(),
-                                                     deviceTrajectory,
-                                                     requiredConverged,
-                                                     tolerance,
-                                                     save_trajectories,
-                                                     ms_opt,
-                                                     fun_name,
-                                                     states,
-                                                     run,
-                                                     f);
-      } else {
-
-        std::cout << "sequential" << "\n";
-        best = bfgs::sequential::launch<Function, ZEUS_DIM>(
+        best = bfgs::parallel::launch<Function, ZEUS_DIM, StateType>(
           N,
           PSO_ITER,
           MAX_ITER,
-          upper,
           lower,
+          upper,
+          pso_results_device.data(),
+          deviceTrajectory,
+          requiredConverged,
+          tolerance,
+          save_trajectories,
+          ms_opt,
+          fun_name,
+          states,
+          run,
+          f);
+      } else {
+        std::cout << "sequential" << "\n";
+        best = bfgs::sequential::launch<Function, ZEUS_DIM, StateType>(
+          N,
+          PSO_ITER,
+          MAX_ITER,
+          lower,
+          upper,
           pso_results_device.data(),
           deviceTrajectory,
           requiredConverged,
@@ -122,6 +122,7 @@ namespace zeus {
           run,
           f);
       }
+
       double error =
         util::calculateEuclideanError(fun_name, best.coordinates, ZEUS_DIM);
       util::appendResultsToTsv(ZEUS_DIM,
@@ -142,7 +143,8 @@ namespace zeus {
       }
 
       if (save_trajectories) {
-        std::vector<double> hostTrajectory(size_t(N) * MAX_ITER * ZEUS_DIM);
+        std::vector<double> hostTrajectory(size_t(N) * MAX_ITER *
+                                           (ZEUS_DIM + 2));
         cudaMemcpy(hostTrajectory.data(),
                    deviceTrajectory,
                    hostTrajectory.size() * sizeof(double),
@@ -152,6 +154,98 @@ namespace zeus {
       }
 
       return best;
+    }
+
+    template <typename Function,
+              std::size_t ZEUS_DIM = FnTraits<Function>::arity>
+    zeus::Result<ZEUS_DIM>
+    Zeus(Function const& f,
+         double lower,
+         double upper,
+         size_t N,
+         int MAX_ITER,
+         int PSO_ITER,
+         int requiredConverged,
+         std::string const& fun_name,
+         double tolerance,
+         int seed,
+         int run,
+         bool parallel,
+         PRNGType prng_type = PRNGType::XORWOW,
+         std::string_view trajectory_file = {})
+    {
+      util::setStackSize();
+      float ms_rand = 0.0f;
+
+      switch (prng_type) {
+        case PRNGType::PHILOX: {
+          auto* states = bfgs::initializeStates<curandStatePhilox4_32_10_t>(
+            N, seed, ms_rand);
+          auto res =
+            ZeusInternal<Function, curandStatePhilox4_32_10_t, ZEUS_DIM>(
+              f,
+              lower,
+              upper,
+              N,
+              MAX_ITER,
+              PSO_ITER,
+              requiredConverged,
+              fun_name,
+              tolerance,
+              seed,
+              run,
+              parallel,
+              trajectory_file,
+              states,
+              ms_rand);
+          cudaFree(states);
+          return res;
+        }
+        case PRNGType::SOBOL: {
+          auto* states = bfgs::initializeSobolStates(N, ms_rand);
+          auto res = ZeusInternal<Function, curandStateSobol32_t, ZEUS_DIM>(
+            f,
+            lower,
+            upper,
+            N,
+            MAX_ITER,
+            PSO_ITER,
+            requiredConverged,
+            fun_name,
+            tolerance,
+            seed,
+            run,
+            parallel,
+            trajectory_file,
+            states,
+            ms_rand);
+          cudaFree(states);
+          return res;
+        }
+        case PRNGType::XORWOW:
+        default: {
+          auto* states =
+            bfgs::initializeStates<curandStateXORWOW_t>(N, seed, ms_rand);
+          auto res = ZeusInternal<Function, curandStateXORWOW_t, ZEUS_DIM>(
+            f,
+            lower,
+            upper,
+            N,
+            MAX_ITER,
+            PSO_ITER,
+            requiredConverged,
+            fun_name,
+            tolerance,
+            seed,
+            run,
+            parallel,
+            trajectory_file,
+            states,
+            ms_rand);
+          cudaFree(states);
+          return res;
+        }
+      }
     } // end Zeus
   } // namespace impl
 
@@ -170,6 +264,7 @@ namespace zeus {
        int seed,
        int run,
        bool parallel = true,
+       PRNGType prng_type = PRNGType::XORWOW,
        std::string_view trajectory_file = {})
   {
     return impl::Zeus(f,
@@ -184,6 +279,7 @@ namespace zeus {
                       seed,
                       run,
                       parallel,
+                      prng_type,
                       trajectory_file);
   }
 

@@ -14,9 +14,10 @@ namespace bfgs {
     /// Each thread performs one independent BFGS optimization using
     /// automatic differentiation for gradient computation.
     template <typename Function,
-              int ZEUS_DIM,
-              unsigned int blockSize,
-              bool SaveTrajectories>
+              std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity,
+              unsigned int blockSize = 128,
+              bool SaveTrajectories = false,
+              typename StateType = curandState>
       requires zeus::ZeusObjective<Function, ZEUS_DIM>
     __global__ void
     optimize(Function f,
@@ -30,7 +31,7 @@ namespace bfgs {
              const int requiredConverged,
              const double tolerance,
              util::NonNull<zeus::Result<ZEUS_DIM>*> result,
-             util::NonNull<curandState*> states,
+             util::NonNull<StateType*> states,
              util::NonNull<util::BFGSContext*> ctx,
              unsigned long long* ad_cycles_out = nullptr,
              int* ad_calls_out = nullptr,
@@ -44,7 +45,7 @@ namespace bfgs {
 
       unsigned long long k_begin = clock64();
 
-      curandState localState = states[idx];
+      StateType localState = states[idx];
       std::array<double, ZEUS_DIM> x_arr, x_new, g_arr, g_new, p_arr;
       DeviceMatrix<double> H(ZEUS_DIM, ZEUS_DIM);
       DeviceMatrix<double> Htmp(ZEUS_DIM, ZEUS_DIM);
@@ -67,11 +68,11 @@ namespace bfgs {
       for (int d = 0; d < ZEUS_DIM; ++d) {
         x_raw[d] = pso_array ?
                      pso_array[idx * ZEUS_DIM + d] :
-                     util::generateRandomDouble(&states[idx], lower, upper);
+                     util::generateRandomDouble(&localState, lower, upper);
         x_arr[d] = x_raw[d];
         g_arr[d] = 0.0;
-        states[idx] = localState;
       }
+      states[idx] = localState;
 
       double f0 = f(x_arr); // rosenbrock_device(x, ZEUS_DIM);
       deviceResults[idx] = f0;
@@ -93,9 +94,14 @@ namespace bfgs {
       for (iter = 0; iter < MAX_ITER; ++iter) {
         if constexpr (SaveTrajectories) {
           for (int d = 0; d < ZEUS_DIM; ++d) {
-            deviceTrajectory[util::trajectoryIndex(iter, d, idx, ZEUS_DIM, N)] =
-              x_arr[d];
+            deviceTrajectory[util::trajectoryIndex(
+              iter, d, idx, ZEUS_DIM + 2, N)] = x_arr[d];
           }
+          deviceTrajectory[util::trajectoryIndex(
+            iter, ZEUS_DIM, idx, ZEUS_DIM + 2, N)] = bestVal;
+          deviceTrajectory[util::trajectoryIndex(
+            iter, ZEUS_DIM + 1, idx, ZEUS_DIM + 2, N)] =
+            util::calculateGradientNorm<ZEUS_DIM>(g_arr);
         }
         // printf("inside BeeG File System");
         //  check if somebody already asked to stop
@@ -389,13 +395,14 @@ namespace bfgs {
     }
 
     template <typename Function,
-              std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity>
+              std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity,
+              typename StateType = curandState>
     zeus::Result<ZEUS_DIM>
     launch(size_t N,
            const int pso_iter,
            const int MAX_ITER,
-           const double upper,
            const double lower,
+           const double upper,
            double* pso_results_device,
            double* deviceTrajectory,
            const int requiredConverged,
@@ -403,18 +410,27 @@ namespace bfgs {
            bool save_trajectories,
            float& ms_opt,
            std::string fun_name,
-           curandState* states,
+           StateType* states,
            const int run,
            Function f)
     {
       int blockSize, minGridSize;
 
-      cudaOccupancyMaxPotentialBlockSize(
-        &minGridSize,
-        &blockSize,
-        optimize<Function, ZEUS_DIM, 128, false>,
-        0,
-        N);
+      if (save_trajectories) {
+        cudaOccupancyMaxPotentialBlockSize(
+          &minGridSize,
+          &blockSize,
+          optimize<Function, ZEUS_DIM, 128, true, StateType>,
+          0,
+          N);
+      } else {
+        cudaOccupancyMaxPotentialBlockSize(
+          &minGridSize,
+          &blockSize,
+          optimize<Function, ZEUS_DIM, 128, false, StateType>,
+          0,
+          N);
+      }
       // printf("\nRecommended block size: %d\n", blockSize);
       DoubleBuffer deviceResults;
       try {
@@ -471,7 +487,7 @@ namespace bfgs {
         return result;
       }
       if (save_trajectories) {
-        optimize<Function, ZEUS_DIM, 128, true>
+        optimize<Function, ZEUS_DIM, 128, true, StateType>
           <<<optGrid, optBlock>>>(f,
                                   lower,
                                   upper,
@@ -491,7 +507,7 @@ namespace bfgs {
                                   d_bfgs_calls,
                                   d_total_cycles);
       } else {
-        optimize<Function, ZEUS_DIM, 128, false>
+        optimize<Function, ZEUS_DIM, 128, false, StateType>
           <<<optGrid, optBlock>>>(f,
                                   lower,
                                   upper,

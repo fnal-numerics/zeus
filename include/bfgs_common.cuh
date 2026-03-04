@@ -11,12 +11,13 @@ namespace bfgs {
   /// Initialize CURAND states for N parallel optimizations.
   /// Allocates device memory and launches kernel to set up PRNG states.
   /// Returns pointer to device memory containing initialized states.
-  inline curandState*
+  template <typename StateType = curandState>
+  inline StateType*
   initializeStates(int N, int seed, float& ms_rand)
   {
     // PRNG setup
-    curandState* d_states;
-    cudaMalloc(&d_states, N * sizeof(curandState));
+    StateType* d_states;
+    cudaMalloc(&d_states, N * sizeof(StateType));
 
     // Launch setup
     int threads = 256;
@@ -25,12 +26,56 @@ namespace bfgs {
     cudaEventCreate(&t0);
     cudaEventCreate(&t1);
     cudaEventRecord(t0);
-    util::setupCurandStates<<<blocks, threads>>>(
-      util::NonNull{d_states}, seed, N);
+    if constexpr (std::is_same_v<StateType, curandStateXORWOW_t>) {
+      util::setupXorwowStates<<<blocks, threads>>>(
+        util::NonNull{d_states}, seed, N);
+    } else if constexpr (std::is_same_v<StateType,
+                                        curandStatePhilox4_32_10_t>) {
+      util::setupPhiloxStates<<<blocks, threads>>>(
+        util::NonNull{d_states}, seed, N);
+    }
     cudaEventRecord(t1);
     cudaEventSynchronize(t1);
     cudaEventElapsedTime(&ms_rand, t0, t1);
     cudaDeviceSynchronize();
+    return d_states;
+  }
+
+  /// Specialized initialization for Sobol states.
+  inline curandStateSobol32_t*
+  initializeSobolStates(int N, float& ms_rand)
+  {
+    curandStateSobol32_t* d_states;
+    cudaMalloc(&d_states, N * sizeof(curandStateSobol32_t));
+
+    // Get direction vectors on host
+    curandDirectionVectors32_t* h_vectors;
+    curandGetDirectionVectors32(&h_vectors,
+                                CURAND_DIRECTION_VECTORS_32_JOEKUO6);
+
+    // Copy to device (Sobol requires these on device for init)
+    unsigned int* d_vectors;
+    cudaMalloc(&d_vectors, 32 * sizeof(unsigned int));
+    cudaMemcpy(
+      d_vectors, h_vectors, 32 * sizeof(unsigned int), cudaMemcpyHostToDevice);
+
+    // Launch setup
+    int threads = 256;
+    int blocks = (N + threads - 1) / threads;
+    cudaEvent_t t0, t1;
+    cudaEventCreate(&t0);
+    cudaEventCreate(&t1);
+    cudaEventRecord(t0);
+    util::setupSobolStates<<<blocks, threads>>>(
+      util::NonNull{d_states}, d_vectors, N);
+    cudaEventRecord(t1);
+    cudaEventSynchronize(t1);
+    cudaEventElapsedTime(&ms_rand, t0, t1);
+    cudaDeviceSynchronize();
+
+    // Clean up temporary device vectors
+    cudaFree(d_vectors);
+
     return d_states;
   }
 

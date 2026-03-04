@@ -9,6 +9,41 @@ namespace bfgs {}
 
 namespace util {
 
+  __global__ void
+  setupXorwowStates(util::NonNull<curandStateXORWOW_t*> states,
+                    uint64_t seed,
+                    int N)
+  {
+    int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (thread_id < N) {
+      curand_init(
+        seed, (unsigned long long)thread_id, 0ULL, &states[thread_id]);
+    }
+  }
+
+  __global__ void
+  setupPhiloxStates(util::NonNull<curandStatePhilox4_32_10_t*> states,
+                    uint64_t seed,
+                    int N)
+  {
+    int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (thread_id < N) {
+      curand_init(
+        seed, (unsigned long long)thread_id, 0ULL, &states[thread_id]);
+    }
+  }
+
+  __global__ void
+  setupSobolStates(util::NonNull<curandStateSobol32_t*> states,
+                   unsigned int* vectors,
+                   int N)
+  {
+    int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (thread_id < N) {
+      curand_init(vectors, (unsigned int)thread_id, &states[thread_id]);
+    }
+  }
+
   void
   setStackSize()
   {
@@ -89,33 +124,38 @@ namespace util {
     stepOut << "OptIndex\tStep";
     for (int d = 0; d < DIM; d++)
       stepOut << "\tX_" << d;
-    stepOut << "\n";
+    stepOut << "\tFVal\tGradNorm\n";
     stepOut << std::scientific << std::setprecision(17);
     for (int i = 0; i < N; i++) {
       for (int it = 0; it < MAX_ITER; it++) {
         stepOut << i << "\t" << it;
         for (int d = 0; d < DIM; d++) {
-          double v = hostTrajectory[trajectoryIndex(it, d, i, DIM, N)];
+          double v = hostTrajectory[trajectoryIndex(it, d, i, DIM + 2, N)];
           if (std::isnan(v)) {
             stepOut << "\tNaN";
           } else {
             stepOut << "\t" << v;
           }
         }
+        // Write FVal and GradNorm
+        double fval = hostTrajectory[trajectoryIndex(it, DIM, i, DIM + 2, N)];
+        double gnorm =
+          hostTrajectory[trajectoryIndex(it, DIM + 1, i, DIM + 2, N)];
+        if (std::isnan(fval)) {
+          stepOut << "\tNaN";
+        } else {
+          stepOut << "\t" << fval;
+        }
+        if (std::isnan(gnorm)) {
+          stepOut << "\tNaN";
+        } else {
+          stepOut << "\t" << gnorm;
+        }
         stepOut << "\n";
       }
     }
     stepOut.close();
     return cudaSuccess;
-  }
-
-  __global__ void
-  setupCurandStates(util::NonNull<curandState*> states, uint64_t seed, int N)
-  {
-    int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
-    if (thread_id < N) {
-      curand_init(seed, thread_id, 0, &states[thread_id]);
-    }
   }
 
 } // end namespace util

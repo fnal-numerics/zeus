@@ -94,9 +94,10 @@ int
 main(int argc, char* argv[])
 {
   if (argc < 4) {
-    std::cerr << "Usage: " << argv[0]
-              << " <num_optimizations> <max_bfgs_iter> <run_id> "
-                 "[--save-trajectories <filename>]\n";
+    std::cerr
+      << "Usage: " << argv[0]
+      << " <num_optimizations> <max_bfgs_iter> <run_id> "
+         "[--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]\n";
     return 1;
   }
   const size_t N = std::stoul(argv[1]);
@@ -104,10 +105,23 @@ main(int argc, char* argv[])
   const int run = std::stoi(argv[3]);
 
   std::string trajectory_file;
+  zeus::PRNGType prng_type = zeus::PRNGType::XORWOW;
   for (int i = 4; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg == "--save-trajectories" && i + 1 < argc) {
       trajectory_file = argv[++i];
+    } else if (arg == "--prng" && i + 1 < argc) {
+      std::string val = argv[++i];
+      if (val == "xorwow")
+        prng_type = zeus::PRNGType::XORWOW;
+      else if (val == "philox")
+        prng_type = zeus::PRNGType::PHILOX;
+      else if (val == "sobol")
+        prng_type = zeus::PRNGType::SOBOL;
+      else {
+        std::cerr << "Unknown PRNG type: " << val
+                  << ". Using default xorwow.\n";
+      }
     } else {
       std::cerr << "Unknown argument: " << arg << "\n";
       return 1;
@@ -151,6 +165,7 @@ main(int argc, char* argv[])
                         42,
                         run,
                         true,
+                        prng_type,
                         trajectory_file);
 
   std::cout << "best NLL: " << res.fval << "\n";

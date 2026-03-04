@@ -15,7 +15,8 @@ namespace pso {
   // pso initialization kernel: initialize X, V, pBest;
   //                            atomically seed gBestVal/gBestX
   template <typename Function,
-            std::size_t DIM = zeus::FnTraits<Function>::arity>
+            std::size_t DIM = zeus::FnTraits<Function>::arity,
+            typename StateType = curandState>
   __global__ void
   initKernel(Function func,
              double lower,
@@ -28,13 +29,13 @@ namespace pso {
              util::NonNull<double*> gBestVal,
              int N,
              uint64_t seed,
-             util::NonNull<curandState*> states)
+             util::NonNull<StateType*> states)
   {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= N)
       return;
 
-    curandState localState = states[i];
+    StateType localState = states[i];
     const double vel_range = (upper - lower) * 0.1;
     // init position & velocity
     for (int d = 0; d < DIM; ++d) {
@@ -69,7 +70,8 @@ namespace pso {
 
   // one PSO iteration kernel
   template <typename Function,
-            std::size_t DIM = zeus::FnTraits<Function>::arity>
+            std::size_t DIM = zeus::FnTraits<Function>::arity,
+            typename StateType = curandState>
   __global__ void
   iterKernel(Function func,
              double lower,
@@ -88,14 +90,14 @@ namespace pso {
              int N,
              int iter,
              uint64_t seed,
-             util::NonNull<curandState*> states)
+             util::NonNull<StateType*> states)
   // iteration
   {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= N)
       return;
 
-    curandState localState = states[i];
+    StateType localState = states[i];
     // update velocity & position
     for (int d = 0; d < DIM; ++d) {
       double r1 = util::generateRandomDouble(&localState, 0.0, 1.0);
@@ -183,7 +185,8 @@ namespace pso {
   }
 
   template <typename Function,
-            std::size_t DIM = zeus::FnTraits<Function>::arity>
+            std::size_t DIM = zeus::FnTraits<Function>::arity,
+            typename StateType = curandState>
   DoubleBuffer
   launch(const int PSO_ITER,
          const int N,
@@ -192,7 +195,7 @@ namespace pso {
          float& ms_init,
          float& ms_pso,
          const int seed,
-         curandState* states,
+         StateType* states,
          Function fun)
   { //, Result<DIM>& best) {
     static_assert(!std::is_reference<decltype(fun)>::value,
@@ -248,7 +251,7 @@ namespace pso {
       cudaEventCreate(&t0);
       cudaEventCreate(&t1);
       cudaEventRecord(t0);
-      initKernel<Function, DIM>
+      initKernel<Function, DIM, StateType>
         <<<psoGrid, psoBlock>>>(fun,
                                 lower,
                                 upper,
@@ -282,7 +285,7 @@ namespace pso {
       // copy back and print initial global best
       auto hostGBestVal = dGBestVal.copyToHost();
       auto hostGBestX = dGBestX.copyToHost();
-      printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal);
+      printf("Initial PSO gBestVal = %.6e at gBestX = [", hostGBestVal[0]);
       for (int d = 0; d < DIM; ++d)
         printf(" %.4f", hostGBestX[d]);
       printf(" ]\n\n");
@@ -292,7 +295,7 @@ namespace pso {
       const double w = 0.5, c1 = 1.2, c2 = 1.5;
       for (int iter = 1; iter < PSO_ITER + 1; ++iter) {
         cudaEventRecord(t0);
-        iterKernel<Function, DIM>
+        iterKernel<Function, DIM, StateType>
           <<<psoGrid, psoBlock>>>(fun,
                                   lower,
                                   upper,

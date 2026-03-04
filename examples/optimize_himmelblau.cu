@@ -33,6 +33,7 @@ main(int argc, char* argv[])
                            params.seed,
                            params.run_id,
                            true,
+                           params.prng_type,
                            params.trajectory_file);
 
   std::cout << "\n=== Optimization Result ===\n";

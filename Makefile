@@ -91,7 +91,7 @@ remote-clean:
 
 remote-build:
 	@echo "🛠️ Building on $(REMOTE_HOST)..."
-	ssh $(REMOTE_HOST) "set -e; cd $(REMOTE_DIR); if [ -f remote_env.sh ]; then . ./remote_env.sh; fi; mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DZEUS_BUILD_TESTS=ON ..; cmake --build . -j"
+	ssh $(REMOTE_HOST) "set -e; cd $(REMOTE_DIR); if [ -f remote_env.sh ]; then . ./remote_env.sh; fi; mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DZEUS_BUILD_TESTS=ON ..; cmake --build . -j8"
 
 remote-test:
 	@echo "🧪 Running tests on $(REMOTE_HOST)..."

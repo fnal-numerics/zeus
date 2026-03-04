@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <stdexcept>
 #include <cstdlib>
+#include "../include/traits.hpp"
 
 namespace zeus_examples {
 
@@ -19,6 +20,7 @@ struct OptimizationParams {
   double tolerance;
   int seed;
   int run_id;
+  zeus::PRNGType prng_type = zeus::PRNGType::XORWOW; // default
   std::string trajectory_file; // defaults to empty
 };
 
@@ -29,7 +31,7 @@ inline bool parse_args(int argc, char* argv[], OptimizationParams& params)
     std::cerr << "Usage: " << argv[0]
               << " <lower_bound> <upper_bound> <max_iter> <pso_iters> "
                  "<converged> <num_optimizations> <tolerance> <seed> <run> "
-                 "[--save-trajectories <filename>]\n";
+                 "[--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]\n";
     return false;
   }
 
@@ -49,6 +51,14 @@ inline bool parse_args(int argc, char* argv[], OptimizationParams& params)
       std::string arg = argv[i];
       if (arg == "--save-trajectories" && i + 1 < argc) {
         params.trajectory_file = argv[++i];
+      } else if (arg == "--prng" && i + 1 < argc) {
+        std::string val = argv[++i];
+        if (val == "xorwow") params.prng_type = zeus::PRNGType::XORWOW;
+        else if (val == "philox") params.prng_type = zeus::PRNGType::PHILOX;
+        else if (val == "sobol") params.prng_type = zeus::PRNGType::SOBOL;
+        else {
+          std::cerr << "Unknown PRNG type: " << val << ". Using default xorwow.\n";
+        }
       } else {
         std::cerr << "Unknown or incomplete argument: " << arg << "\n";
         return false;

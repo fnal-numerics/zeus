@@ -82,6 +82,7 @@ target_include_directories(zeus
 target_link_libraries(zeus
     PUBLIC
         CUDA::cudart
+        CUDA::curand
 )
 
 target_compile_options(zeus

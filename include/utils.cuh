@@ -356,15 +356,28 @@ namespace util {
     return d;
   }
 
+  template <typename StateType>
   __device__ inline double
-  generateRandomDouble(curandState* state, double lower, double upper)
+  generateRandomDouble(StateType* state, double lower, double upper)
   {
     return lower + (upper + (-lower)) * curand_uniform_double(state);
   }
 
-  __global__ void setupCurandStates(NonNull<curandState*> states,
-                                    uint64_t seed,
-                                    int N);
+  extern __global__ void setupXorwowStates(
+    util::NonNull<curandStateXORWOW_t*> states,
+    uint64_t seed,
+    int N);
+
+  extern __global__ void setupPhiloxStates(
+    util::NonNull<curandStatePhilox4_32_10_t*> states,
+    uint64_t seed,
+    int N);
+
+  // Sobol specialization (different init signature)
+  extern __global__ void setupSobolStates(
+    util::NonNull<curandStateSobol32_t*> states,
+    unsigned int* vectors,
+    int N);
 
   template <typename Function, int DIM>
   __device__ double

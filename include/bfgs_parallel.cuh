@@ -66,9 +66,10 @@ namespace bfgs {
 
     /// Parallel BFGS kernel where each tile performs one optimization.
     template <typename Function,
-              std::size_t ZEUS_DIM,
-              int TS,
-              bool SaveTrajectories>
+              std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity,
+              int TS = tileSize<ZEUS_DIM>::value,
+              bool SaveTrajectories = false,
+              typename StateType = curandState>
       requires zeus::ZeusObjective<Function, ZEUS_DIM>
     __global__ void
     optimizeTiles(Function f,
@@ -82,7 +83,7 @@ namespace bfgs {
                   const int requiredConverged,
                   const double tolerance,
                   util::NonNull<zeus::Result<ZEUS_DIM>*> result,
-                  util::NonNull<curandState*> states,
+                  util::NonNull<StateType*> states,
                   util::NonNull<util::BFGSContext*> ctx)
     {
       // partition the block into tiles of size TS
@@ -117,7 +118,7 @@ namespace bfgs {
         *done_flag = 0;
         util::initializeIdentityMatrix(&H, ZEUS_DIM);
 
-        curandState localState = states[tile_global_id];
+        StateType localState = states[tile_global_id];
         for (int d = 0; d < ZEUS_DIM; ++d) {
           double v = pso_array ?
                        pso_array[tile_global_id * ZEUS_DIM + d] :
@@ -149,8 +150,13 @@ namespace bfgs {
           if (tile.thread_rank() == 0) {
             for (int d = 0; d < ZEUS_DIM; ++d) {
               deviceTrajectory[util::trajectoryIndex(
-                iter, d, tile_global_id, ZEUS_DIM, N)] = x_arr[d];
+                iter, d, tile_global_id, ZEUS_DIM + 2, N)] = x_arr[d];
             }
+            deviceTrajectory[util::trajectoryIndex(
+              iter, ZEUS_DIM, tile_global_id, ZEUS_DIM + 2, N)] = bestVal;
+            deviceTrajectory[util::trajectoryIndex(
+              iter, ZEUS_DIM + 1, tile_global_id, ZEUS_DIM + 2, N)] =
+              util::calculateGradientNorm<ZEUS_DIM>(g_arr);
           }
         }
         // Global stop check
@@ -271,13 +277,14 @@ namespace bfgs {
     /// Launch parallel BFGS optimization with N independent optimizations.
     /// Uses tile-based parallelism for cooperative gradient computation.
     template <typename Function,
-              std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity>
+              std::size_t ZEUS_DIM = zeus::FnTraits<Function>::arity,
+              typename StateType = curandState>
     zeus::Result<ZEUS_DIM>
     launch(size_t N,
            const int pso_iter,
            const int MAX_ITER,
-           const double upper,
            const double lower,
+           const double upper,
            double* pso_results_device,
            double* deviceTrajectory,
            const int requiredConverged,
@@ -285,7 +292,7 @@ namespace bfgs {
            bool save_trajectories,
            float& ms_opt,
            std::string fun_name,
-           curandState* states,
+           StateType* states,
            const int run,
            Function f)
     {
@@ -347,7 +354,7 @@ namespace bfgs {
 
       // launch the tile-per-BFGS kernel
       if (save_trajectories) {
-        optimizeTiles<Function, (int)ZEUS_DIM, TS, true>
+        optimizeTiles<Function, (int)ZEUS_DIM, TS, true, StateType>
           <<<optGrid, optBlock, shmemBytes>>>(
             f,
             lower,
@@ -363,7 +370,7 @@ namespace bfgs {
             util::NonNull{states},
             util::NonNull{d_ctx});
       } else {
-        optimizeTiles<Function, (int)ZEUS_DIM, TS, false>
+        optimizeTiles<Function, (int)ZEUS_DIM, TS, false, StateType>
           <<<optGrid, optBlock, shmemBytes>>>(
             f,
             lower,

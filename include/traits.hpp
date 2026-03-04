@@ -61,4 +61,11 @@ namespace zeus {
   concept ZeusObjective = 
     CallableWithArray<F, double, DIM> &&
     CallableWithArray<F, dual::DualNumber, DIM>;
+
+  /// PRNG algorithms supported by Zeus
+  enum class PRNGType {
+    XORWOW, // Default curand XORWOW
+    PHILOX, // Counter-based Philox 4x32-10
+    SOBOL   // Quasi-random Sobol sequence
+  };
 }

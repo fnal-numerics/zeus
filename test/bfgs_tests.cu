@@ -224,30 +224,32 @@ TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
 
   // curand states
   float ms_rand = 0.0f;
-  curandState* d_states = bfgs::initializeStates(N, int(seed), ms_rand);
+  curandStateXORWOW_t* d_states =
+    bfgs::initializeStates<curandStateXORWOW_t>(N, int(seed), ms_rand);
 
   // correctly typed args
   double* deviceTrajectory = nullptr;
   float ms_opt = 0.0f;
   std::string fun_name = "rastrigin-bfgs-test";
 
-  // invoke bfgs::launch<Function,DIM>
-  auto best = bfgs::sequential::launch<util::Rastrigin<DIM>, DIM>(
-    /*N*/ N,
-    /*pso_iter*/ 0,
-    /*MAX_ITER*/ MAX_ITER,
-    /*upper*/ upper,
-    /*lower*/ lower,
-    /*pso_results_device*/ dPSOInit,
-    /*deviceTrajectory*/ deviceTrajectory,
-    /*requiredConverged*/ requiredConverged,
-    /*tolerance*/ tolerance,
-    /*save_trajectories*/ false,
-    /*ms_opt*/ ms_opt,
-    /*fun_name*/ fun_name,
-    /*states*/ d_states,
-    /*run*/ 0,
-    /*f*/ util::Rastrigin<DIM>());
+  // invoke bfgs::launch<Function,DIM,StateType>
+  auto best =
+    bfgs::sequential::launch<util::Rastrigin<DIM>, DIM, curandStateXORWOW_t>(
+      /*N*/ N,
+      /*pso_iter*/ 0,
+      /*MAX_ITER*/ MAX_ITER,
+      /*upper*/ upper,
+      /*lower*/ lower,
+      /*pso_results_device*/ dPSOInit,
+      /*deviceTrajectory*/ deviceTrajectory,
+      /*requiredConverged*/ requiredConverged,
+      /*tolerance*/ tolerance,
+      /*save_trajectories*/ false,
+      /*ms_opt*/ ms_opt,
+      /*fun_name*/ fun_name,
+      /*states*/ d_states,
+      /*run*/ 0,
+      /*f*/ util::Rastrigin<DIM>());
 
   REQUIRE(best.status == 1);
   REQUIRE(best.iter == 0);
@@ -280,13 +282,14 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
 
   double* hostResults = new double[N];
   float ms_rand = 0.0f;
-  auto d_states = bfgs::initializeStates(N, /*seed=*/123, ms_rand);
+  auto d_states =
+    bfgs::initializeStates<curandStateXORWOW_t>(N, /*seed=*/123, ms_rand);
 
   double* deviceTrajectory = nullptr;
   float ms_opt = 0;
   std::string fun_name = "quad-test";
 
-  auto best = bfgs::sequential::launch<Quad, DIM>(
+  auto best = bfgs::sequential::launch<Quad, DIM, curandStateXORWOW_t>(
     /*N*/ N,
     /*pso_iter*/ 0,
     /*MAX_ITER*/ 100,
@@ -340,23 +343,24 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
   float ms_opt = 0.0f;
   std::string fun_name = "rosenbrock-bfgs-test";
 
-  // invoke bfgs::launch<Function,DIM>
-  auto best = bfgs::sequential::launch<util::Rosenbrock<DIM>, DIM>(
-    /*N*/ N,
-    /*pso_iter*/ 0,
-    /*MAX_ITER*/ MAX_ITER,
-    /*upper*/ upper,
-    /*lower*/ lower,
-    /*pso_results_device*/ dPSOInit,
-    /*deviceTrajectory*/ deviceTrajectory,
-    /*requiredConverged*/ requiredConverged,
-    /*tolerance*/ tolerance,
-    /*save_trajectories*/ false,
-    /*ms_opt*/ ms_opt,
-    /*fun_name*/ fun_name,
-    /*states*/ d_states,
-    /*run*/ 0,
-    /*f*/ util::Rosenbrock<DIM>());
+  // invoke bfgs::launch<Function,DIM,StateType>
+  auto best =
+    bfgs::sequential::launch<util::Rosenbrock<DIM>, DIM, curandStateXORWOW_t>(
+      /*N*/ N,
+      /*pso_iter*/ 0,
+      /*MAX_ITER*/ MAX_ITER,
+      /*upper*/ upper,
+      /*lower*/ lower,
+      /*pso_results_device*/ dPSOInit,
+      /*deviceTrajectory*/ deviceTrajectory,
+      /*requiredConverged*/ requiredConverged,
+      /*tolerance*/ tolerance,
+      /*save_trajectories*/ false,
+      /*ms_opt*/ ms_opt,
+      /*fun_name*/ fun_name,
+      /*states*/ d_states,
+      /*run*/ 0,
+      /*f*/ util::Rosenbrock<DIM>());
 
   REQUIRE(best.status == 1);
   REQUIRE(best.iter < MAX_ITER);
@@ -405,7 +409,8 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
 
   // Allocate required device pointers
   float ms_rand = 0.0f;
-  curandState* states = bfgs::initializeStates(N, 42, ms_rand);
+  curandStateXORWOW_t* states =
+    bfgs::initializeStates<curandStateXORWOW_t>(N, 42, ms_rand);
 
   double* d_pso;
   cudaMalloc(&d_pso, N * DIM * sizeof(double));
@@ -423,7 +428,8 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
   cudaMemcpy(d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
 
   // This **should compile** without error:
-  bfgs::sequential::optimize<GoodObjective, DIM, 128, false>
+  bfgs::sequential::
+    optimize<GoodObjective, DIM, 128, false, curandStateXORWOW_t>
     <<<1, 128>>>(GoodObjective(),
                  lower,
                  upper,
@@ -469,7 +475,8 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
   const double lower = 0.0, upper = 1.0, tolerance = 1e-6;
 
   float ms_rand = 0.0f;
-  curandState* states = bfgs::initializeStates(N, 42, ms_rand);
+  curandStateXORWOW_t* states =
+    bfgs::initializeStates<curandStateXORWOW_t>(N, 42, ms_rand);
 
   double* d_pso = nullptr;
   double* d_results;
@@ -487,7 +494,7 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
   util::BFGSContext h_ctx = {0, 0};
   cudaMemcpy(d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
 
-  bfgs::sequential::optimize<GoodObjective, DIM, 128, true>
+  bfgs::sequential::optimize<GoodObjective, DIM, 128, true, curandStateXORWOW_t>
     <<<1, 128>>>(GoodObjective(),
                  lower,
                  upper,
