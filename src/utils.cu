@@ -114,7 +114,9 @@ namespace util {
   }
 
   cudaError_t
-  writeTrajectoryData(double* hostTrajectory,
+  writeTrajectoryData(double* hostTrajectoryCoords,
+                      double* hostTrajectoryFval,
+                      double* hostTrajectoryGrad,
                       int8_t* hostStatus,
                       int N,
                       int MAX_ITER,
@@ -132,9 +134,8 @@ namespace util {
         stepOut << i << "\t" << it;
 
         // Write fval and grad first
-        double fval = hostTrajectory[trajectoryIndex(it, DIM, i, DIM + 2, N)];
-        double gnorm =
-          hostTrajectory[trajectoryIndex(it, DIM + 1, i, DIM + 2, N)];
+        double fval = hostTrajectoryFval[it * N + i];
+        double gnorm = hostTrajectoryGrad[it * N + i];
         if (std::isnan(fval)) {
           stepOut << "\tNaN";
         } else {
@@ -149,7 +150,7 @@ namespace util {
 
         // Then write coordinates
         for (int d = 0; d < DIM; d++) {
-          double v = hostTrajectory[trajectoryIndex(it, d, i, DIM + 2, N)];
+          double v = hostTrajectoryCoords[it * DIM * N + d * N + i];
           if (std::isnan(v)) {
             stepOut << "\tNaN";
           } else {

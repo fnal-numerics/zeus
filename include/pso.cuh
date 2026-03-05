@@ -85,7 +85,9 @@ namespace pso {
              util::NonNull<double*> pBestVal,
              util::NonNull<double*> gBestX,
              util::NonNull<double*> gBestVal,
-             double* traj, // pass nullptr if not saving
+             double* trajCoords, // pass nullptr if not saving
+             double* trajFval,
+             double* trajGrad,
              bool saveTraj,
              int N,
              int iter,
@@ -117,9 +119,9 @@ namespace pso {
       X[i * DIM + d] = nx;
 
       if (saveTraj) {
-        // traj is laid out [iter][i][d]
-        size_t idx = size_t(iter) * N * DIM + i * DIM + d;
-        traj[idx] = nx;
+        // traj coords is laid out [step][spatial_dim][trajectory]
+        size_t idx = size_t(iter) * N * DIM + d * N + i;
+        trajCoords[idx] = nx;
       }
     }
 
@@ -130,6 +132,11 @@ namespace pso {
       x[d] = X[i * DIM + d];
     // evaluate at new position
     double fval = func(xarr);
+
+    if (saveTraj) {
+      trajFval[size_t(iter) * N + i] = fval;
+      trajGrad[size_t(iter) * N + i] = 0.0; // gradients not calculated yet
+    }
 
     // personal best? no atomic needed, it's a private best position
     if (fval < pBestVal[i]) {
@@ -308,6 +315,8 @@ namespace pso {
                                   util::NonNull{dPBestVal.data()},
                                   util::NonNull{dGBestX.data()},
                                   util::NonNull{dGBestVal.data()},
+                                  nullptr,
+                                  nullptr,
                                   nullptr,
                                   false,
                                   N,

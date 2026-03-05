@@ -74,7 +74,9 @@ namespace util {
 
   void setStackSize();
 
-  cudaError_t writeTrajectoryData(double* hostTrajectory,
+  cudaError_t writeTrajectoryData(double* hostTrajectoryCoords,
+                                  double* hostTrajectoryFval,
+                                  double* hostTrajectoryGrad,
                                   int8_t* hostStatus,
                                   int N,
                                   int MAX_ITER,
@@ -141,15 +143,6 @@ namespace util {
       grad_norm += g[i] * g[i];
     }
     return sqrt(grad_norm);
-  }
-
-  // Calculate a 1D index into the linear trajectory buffer,
-  // using a perfectly coalesced memory layout (Structure-of-Arrays).
-  __host__ __device__ inline size_t
-  trajectoryIndex(int iter, int d, int idx, int ZEUS_DIM, int N)
-  {
-    return (static_cast<size_t>(iter) * ZEUS_DIM * N) +
-           (static_cast<size_t>(d) * N) + static_cast<size_t>(idx);
   }
 
   template <int DIM>

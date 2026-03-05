@@ -60,20 +60,34 @@ namespace zeus {
 
       // save trajectories?
       bool save_trajectories = !trajectory_file.empty();
-      double* deviceTrajectory = nullptr;
+      double* deviceTrajectoryCoords = nullptr;
+      double* deviceTrajectoryFval = nullptr;
+      double* deviceTrajectoryGrad = nullptr;
       int8_t* deviceStatus = nullptr;
-      DoubleBuffer trajBuffer(0);
-      CudaBuffer<int8_t> statusBuffer(0);
-      if (save_trajectories) {
-        size_t size = size_t(N) * MAX_ITER;
-        size_t traj_size = size * (ZEUS_DIM + 2);
-        trajBuffer = DoubleBuffer(traj_size);
-        deviceTrajectory = trajBuffer.data();
-        util::fillWithNaN(deviceTrajectory, traj_size);
 
-        statusBuffer = CudaBuffer<int8_t>(size);
+      DoubleBuffer trajCoordsBuffer(0);
+      DoubleBuffer trajFvalBuffer(0);
+      DoubleBuffer trajGradBuffer(0);
+      CudaBuffer<int8_t> statusBuffer(0);
+
+      if (save_trajectories) {
+        size_t n_steps = size_t(N) * MAX_ITER;
+
+        trajCoordsBuffer = DoubleBuffer(n_steps * ZEUS_DIM);
+        deviceTrajectoryCoords = trajCoordsBuffer.data();
+        util::fillWithNaN(deviceTrajectoryCoords, n_steps * ZEUS_DIM);
+
+        trajFvalBuffer = DoubleBuffer(n_steps);
+        deviceTrajectoryFval = trajFvalBuffer.data();
+        util::fillWithNaN(deviceTrajectoryFval, n_steps);
+
+        trajGradBuffer = DoubleBuffer(n_steps);
+        deviceTrajectoryGrad = trajGradBuffer.data();
+        util::fillWithNaN(deviceTrajectoryGrad, n_steps);
+
+        statusBuffer = CudaBuffer<int8_t>(n_steps);
         deviceStatus = statusBuffer.data();
-        cudaMemset(deviceStatus, -1, size);
+        cudaMemset(deviceStatus, -1, n_steps);
       }
 
       DoubleBuffer pso_results_device(0);
@@ -101,7 +115,9 @@ namespace zeus {
           lower,
           upper,
           pso_results_device.data(),
-          deviceTrajectory,
+          deviceTrajectoryCoords,
+          deviceTrajectoryFval,
+          deviceTrajectoryGrad,
           deviceStatus,
           requiredConverged,
           tolerance,
@@ -120,7 +136,9 @@ namespace zeus {
           lower,
           upper,
           pso_results_device.data(),
-          deviceTrajectory,
+          deviceTrajectoryCoords,
+          deviceTrajectoryFval,
+          deviceTrajectoryGrad,
           deviceStatus,
           requiredConverged,
           tolerance,
@@ -153,19 +171,32 @@ namespace zeus {
 
       if (save_trajectories) {
         size_t n_steps = size_t(N) * MAX_ITER;
-        std::vector<double> hostTrajectory(n_steps * (ZEUS_DIM + 2));
+
+        std::vector<double> hostTrajectoryCoords(n_steps * ZEUS_DIM);
+        std::vector<double> hostTrajectoryFval(n_steps);
+        std::vector<double> hostTrajectoryGrad(n_steps);
         std::vector<int8_t> hostStatus(n_steps);
 
-        cudaMemcpy(hostTrajectory.data(),
-                   deviceTrajectory,
-                   hostTrajectory.size() * sizeof(double),
+        cudaMemcpy(hostTrajectoryCoords.data(),
+                   deviceTrajectoryCoords,
+                   hostTrajectoryCoords.size() * sizeof(double),
+                   cudaMemcpyDeviceToHost);
+        cudaMemcpy(hostTrajectoryFval.data(),
+                   deviceTrajectoryFval,
+                   hostTrajectoryFval.size() * sizeof(double),
+                   cudaMemcpyDeviceToHost);
+        cudaMemcpy(hostTrajectoryGrad.data(),
+                   deviceTrajectoryGrad,
+                   hostTrajectoryGrad.size() * sizeof(double),
                    cudaMemcpyDeviceToHost);
         cudaMemcpy(hostStatus.data(),
                    deviceStatus,
                    hostStatus.size() * sizeof(int8_t),
                    cudaMemcpyDeviceToHost);
 
-        util::writeTrajectoryData(hostTrajectory.data(),
+        util::writeTrajectoryData(hostTrajectoryCoords.data(),
+                                  hostTrajectoryFval.data(),
+                                  hostTrajectoryGrad.data(),
                                   hostStatus.data(),
                                   N,
                                   MAX_ITER,

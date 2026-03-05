@@ -228,7 +228,9 @@ TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
     bfgs::initializeStates<curandStateXORWOW_t>(N, int(seed), ms_rand);
 
   // correctly typed args
-  double* deviceTrajectory = nullptr;
+  double* deviceTrajectoryCoords = nullptr;
+  double* deviceTrajectoryFval = nullptr;
+  double* deviceTrajectoryGrad = nullptr;
   float ms_opt = 0.0f;
   std::string fun_name = "rastrigin-bfgs-test";
 
@@ -241,7 +243,9 @@ TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
       /*upper*/ upper,
       /*lower*/ lower,
       /*pso_results_device*/ dPSOInit,
-      /*deviceTrajectory*/ deviceTrajectory,
+      /*deviceTrajectoryCoords*/ deviceTrajectoryCoords,
+      /*deviceTrajectoryFval*/ deviceTrajectoryFval,
+      /*deviceTrajectoryGrad*/ deviceTrajectoryGrad,
       /*deviceStatus*/ nullptr,
       /*requiredConverged*/ requiredConverged,
       /*tolerance*/ tolerance,
@@ -286,7 +290,9 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
   auto d_states =
     bfgs::initializeStates<curandStateXORWOW_t>(N, /*seed=*/123, ms_rand);
 
-  double* deviceTrajectory = nullptr;
+  double* deviceTrajectoryCoords = nullptr;
+  double* deviceTrajectoryFval = nullptr;
+  double* deviceTrajectoryGrad = nullptr;
   float ms_opt = 0;
   std::string fun_name = "quad-test";
 
@@ -297,7 +303,9 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
     /*upper*/ 10.0,
     /*lower*/ -10.0,
     /*pso_results_device*/ dInit,
-    /*deviceTrajectory*/ deviceTrajectory,
+    /*deviceTrajectoryCoords*/ deviceTrajectoryCoords,
+    /*deviceTrajectoryFval*/ deviceTrajectoryFval,
+    /*deviceTrajectoryGrad*/ deviceTrajectoryGrad,
     /*deviceStatus*/ nullptr,
     /*requiredConverged*/ 1,
     /*tolerance*/ 1e-6,
@@ -341,7 +349,9 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
   curandState* d_states = bfgs::initializeStates(N, int(seed), ms_rand);
 
   // correctly typed args
-  double* deviceTrajectory = nullptr;
+  double* deviceTrajectoryCoords = nullptr;
+  double* deviceTrajectoryFval = nullptr;
+  double* deviceTrajectoryGrad = nullptr;
   float ms_opt = 0.0f;
   std::string fun_name = "rosenbrock-bfgs-test";
 
@@ -354,7 +364,9 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
       /*upper*/ upper,
       /*lower*/ lower,
       /*pso_results_device*/ dPSOInit,
-      /*deviceTrajectory*/ deviceTrajectory,
+      /*deviceTrajectoryCoords*/ deviceTrajectoryCoords,
+      /*deviceTrajectoryFval*/ deviceTrajectoryFval,
+      /*deviceTrajectoryGrad*/ deviceTrajectoryGrad,
       /*deviceStatus*/ nullptr,
       /*requiredConverged*/ requiredConverged,
       /*tolerance*/ tolerance,
@@ -440,6 +452,8 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
                  util::NonNull{d_results},
                  nullptr,
                  nullptr,
+                 nullptr,
+                 nullptr,
                  N,
                  MAX_ITER,
                  requiredConverged,
@@ -495,17 +509,26 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
   double* d_results;
   cudaMalloc(&d_results, N * sizeof(double));
 
-  const size_t traj_elems = size_t(N) * (DIM + 2) * MAX_ITER;
-  double* d_trajectory;
-  cudaMalloc(&d_trajectory, traj_elems * sizeof(double));
-  util::fillWithNaN(d_trajectory, traj_elems);
+  const size_t traj_coords = size_t(N) * DIM * MAX_ITER;
+  const size_t traj_scalars = size_t(N) * MAX_ITER;
+
+  double* d_trajectory_coords;
+  cudaMalloc(&d_trajectory_coords, traj_coords * sizeof(double));
+  util::fillWithNaN(d_trajectory_coords, traj_coords);
+
+  double* d_trajectory_fval;
+  cudaMalloc(&d_trajectory_fval, traj_scalars * sizeof(double));
+  util::fillWithNaN(d_trajectory_fval, traj_scalars);
+
+  double* d_trajectory_grad;
+  cudaMalloc(&d_trajectory_grad, traj_scalars * sizeof(double));
+  util::fillWithNaN(d_trajectory_grad, traj_scalars);
 
   // Allocate and zero-initialize the status buffer (will be overwritten by
   // kernel).
-  const size_t status_elems = size_t(N) * MAX_ITER;
   int8_t* d_status;
-  cudaMalloc(&d_status, status_elems * sizeof(int8_t));
-  cudaMemset(d_status, -1, status_elems * sizeof(int8_t));
+  cudaMalloc(&d_status, traj_scalars * sizeof(int8_t));
+  cudaMemset(d_status, -1, traj_scalars * sizeof(int8_t));
 
   zeus::Result<DIM>* d_out;
   cudaMalloc(&d_out, N * sizeof(zeus::Result<DIM>));
@@ -521,7 +544,9 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
                  upper,
                  d_pso,
                  util::NonNull{d_results},
-                 d_trajectory,
+                 d_trajectory_coords,
+                 d_trajectory_fval,
+                 d_trajectory_grad,
                  d_status,
                  N,
                  MAX_ITER,
@@ -534,20 +559,20 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
   cudaDeviceSynchronize();
 
   // Read back trajectory and status buffers.
-  std::vector<double> h_traj(traj_elems);
-  cudaMemcpy(h_traj.data(),
-             d_trajectory,
-             traj_elems * sizeof(double),
+  std::vector<double> h_traj_fval(traj_scalars);
+  cudaMemcpy(h_traj_fval.data(),
+             d_trajectory_fval,
+             traj_scalars * sizeof(double),
              cudaMemcpyDeviceToHost);
 
-  std::vector<int8_t> h_status(status_elems);
+  std::vector<int8_t> h_status(traj_scalars);
   cudaMemcpy(h_status.data(),
              d_status,
-             status_elems * sizeof(int8_t),
+             traj_scalars * sizeof(int8_t),
              cudaMemcpyDeviceToHost);
 
-  // Iter 0 fval (column DIM in the (DIM+2)-column layout) must be non-NaN.
-  double fval0 = h_traj[util::trajectoryIndex(0, DIM, 0, DIM + 2, N)];
+  // Iter 0 fval must be non-NaN.
+  double fval0 = h_traj_fval[0 * N + 0];
   REQUIRE(!std::isnan(fval0));
   REQUIRE(fval0 > 0.0); // starting at (1,1), f=2
 
@@ -565,13 +590,15 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
 
   // All trajectory slots AFTER convergence must be NaN (never written).
   for (int it = conv_iter + 1; it < MAX_ITER; ++it) {
-    double v = h_traj[util::trajectoryIndex(it, DIM, 0, DIM + 2, N)];
+    double v = h_traj_fval[it * N + 0];
     REQUIRE(std::isnan(v));
   }
 
   cudaFree(d_ctx);
   cudaFree(d_out);
-  cudaFree(d_trajectory);
+  cudaFree(d_trajectory_coords);
+  cudaFree(d_trajectory_fval);
+  cudaFree(d_trajectory_grad);
   cudaFree(d_status);
   cudaFree(d_results);
   cudaFree(d_pso);

@@ -77,7 +77,9 @@ namespace bfgs {
                   const double upper,
                   const double* pso_array,
                   util::NonNull<double*> deviceResults,
-                  double* deviceTrajectory,
+                  double* deviceTrajectoryCoords,
+                  double* deviceTrajectoryFval,
+                  double* deviceTrajectoryGrad,
                   int8_t* deviceStatus,
                   int N,
                   const int MAX_ITER,
@@ -151,13 +153,11 @@ namespace bfgs {
           if (tile.thread_rank() == 0) {
             deviceStatus[iter * N + tile_global_id] = -1;
             for (int d = 0; d < ZEUS_DIM; ++d) {
-              deviceTrajectory[util::trajectoryIndex(
-                iter, d, tile_global_id, ZEUS_DIM + 2, N)] = x_arr[d];
+              deviceTrajectoryCoords[iter * ZEUS_DIM * N + d * N +
+                                     tile_global_id] = x_arr[d];
             }
-            deviceTrajectory[util::trajectoryIndex(
-              iter, ZEUS_DIM, tile_global_id, ZEUS_DIM + 2, N)] = bestVal;
-            deviceTrajectory[util::trajectoryIndex(
-              iter, ZEUS_DIM + 1, tile_global_id, ZEUS_DIM + 2, N)] =
+            deviceTrajectoryFval[iter * N + tile_global_id] = bestVal;
+            deviceTrajectoryGrad[iter * N + tile_global_id] =
               util::calculateGradientNorm<ZEUS_DIM>(g_arr);
           }
         }
@@ -300,7 +300,9 @@ namespace bfgs {
            const double lower,
            const double upper,
            double* pso_results_device,
-           double* deviceTrajectory,
+           double* deviceTrajectoryCoords,
+           double* deviceTrajectoryFval,
+           double* deviceTrajectoryGrad,
            int8_t* deviceStatus,
            const int requiredConverged,
            const double tolerance,
@@ -376,7 +378,9 @@ namespace bfgs {
             upper,
             pso_results_device,
             util::NonNull{deviceResults.data()},
-            deviceTrajectory,
+            deviceTrajectoryCoords,
+            deviceTrajectoryFval,
+            deviceTrajectoryGrad,
             deviceStatus,
             (int)N,
             MAX_ITER,
@@ -393,6 +397,8 @@ namespace bfgs {
             upper,
             pso_results_device,
             util::NonNull{deviceResults.data()},
+            nullptr,
+            nullptr,
             nullptr,
             nullptr,
             (int)N,
