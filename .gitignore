@@ -8,3 +8,4 @@ particledata
 *.swp
 experiments/
 data/
+.Rproj.user
