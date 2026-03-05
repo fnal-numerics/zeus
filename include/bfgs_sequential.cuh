@@ -26,6 +26,7 @@ namespace bfgs {
              const double* pso_array, // pso initialized positions (optional)
              util::NonNull<double*> deviceResults,
              double* deviceTrajectory,
+             int8_t* deviceStatus,
              int N,
              const int MAX_ITER,
              const int requiredConverged,
@@ -102,6 +103,7 @@ namespace bfgs {
           deviceTrajectory[util::trajectoryIndex(
             iter, ZEUS_DIM + 1, idx, ZEUS_DIM + 2, N)] =
             util::calculateGradientNorm<ZEUS_DIM>(g_arr);
+          deviceStatus[iter * N + idx] = -1;
         }
         // printf("inside BeeG File System");
         //  check if somebody already asked to stop
@@ -119,6 +121,9 @@ namespace bfgs {
                                 util::calculateGradientNorm<ZEUS_DIM>(g_arr),
                                 iter,
                                 idx);
+          if constexpr (SaveTrajectories) {
+            deviceStatus[iter * N + idx] = 2;
+          }
           break;
         }
         num_steps++;
@@ -179,6 +184,9 @@ namespace bfgs {
         // catch not finite gradient norm or function value
         if (!isfinite(grad_norm) || !isfinite(fnew)) {
           writeResult<ZEUS_DIM>(r, 5, fnew, x_arr.data(), grad_norm, iter, idx);
+          if constexpr (SaveTrajectories) {
+            deviceStatus[iter * N + idx] = 5;
+          }
           break;
         }
         if (grad_norm < tolerance) {
@@ -188,6 +196,9 @@ namespace bfgs {
           double fcurr = f(x_arr);
           writeResult<ZEUS_DIM>(
             r, 1, fcurr, x_arr.data(), grad_norm, iter, idx);
+          if constexpr (SaveTrajectories) {
+            deviceStatus[iter * N + idx] = 1;
+          }
           // if we just hit the threshold set by the user, the VERY FIRST thread
           // to do so sets ctx->stopFlag=1 so everyone else exits on their next
           // check
@@ -229,6 +240,9 @@ namespace bfgs {
                               util::calculateGradientNorm<ZEUS_DIM>(g_arr),
                               iter,
                               idx);
+        if constexpr (SaveTrajectories) {
+          deviceStatus[(MAX_ITER - 1) * N + idx] = 0;
+        }
       }
       deviceResults[idx] = r.fval;
       result[idx] = r;
@@ -405,6 +419,7 @@ namespace bfgs {
            const double upper,
            double* pso_results_device,
            double* deviceTrajectory,
+           int8_t* deviceStatus,
            const int requiredConverged,
            const double tolerance,
            bool save_trajectories,
@@ -494,6 +509,7 @@ namespace bfgs {
                                   pso_results_device,
                                   util::NonNull{deviceResults.data()},
                                   deviceTrajectory,
+                                  deviceStatus,
                                   (int)N,
                                   MAX_ITER,
                                   requiredConverged,
@@ -513,6 +529,7 @@ namespace bfgs {
                                   upper,
                                   pso_results_device,
                                   util::NonNull{deviceResults.data()},
+                                  nullptr,
                                   nullptr,
                                   (int)N,
                                   MAX_ITER,

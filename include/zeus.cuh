@@ -61,12 +61,19 @@ namespace zeus {
       // save trajectories?
       bool save_trajectories = !trajectory_file.empty();
       double* deviceTrajectory = nullptr;
+      int8_t* deviceStatus = nullptr;
       DoubleBuffer trajBuffer(0);
+      CudaBuffer<int8_t> statusBuffer(0);
       if (save_trajectories) {
-        size_t size = size_t(N) * MAX_ITER * (ZEUS_DIM + 2);
-        trajBuffer = DoubleBuffer(size);
+        size_t size = size_t(N) * MAX_ITER;
+        size_t traj_size = size * (ZEUS_DIM + 2);
+        trajBuffer = DoubleBuffer(traj_size);
         deviceTrajectory = trajBuffer.data();
-        util::fillWithNaN(deviceTrajectory, size);
+        util::fillWithNaN(deviceTrajectory, traj_size);
+
+        statusBuffer = CudaBuffer<int8_t>(size);
+        deviceStatus = statusBuffer.data();
+        cudaMemset(deviceStatus, -1, size);
       }
 
       DoubleBuffer pso_results_device(0);
@@ -95,6 +102,7 @@ namespace zeus {
           upper,
           pso_results_device.data(),
           deviceTrajectory,
+          deviceStatus,
           requiredConverged,
           tolerance,
           save_trajectories,
@@ -113,6 +121,7 @@ namespace zeus {
           upper,
           pso_results_device.data(),
           deviceTrajectory,
+          deviceStatus,
           requiredConverged,
           tolerance,
           save_trajectories,
@@ -143,14 +152,25 @@ namespace zeus {
       }
 
       if (save_trajectories) {
-        std::vector<double> hostTrajectory(size_t(N) * MAX_ITER *
-                                           (ZEUS_DIM + 2));
+        size_t n_steps = size_t(N) * MAX_ITER;
+        std::vector<double> hostTrajectory(n_steps * (ZEUS_DIM + 2));
+        std::vector<int8_t> hostStatus(n_steps);
+
         cudaMemcpy(hostTrajectory.data(),
                    deviceTrajectory,
                    hostTrajectory.size() * sizeof(double),
                    cudaMemcpyDeviceToHost);
-        util::writeTrajectoryData(
-          hostTrajectory.data(), N, MAX_ITER, ZEUS_DIM, trajectory_file);
+        cudaMemcpy(hostStatus.data(),
+                   deviceStatus,
+                   hostStatus.size() * sizeof(int8_t),
+                   cudaMemcpyDeviceToHost);
+
+        util::writeTrajectoryData(hostTrajectory.data(),
+                                  hostStatus.data(),
+                                  N,
+                                  MAX_ITER,
+                                  ZEUS_DIM,
+                                  trajectory_file);
       }
 
       return best;

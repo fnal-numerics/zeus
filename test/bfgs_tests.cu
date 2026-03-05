@@ -242,6 +242,7 @@ TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
       /*lower*/ lower,
       /*pso_results_device*/ dPSOInit,
       /*deviceTrajectory*/ deviceTrajectory,
+      /*deviceStatus*/ nullptr,
       /*requiredConverged*/ requiredConverged,
       /*tolerance*/ tolerance,
       /*save_trajectories*/ false,
@@ -297,6 +298,7 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
     /*lower*/ -10.0,
     /*pso_results_device*/ dInit,
     /*deviceTrajectory*/ deviceTrajectory,
+    /*deviceStatus*/ nullptr,
     /*requiredConverged*/ 1,
     /*tolerance*/ 1e-6,
     /*save_trajectories*/ false,
@@ -353,6 +355,7 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
       /*lower*/ lower,
       /*pso_results_device*/ dPSOInit,
       /*deviceTrajectory*/ deviceTrajectory,
+      /*deviceStatus*/ nullptr,
       /*requiredConverged*/ requiredConverged,
       /*tolerance*/ tolerance,
       /*save_trajectories*/ false,
@@ -436,6 +439,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
                  d_pso,
                  util::NonNull{d_results},
                  nullptr,
+                 nullptr,
                  N,
                  MAX_ITER,
                  requiredConverged,
@@ -471,20 +475,37 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
 
 TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
 {
-  const int N = 1, MAX_ITER = 3, requiredConverged = 1;
-  const double lower = 0.0, upper = 1.0, tolerance = 1e-6;
+  // Use a large MAX_ITER so BFGS converges well before the buffer fills.
+  // We then verify: slots up to convergence have valid data; slots after have
+  // NaN.
+  const int N = 1, MAX_ITER = 50, requiredConverged = 1;
+  const double lower = -5.0, upper = 5.0, tolerance = 1e-6;
 
   float ms_rand = 0.0f;
   curandStateXORWOW_t* states =
     bfgs::initializeStates<curandStateXORWOW_t>(N, 42, ms_rand);
 
-  double* d_pso = nullptr;
+  // Start from a known point in the interior; GoodObjective = sum(xi^2),
+  // minimum at origin. BFGS will converge in well under 50 iterations.
+  double h_pso[DIM] = {1.0, 1.0};
+  double* d_pso;
+  cudaMalloc(&d_pso, N * DIM * sizeof(double));
+  cudaMemcpy(d_pso, h_pso, N * DIM * sizeof(double), cudaMemcpyHostToDevice);
+
   double* d_results;
   cudaMalloc(&d_results, N * sizeof(double));
 
-  double* d_trajectory = nullptr;
-  cudaMalloc(&d_trajectory, size_t(N) * DIM * MAX_ITER * sizeof(double));
-  util::fillWithNaN(d_trajectory, size_t(N) * DIM * MAX_ITER);
+  const size_t traj_elems = size_t(N) * (DIM + 2) * MAX_ITER;
+  double* d_trajectory;
+  cudaMalloc(&d_trajectory, traj_elems * sizeof(double));
+  util::fillWithNaN(d_trajectory, traj_elems);
+
+  // Allocate and zero-initialize the status buffer (will be overwritten by
+  // kernel).
+  const size_t status_elems = size_t(N) * MAX_ITER;
+  int8_t* d_status;
+  cudaMalloc(&d_status, status_elems * sizeof(int8_t));
+  cudaMemset(d_status, -1, status_elems * sizeof(int8_t));
 
   zeus::Result<DIM>* d_out;
   cudaMalloc(&d_out, N * sizeof(zeus::Result<DIM>));
@@ -501,6 +522,7 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
                  d_pso,
                  util::NonNull{d_results},
                  d_trajectory,
+                 d_status,
                  N,
                  MAX_ITER,
                  requiredConverged,
@@ -511,32 +533,47 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
 
   cudaDeviceSynchronize();
 
-  std::vector<double> h_trajectory(N * DIM * MAX_ITER);
-  cudaMemcpy(h_trajectory.data(),
+  // Read back trajectory and status buffers.
+  std::vector<double> h_traj(traj_elems);
+  cudaMemcpy(h_traj.data(),
              d_trajectory,
-             h_trajectory.size() * sizeof(double),
+             traj_elems * sizeof(double),
              cudaMemcpyDeviceToHost);
 
-  // We should have non-NaN elements in trajectory buffer (Step 0 etc.)
-  // and potentially NaN elements (if initialized with NaN and not overwritten)
-  bool has_non_nan = false;
-  bool has_nan = false;
-  for (auto v : h_trajectory) {
-    if (!std::isnan(v)) {
-      has_non_nan = true;
-    } else {
-      has_nan = true;
+  std::vector<int8_t> h_status(status_elems);
+  cudaMemcpy(h_status.data(),
+             d_status,
+             status_elems * sizeof(int8_t),
+             cudaMemcpyDeviceToHost);
+
+  // Iter 0 fval (column DIM in the (DIM+2)-column layout) must be non-NaN.
+  double fval0 = h_traj[util::trajectoryIndex(0, DIM, 0, DIM + 2, N)];
+  REQUIRE(!std::isnan(fval0));
+  REQUIRE(fval0 > 0.0); // starting at (1,1), f=2
+
+  // Find the convergence iteration (first iter with status == 1).
+  int conv_iter = -1;
+  for (int it = 0; it < MAX_ITER; ++it) {
+    if (h_status[it * N + 0] == 1) {
+      conv_iter = it;
+      break;
     }
   }
-  REQUIRE(has_non_nan);
-  REQUIRE(has_nan);
-  // Note: if MAX_ITER is small and it takes all steps, has_nan might be false
-  // if every slot was written. But with fillWithNaN, we expect it to be
-  // initialized.
+  // GoodObjective must converge within MAX_ITER steps.
+  REQUIRE(conv_iter >= 0);
+  REQUIRE(conv_iter < MAX_ITER - 1); // must converge before the last slot
+
+  // All trajectory slots AFTER convergence must be NaN (never written).
+  for (int it = conv_iter + 1; it < MAX_ITER; ++it) {
+    double v = h_traj[util::trajectoryIndex(it, DIM, 0, DIM + 2, N)];
+    REQUIRE(std::isnan(v));
+  }
 
   cudaFree(d_ctx);
   cudaFree(d_out);
   cudaFree(d_trajectory);
+  cudaFree(d_status);
   cudaFree(d_results);
+  cudaFree(d_pso);
   cudaFree(states);
 }

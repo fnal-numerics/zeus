@@ -75,6 +75,7 @@ namespace util {
   void setStackSize();
 
   cudaError_t writeTrajectoryData(double* hostTrajectory,
+                                  int8_t* hostStatus,
                                   int N,
                                   int MAX_ITER,
                                   int DIM,

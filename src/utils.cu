@@ -115,29 +115,23 @@ namespace util {
 
   cudaError_t
   writeTrajectoryData(double* hostTrajectory,
+                      int8_t* hostStatus,
                       int N,
                       int MAX_ITER,
                       int DIM,
                       std::string_view filename)
   {
     std::ofstream stepOut(std::string{filename});
-    stepOut << "OptIndex\tStep";
+    stepOut << "traj\tstep\tfval\tgrad\tstatus";
     for (int d = 0; d < DIM; d++)
-      stepOut << "\tX_" << d;
-    stepOut << "\tFVal\tGradNorm\n";
+      stepOut << "\tx" << d;
+    stepOut << "\n";
     stepOut << std::scientific << std::setprecision(17);
     for (int i = 0; i < N; i++) {
       for (int it = 0; it < MAX_ITER; it++) {
         stepOut << i << "\t" << it;
-        for (int d = 0; d < DIM; d++) {
-          double v = hostTrajectory[trajectoryIndex(it, d, i, DIM + 2, N)];
-          if (std::isnan(v)) {
-            stepOut << "\tNaN";
-          } else {
-            stepOut << "\t" << v;
-          }
-        }
-        // Write FVal and GradNorm
+
+        // Write fval and grad first
         double fval = hostTrajectory[trajectoryIndex(it, DIM, i, DIM + 2, N)];
         double gnorm =
           hostTrajectory[trajectoryIndex(it, DIM + 1, i, DIM + 2, N)];
@@ -150,6 +144,17 @@ namespace util {
           stepOut << "\tNaN";
         } else {
           stepOut << "\t" << gnorm;
+        }
+        stepOut << "\t" << (int)hostStatus[it * N + i];
+
+        // Then write coordinates
+        for (int d = 0; d < DIM; d++) {
+          double v = hostTrajectory[trajectoryIndex(it, d, i, DIM + 2, N)];
+          if (std::isnan(v)) {
+            stepOut << "\tNaN";
+          } else {
+            stepOut << "\t" << v;
+          }
         }
         stepOut << "\n";
       }

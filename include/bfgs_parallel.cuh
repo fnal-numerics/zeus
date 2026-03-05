@@ -78,6 +78,7 @@ namespace bfgs {
                   const double* pso_array,
                   util::NonNull<double*> deviceResults,
                   double* deviceTrajectory,
+                  int8_t* deviceStatus,
                   int N,
                   const int MAX_ITER,
                   const int requiredConverged,
@@ -148,6 +149,7 @@ namespace bfgs {
       for (; iter < MAX_ITER; ++iter) {
         if constexpr (SaveTrajectories) {
           if (tile.thread_rank() == 0) {
+            deviceStatus[iter * N + tile_global_id] = -1;
             for (int d = 0; d < ZEUS_DIM; ++d) {
               deviceTrajectory[util::trajectoryIndex(
                 iter, d, tile_global_id, ZEUS_DIM + 2, N)] = x_arr[d];
@@ -169,6 +171,9 @@ namespace bfgs {
                                   util::calculateGradientNorm<ZEUS_DIM>(g_arr),
                                   iter,
                                   tile_global_id);
+            if constexpr (SaveTrajectories) {
+              deviceStatus[iter * N + tile_global_id] = 2;
+            }
             *done_flag = 1;
           }
         }
@@ -226,12 +231,18 @@ namespace bfgs {
           if (!isfinite(grad_norm) || !isfinite(fnew)) {
             writeResult<ZEUS_DIM>(
               r, 5, fnew, x_arr.data(), grad_norm, iter, tile_global_id);
+            if constexpr (SaveTrajectories) {
+              deviceStatus[iter * N + tile_global_id] = 5;
+            }
             *done_flag = 1;
           } else if (grad_norm < tolerance) {
             const int oldCount = atomicAdd(&ctx->convergedCount, 1);
             const double fcurr = f(x_arr);
             writeResult<ZEUS_DIM>(
               r, 1, fcurr, x_arr.data(), grad_norm, iter, tile_global_id);
+            if constexpr (SaveTrajectories) {
+              deviceStatus[iter * N + tile_global_id] = 1;
+            }
             if (oldCount + 1 == requiredConverged) {
               atomicExch(&ctx->stopFlag, 1);
               __threadfence();
@@ -256,6 +267,9 @@ namespace bfgs {
                                 util::calculateGradientNorm<ZEUS_DIM>(g_arr),
                                 iter,
                                 tile_global_id);
+          if constexpr (SaveTrajectories) {
+            deviceStatus[(MAX_ITER - 1) * N + tile_global_id] = 0;
+          }
         }
         deviceResults[tile_global_id] = r.fval;
         result[tile_global_id] = r;
@@ -287,6 +301,7 @@ namespace bfgs {
            const double upper,
            double* pso_results_device,
            double* deviceTrajectory,
+           int8_t* deviceStatus,
            const int requiredConverged,
            const double tolerance,
            bool save_trajectories,
@@ -362,6 +377,7 @@ namespace bfgs {
             pso_results_device,
             util::NonNull{deviceResults.data()},
             deviceTrajectory,
+            deviceStatus,
             (int)N,
             MAX_ITER,
             requiredConverged,
@@ -377,6 +393,7 @@ namespace bfgs {
             upper,
             pso_results_device,
             util::NonNull{deviceResults.data()},
+            nullptr,
             nullptr,
             (int)N,
             MAX_ITER,
