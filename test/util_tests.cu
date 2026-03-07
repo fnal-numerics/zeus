@@ -1,4 +1,5 @@
 #include <cuda_runtime.h>
+#include <cstdio>
 #include <catch2/catch_all.hpp>
 #include <catch2/catch_approx.hpp>
 #include "catch2/catch_template_test_macros.hpp"
@@ -114,4 +115,71 @@ TEST_CASE("cleanupAndFail returns the kernel-error sentinel")
   double* result = cleanupAndFail(d1, d2, d3, d4, d5, d6);
 
   REQUIRE(result == KERNEL_ERROR);
+}
+
+TEST_CASE("writeTrajectoryData routes by extension", "[utils][trajectory]")
+{
+  util::OptimizationParams params;
+  params.N = 2;
+  params.MAX_ITER = 3;
+  params.fun_name = "test_fun";
+  int DIM = 2;
+
+  std::vector<double> coords(params.N * params.MAX_ITER * DIM, 0.0);
+  std::vector<double> fval(params.N * params.MAX_ITER, 0.0);
+  std::vector<double> grad(params.N * params.MAX_ITER, 0.0);
+  std::vector<int8_t> status(params.N * params.MAX_ITER, 0);
+
+  SECTION("TSV extension works")
+  {
+    std::string filename = "test_output.tsv";
+    auto err = util::writeTrajectoryData(coords.data(),
+                                         fval.data(),
+                                         grad.data(),
+                                         status.data(),
+                                         params,
+                                         DIM,
+                                         filename);
+    REQUIRE(err == cudaSuccess);
+    {
+      std::ifstream infile(filename);
+      REQUIRE(infile.good());
+    }
+    std::remove(filename.c_str());
+  }
+
+  SECTION("NetCDF extension works (if enabled)")
+  {
+    std::string filename = "test_output.nc";
+    auto err = util::writeTrajectoryData(coords.data(),
+                                         fval.data(),
+                                         grad.data(),
+                                         status.data(),
+                                         params,
+                                         DIM,
+                                         filename);
+#ifdef ZEUS_HAS_NETCDF4
+    REQUIRE(err == cudaSuccess);
+    {
+      std::ifstream infile(filename);
+      REQUIRE(infile.good());
+    }
+    std::remove(filename.c_str());
+#else
+    REQUIRE(err != cudaSuccess);
+#endif
+  }
+
+  SECTION("Unsupported extension errors out")
+  {
+    std::string filename = "test_output.txt";
+    auto err = util::writeTrajectoryData(coords.data(),
+                                         fval.data(),
+                                         grad.data(),
+                                         status.data(),
+                                         params,
+                                         DIM,
+                                         filename);
+    REQUIRE(err != cudaSuccess);
+  }
 }

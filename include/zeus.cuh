@@ -194,12 +194,24 @@ namespace zeus {
                    hostStatus.size() * sizeof(int8_t),
                    cudaMemcpyDeviceToHost);
 
+        util::OptimizationParams params;
+        params.lower_bound = lower;
+        params.upper_bound = upper;
+        params.N = N;
+        params.MAX_ITER = MAX_ITER;
+        params.PSO_ITER = PSO_ITER;
+        params.requiredConverged = requiredConverged;
+        params.tolerance = tolerance;
+        params.seed = seed;
+        params.run = run;
+        params.parallel = parallel;
+        params.fun_name = fun_name;
+
         util::writeTrajectoryData(hostTrajectoryCoords.data(),
                                   hostTrajectoryFval.data(),
                                   hostTrajectoryGrad.data(),
                                   hostStatus.data(),
-                                  N,
-                                  MAX_ITER,
+                                  params,
                                   ZEUS_DIM,
                                   trajectory_file);
       }

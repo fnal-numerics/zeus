@@ -40,9 +40,45 @@ endif()
 
 option(ZEUS_BUILD_TESTS "Build Zeus tests" ${ZEUS_MASTER_PROJECT})
 option(ZEUS_BUILD_EXAMPLES "Build Zeus examples" ${ZEUS_MASTER_PROJECT})
+option(ZEUS_USE_NETCDF4 "Enable NetCDF4 trajectory output support" ON)
 
 # Dependencies
 find_package(CUDAToolkit REQUIRED)
+
+if(ZEUS_USE_NETCDF4)
+    # Try PkgConfig first as it's often more reliable on HPC systems for NetCDF4 C++
+    find_package(PkgConfig)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(NetCDF_PKG netcdf-cxx4)
+        if(NetCDF_PKG_FOUND)
+            set(NetCDF_FOUND ON)
+            set(NetCDF_VERSION ${NetCDF_PKG_VERSION})
+            # Create aliases for compatibility with the rest of the script
+            if(NOT TARGET NetCDF::NetCDF_CXX)
+                add_library(NetCDF::NetCDF_CXX INTERFACE IMPORTED)
+                target_link_libraries(NetCDF::NetCDF_CXX INTERFACE ${NetCDF_PKG_LIBRARIES})
+                target_include_directories(NetCDF::NetCDF_CXX INTERFACE ${NetCDF_PKG_INCLUDE_DIRS})
+                target_link_directories(NetCDF::NetCDF_CXX INTERFACE ${NetCDF_PKG_LIBRARY_DIRS})
+            endif()
+            # NetCDF C is usually a dependency of CXX, but we'll add it if needed
+            if(NOT TARGET NetCDF::NetCDF_C)
+                add_library(NetCDF::NetCDF_C INTERFACE IMPORTED)
+            endif()
+        endif()
+    endif()
+
+    if(NOT NetCDF_FOUND)
+        # Fallback to standard FindNetCDF or config
+        find_package(NetCDF COMPONENTS C CXX)
+    endif()
+
+    if(NetCDF_FOUND)
+        message(STATUS "✅ Found NetCDF: ${NetCDF_VERSION}")
+    else()
+        message(WARNING "⚠️ NetCDF not found. Disabling NetCDF4 support.")
+        set(ZEUS_USE_NETCDF4 OFF)
+    endif()
+endif()
 
 # Core Library
 add_library(zeus
@@ -84,6 +120,11 @@ target_link_libraries(zeus
         CUDA::cudart
         CUDA::curand
 )
+
+if(ZEUS_USE_NETCDF4)
+    target_compile_definitions(zeus PUBLIC ZEUS_HAS_NETCDF4)
+    target_link_libraries(zeus PUBLIC NetCDF::NetCDF_C NetCDF::NetCDF_CXX)
+endif()
 
 target_compile_options(zeus
     PUBLIC

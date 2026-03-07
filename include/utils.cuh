@@ -78,8 +78,7 @@ namespace util {
                                   double* hostTrajectoryFval,
                                   double* hostTrajectoryGrad,
                                   int8_t* hostStatus,
-                                  int N,
-                                  int MAX_ITER,
+                                  const OptimizationParams& params,
                                   int DIM,
                                   std::string_view filename);
 

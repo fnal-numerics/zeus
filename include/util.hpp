@@ -57,6 +57,20 @@ namespace zeus {
 
 namespace util {
 
+  struct OptimizationParams {
+    double lower_bound = 0.0;
+    double upper_bound = 0.0;
+    int N = 0;
+    int MAX_ITER = 0;
+    int PSO_ITER = 0;
+    int requiredConverged = 0;
+    double tolerance = 0.0;
+    int seed = 0;
+    int run = 0;
+    bool parallel = false;
+    std::string fun_name;
+  };
+
 
 
   double calculateEuclideanError(const std::string fun_name,

@@ -4,6 +4,11 @@
 #include <string_view>
 #include <iomanip>
 #include <cmath>
+#include <iostream>
+
+#ifdef ZEUS_HAS_NETCDF4
+#include <netcdf>
+#endif
 
 namespace bfgs {}
 
@@ -113,15 +118,22 @@ namespace util {
     return cudaGetLastError();
   }
 
+  static bool
+  endsWith(std::string_view str, std::string_view suffix)
+  {
+    if (str.size() < suffix.size())
+      return false;
+    return str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+  }
+
   cudaError_t
-  writeTrajectoryData(double* hostTrajectoryCoords,
-                      double* hostTrajectoryFval,
-                      double* hostTrajectoryGrad,
-                      int8_t* hostStatus,
-                      int N,
-                      int MAX_ITER,
-                      int DIM,
-                      std::string_view filename)
+  writeTrajectoryDataTSV(double* hostTrajectoryCoords,
+                         double* hostTrajectoryFval,
+                         double* hostTrajectoryGrad,
+                         int8_t* hostStatus,
+                         const OptimizationParams& params,
+                         int DIM,
+                         std::string_view filename)
   {
     std::ofstream stepOut(std::string{filename});
     stepOut << "traj\tstep\tfval\tgrad\tstatus";
@@ -129,6 +141,8 @@ namespace util {
       stepOut << "\tx" << d;
     stepOut << "\n";
     stepOut << std::scientific << std::setprecision(17);
+    int N = params.N;
+    int MAX_ITER = params.MAX_ITER;
     for (int i = 0; i < N; i++) {
       for (int it = 0; it < MAX_ITER; it++) {
         stepOut << i << "\t" << it;
@@ -162,6 +176,104 @@ namespace util {
     }
     stepOut.close();
     return cudaSuccess;
+  }
+
+#ifdef ZEUS_HAS_NETCDF4
+  cudaError_t
+  writeTrajectoryDataNetCDF4(double* hostTrajectoryCoords,
+                             double* hostTrajectoryFval,
+                             double* hostTrajectoryGrad,
+                             int8_t* hostStatus,
+                             const OptimizationParams& params,
+                             int DIM,
+                             std::string_view filename)
+  {
+    using namespace netCDF;
+    try {
+      NcFile dataFile(std::string{filename}, NcFile::replace);
+
+      NcDim trajDim = dataFile.addDim("trajectory", params.N);
+      NcDim stepDim = dataFile.addDim("step", params.MAX_ITER);
+      NcDim spatialDim = dataFile.addDim("spatial_dim", DIM);
+
+      // Coords: (step, spatial_dim, trajectory)
+      std::vector<NcDim> coordsDims = {stepDim, spatialDim, trajDim};
+      NcVar coordsVar =
+        dataFile.addVar("trajectory_coords", ncDouble, coordsDims);
+      coordsVar.putVar(hostTrajectoryCoords);
+
+      // fval, grad, status: (step, trajectory)
+      std::vector<NcDim> valDims = {stepDim, trajDim};
+      NcVar fvalVar = dataFile.addVar("fval", ncDouble, valDims);
+      fvalVar.putVar(hostTrajectoryFval);
+
+      NcVar gradVar = dataFile.addVar("grad", ncDouble, valDims);
+      gradVar.putVar(hostTrajectoryGrad);
+
+      NcVar statusVar = dataFile.addVar("status", ncByte, valDims);
+      statusVar.putVar(hostStatus);
+
+      // Attributes
+      dataFile.putAtt("ZEUS_TRAJECTORY_FORMAT_VERSION", ncInt, 1);
+      dataFile.putAtt("fun_name", params.fun_name);
+      dataFile.putAtt("lower_bound", ncDouble, params.lower_bound);
+      dataFile.putAtt("upper_bound", ncDouble, params.upper_bound);
+      dataFile.putAtt("N", ncInt, params.N);
+      dataFile.putAtt("MAX_ITER", ncInt, params.MAX_ITER);
+      dataFile.putAtt("PSO_ITER", ncInt, params.PSO_ITER);
+      dataFile.putAtt("requiredConverged", ncInt, params.requiredConverged);
+      dataFile.putAtt("tolerance", ncDouble, params.tolerance);
+      dataFile.putAtt("seed", ncInt, params.seed);
+      dataFile.putAtt("run", ncInt, params.run);
+      dataFile.putAtt("parallel", ncByte, (signed char)params.parallel);
+
+      return cudaSuccess;
+    }
+    catch (const exceptions::NcException& e) {
+      std::cerr << "NetCDF Error in writeTrajectoryDataNetCDF4: " << e.what()
+                << std::endl;
+      return cudaErrorUnknown;
+    }
+  }
+#endif
+
+  cudaError_t
+  writeTrajectoryData(double* hostTrajectoryCoords,
+                      double* hostTrajectoryFval,
+                      double* hostTrajectoryGrad,
+                      int8_t* hostStatus,
+                      const OptimizationParams& params,
+                      int DIM,
+                      std::string_view filename)
+  {
+    if (endsWith(filename, ".tsv")) {
+      return writeTrajectoryDataTSV(hostTrajectoryCoords,
+                                    hostTrajectoryFval,
+                                    hostTrajectoryGrad,
+                                    hostStatus,
+                                    params,
+                                    DIM,
+                                    filename);
+    } else if (endsWith(filename, ".nc")) {
+#ifdef ZEUS_HAS_NETCDF4
+      return writeTrajectoryDataNetCDF4(hostTrajectoryCoords,
+                                        hostTrajectoryFval,
+                                        hostTrajectoryGrad,
+                                        hostStatus,
+                                        params,
+                                        DIM,
+                                        filename);
+#else
+      std::cerr
+        << "Error: NetCDF4 support was disabled at build time. Cannot write "
+        << filename << std::endl;
+      return cudaErrorUnknown;
+#endif
+    } else {
+      std::cerr << "Error: unsupported trajectory file extension for "
+                << filename << ". Use .tsv or .nc" << std::endl;
+      return cudaErrorUnknown;
+    }
   }
 
 } // end namespace util
