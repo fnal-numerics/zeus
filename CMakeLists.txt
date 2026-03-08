@@ -9,6 +9,9 @@ endif()
 
 project(Zeus LANGUAGES CXX CUDA)
 
+# Use modern CMake CUDA runtime linking (silences pgacclnk -lcudart_static warning)
+set(CMAKE_CUDA_RUNTIME_LIBRARY Static)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
