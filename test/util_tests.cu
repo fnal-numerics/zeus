@@ -129,6 +129,7 @@ TEST_CASE("writeTrajectoryData routes by extension", "[utils][trajectory]")
   std::vector<double> fval(params.N * params.MAX_ITER, 0.0);
   std::vector<double> grad(params.N * params.MAX_ITER, 0.0);
   std::vector<int8_t> status(params.N * params.MAX_ITER, 0);
+  std::vector<int8_t> alpha_zero(params.N * params.MAX_ITER, 0);
 
   SECTION("TSV extension works")
   {
@@ -137,6 +138,7 @@ TEST_CASE("writeTrajectoryData routes by extension", "[utils][trajectory]")
                                          fval.data(),
                                          grad.data(),
                                          status.data(),
+                                         alpha_zero.data(),
                                          params,
                                          DIM,
                                          filename);
@@ -155,6 +157,7 @@ TEST_CASE("writeTrajectoryData routes by extension", "[utils][trajectory]")
                                          fval.data(),
                                          grad.data(),
                                          status.data(),
+                                         alpha_zero.data(),
                                          params,
                                          DIM,
                                          filename);
@@ -177,6 +180,7 @@ TEST_CASE("writeTrajectoryData routes by extension", "[utils][trajectory]")
                                          fval.data(),
                                          grad.data(),
                                          status.data(),
+                                         alpha_zero.data(),
                                          params,
                                          DIM,
                                          filename);

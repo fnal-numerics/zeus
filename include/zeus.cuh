@@ -176,6 +176,7 @@ namespace zeus {
         std::vector<double> hostTrajectoryFval(n_steps);
         std::vector<double> hostTrajectoryGrad(n_steps);
         std::vector<int8_t> hostStatus(n_steps);
+        std::vector<int8_t> hostAlphaZero(n_steps, 0);  // Sequential doesn't track alpha=0
 
         cudaMemcpy(hostTrajectoryCoords.data(),
                    deviceTrajectoryCoords,
@@ -211,6 +212,7 @@ namespace zeus {
                                   hostTrajectoryFval.data(),
                                   hostTrajectoryGrad.data(),
                                   hostStatus.data(),
+                                  hostAlphaZero.data(),
                                   params,
                                   ZEUS_DIM,
                                   trajectory_file);

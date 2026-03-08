@@ -81,6 +81,7 @@ namespace bfgs {
                   double* deviceTrajectoryFval,
                   double* deviceTrajectoryGrad,
                   int8_t* deviceStatus,
+                  int8_t* deviceAlphaZero,
                   int N,
                   const int MAX_ITER,
                   const int requiredConverged,
@@ -187,10 +188,9 @@ namespace bfgs {
           double alpha = util::lineSearch<Function, ZEUS_DIM>(
             bestVal, x_arr, p_arr, g_arr, f);
           if (alpha == 0.0) {
-            printf(
-              "Alpha is zero, using fallback alpha=1e-3 (iter=%d, idx=%d)\n",
-              iter,
-              tile_global_id);
+            if constexpr (SaveTrajectories) {
+              deviceAlphaZero[iter * N + tile_global_id] = 1;
+            }
             alpha = 1e-3;
           }
           for (int d = 0; d < ZEUS_DIM; ++d) {
@@ -369,6 +369,14 @@ namespace bfgs {
       cudaMemcpy(
         d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
 
+      // Allocate deviceAlphaZero array for trajectory diagnostics
+      int8_t* deviceAlphaZero = nullptr;
+      if (save_trajectories) {
+        size_t alphaZeroBytes = size_t(N) * MAX_ITER * sizeof(int8_t);
+        cudaMalloc(&deviceAlphaZero, alphaZeroBytes);
+        cudaMemset(deviceAlphaZero, 0, alphaZeroBytes);
+      }
+
       // launch the tile-per-BFGS kernel
       if (save_trajectories) {
         optimizeTiles<Function, (int)ZEUS_DIM, TS, true, StateType>
@@ -382,6 +390,7 @@ namespace bfgs {
             deviceTrajectoryFval,
             deviceTrajectoryGrad,
             deviceStatus,
+            deviceAlphaZero,
             (int)N,
             MAX_ITER,
             requiredConverged,
@@ -397,6 +406,7 @@ namespace bfgs {
             upper,
             pso_results_device,
             util::NonNull{deviceResults.data()},
+            nullptr,
             nullptr,
             nullptr,
             nullptr,
@@ -433,6 +443,17 @@ namespace bfgs {
       cudaEventDestroy(startOpt);
       cudaEventDestroy(stopOpt);
       cudaFree(d_ctx);
+
+      // Copy alpha zero diagnostic data back to host if trajectories were saved
+      std::vector<int8_t> h_alphaZero;
+      if (save_trajectories && deviceAlphaZero) {
+        h_alphaZero.resize(size_t(N) * MAX_ITER);
+        cudaMemcpy(h_alphaZero.data(),
+                   deviceAlphaZero,
+                   h_alphaZero.size() * sizeof(int8_t),
+                   cudaMemcpyDeviceToHost);
+        cudaFree(deviceAlphaZero);
+      }
 
       std::vector<zeus::Result<ZEUS_DIM>> h_results(N);
       cudaMemcpy(h_results.data(),
