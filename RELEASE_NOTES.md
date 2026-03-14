@@ -1,5 +1,68 @@
 # Release Notes
 
+## v2.1
+
+### 🔧 Improvements
+
+- **Stronger BFGS line search prevents optimizer stalling**: The BFGS
+  optimizer's line search now uses a modified Strong Wolfe-like acceptance
+  criterion. Previously, only the Armijo sufficient-decrease condition was
+  checked, which could allow steps that technically satisfied the criterion
+  but did not actually reduce the objective function. This caused the
+  optimizer to stall — sometimes for 100 or more consecutive iterations —
+  with coordinates remaining unchanged while the algorithm believed it was
+  making progress. The line search now requires both the Armijo condition
+  and a strict decrease in the objective value before accepting a step.
+  This improvement is particularly beneficial for ill-conditioned problems
+  such as the Rosenbrock function, where the BFGS Hessian approximation
+  can degrade and produce poor search directions. No changes to function
+  signatures or calling code are required.
+
+---
+
+## v2.0
+
+### 🎉 New Features
+
+- **Save optimizer trajectories to disk**: Pass `--save-trajectories <filename>`
+  to any example program to record the full path the optimizer took through
+  parameter space. Output files include the objective function value, gradient
+  norm, and a convergence status code at every step, making it straightforward
+  to diagnose why a run converged (or did not). Both TSV and NetCDF4 (`.nc`)
+  output formats are supported; the format is chosen automatically from the
+  file extension.
+
+- **Selectable random number generator**: You can now choose the cuRAND
+  generator used to initialize the particle swarm and BFGS starting points.
+  The options are XORWOW (default), Philox, and Sobol. Different generators
+  can affect the diversity of the initial population and, in turn, the quality
+  of the solution found.
+
+- **New example: dijet spectrum fit**: A new `fit_dijet_spectrum` example
+  demonstrates fitting a parametric model to a high-energy physics dijet
+  spectrum using a Poisson negative log-likelihood objective.
+
+- **New example: correlated Gaussian and neural-network fitting**: The
+  `optimize_gaussian_nn` example shows how to optimize over the weights of a
+  small neural network and over a high-dimensional correlated Gaussian, both
+  of which stress-test the optimizer in ways the standard benchmark functions
+  do not.
+
+### 🔧 Improvements
+
+- **Clearer errors for invalid objective functions**: Zeus now uses C++20
+  concepts to validate that your objective function is callable with both
+  `double` and dual-number types. If your function does not satisfy the
+  requirements, the compiler will tell you exactly what is wrong rather than
+  emitting a long template error.
+
+- **Step-failure diagnostics in trajectory output**: When the BFGS line search
+  produces a zero step size, that event is now recorded in the trajectory file.
+  This makes it much easier to identify runs where the optimizer stalled and to
+  understand at which iteration the problem occurred.
+
+---
+
 ## v1.1 (Maintenance Patch)
 
 **Branch:** `maintenance_v_1`
