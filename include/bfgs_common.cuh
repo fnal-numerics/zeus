@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cub/cub.cuh>
 #include <cuda_runtime.h>
 
@@ -100,6 +101,143 @@ namespace bfgs {
       r.coordinates[d] = coordinates[d];
     }
   }
+
+  /// Device helpers for trajectory termination.
+  /// All functions are __forceinline__ so they compile to the same PTX as the
+  /// equivalent inlined code — zero call overhead.
+  namespace termination {
+
+    /// Checks the global stop flag set by a peer that already converged.
+    /// Returns true if the trajectory should terminate (status 2).
+    ///
+    /// atomicAdd(&ctx->stopFlag, 0) is a strong acquire-barrier: once any
+    /// thread writes 1 via atomicExch, subsequent reads observe 1.
+    template <int DIM, bool SaveTrajectories, typename Function>
+    __device__ __forceinline__ bool
+    checkStopFlag(util::BFGSContext* ctx,
+                  zeus::Result<DIM>& r,
+                  const Function& f,
+                  const std::array<double, DIM>& x_arr,
+                  const std::array<double, DIM>& g_arr,
+                  int iter,
+                  int id,
+                  int N,
+                  int8_t* deviceStatus)
+    {
+      if (atomicAdd(&ctx->stopFlag, 0) != 0) {
+        writeResult<DIM>(r,
+                         2,
+                         f(x_arr),
+                         x_arr.data(),
+                         util::calculateGradientNorm<DIM>(g_arr),
+                         iter,
+                         id);
+        if constexpr (SaveTrajectories) {
+          deviceStatus[iter * N + id] = 2;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    /// Checks for a non-finite gradient norm or function value.
+    /// Returns true if the trajectory should terminate (status 5).
+    template <int DIM, bool SaveTrajectories>
+    __device__ __forceinline__ bool
+    checkNonFinite(zeus::Result<DIM>& r,
+                   double grad_norm,
+                   double fnew,
+                   const double* x_arr_data,
+                   int iter,
+                   int id,
+                   int N,
+                   int8_t* deviceStatus)
+    {
+      if (!isfinite(grad_norm) || !isfinite(fnew)) {
+        writeResult<DIM>(r, 5, fnew, x_arr_data, grad_norm, iter, id);
+        if constexpr (SaveTrajectories) {
+          deviceStatus[iter * N + id] = 5;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    /// Checks convergence (gradient norm below tolerance).
+    /// Atomically increments ctx->convergedCount; sets ctx->stopFlag and
+    /// fences when requiredConverged is reached so peers exit promptly.
+    /// Returns true if this trajectory has converged (status 1).
+    template <int DIM, bool SaveTrajectories, typename Function>
+    __device__ __forceinline__ bool
+    checkConvergence(util::BFGSContext* ctx,
+                     zeus::Result<DIM>& r,
+                     const Function& f,
+                     const std::array<double, DIM>& x_arr,
+                     double grad_norm,
+                     double tolerance,
+                     int requiredConverged,
+                     int iter,
+                     int id,
+                     int N,
+                     int8_t* deviceStatus)
+    {
+      if (grad_norm < tolerance) {
+        const int oldCount = atomicAdd(&ctx->convergedCount, 1);
+        const double fcurr = f(x_arr);
+        writeResult<DIM>(r, 1, fcurr, x_arr.data(), grad_norm, iter, id);
+        if constexpr (SaveTrajectories) {
+          deviceStatus[iter * N + id] = 1;
+        }
+        if (oldCount + 1 == requiredConverged) {
+          atomicExch(&ctx->stopFlag, 1);
+          __threadfence();
+          printf("\nThread %d is the %d%s converged thread (iter=%d); fn = "
+                 "%.6f.\n",
+                 id,
+                 oldCount + 1,
+                 (oldCount + 1 == 1 ? "st" :
+                  oldCount + 1 == 2 ? "nd" :
+                  oldCount + 1 == 3 ? "rd" :
+                                      "th"),
+                 iter,
+                 fcurr);
+        }
+        return true;
+      }
+      return false;
+    }
+
+    /// Writes a max-iterations result when the loop ran to completion.
+    /// done should be true if the loop exited early via break.
+    /// Status 0: maximum iterations reached without convergence.
+    template <int DIM, bool SaveTrajectories, typename Function>
+    __device__ __forceinline__ void
+    checkMaxIter(zeus::Result<DIM>& r,
+                 const Function& f,
+                 const std::array<double, DIM>& x_arr,
+                 const std::array<double, DIM>& g_arr,
+                 bool done,
+                 int iter,
+                 int MAX_ITER,
+                 int id,
+                 int N,
+                 int8_t* deviceStatus)
+    {
+      if (!done && iter == MAX_ITER) {
+        writeResult<DIM>(r,
+                         0,
+                         f(x_arr),
+                         x_arr.data(),
+                         util::calculateGradientNorm<DIM>(g_arr),
+                         iter,
+                         id);
+        if constexpr (SaveTrajectories) {
+          deviceStatus[(MAX_ITER - 1) * N + id] = 0;
+        }
+      }
+    }
+
+  } // namespace termination
 
   /// Find and return the best result from N parallel optimizations.
   /// Uses CUB's DeviceReduce::ArgMin to find the minimum function value,

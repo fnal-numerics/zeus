@@ -107,25 +107,10 @@ namespace bfgs {
         }
         // printf("inside BeeG File System");
         //  check if somebody already asked to stop
-        if (atomicAdd(&ctx->stopFlag, 0) !=
-            0) { // atomicAdd here just to get a strong read-barrier
-          // CUDA will fetch a coherent copy of the integer from global memory.
-          // as soon as one thread writes 1 into d_stopFlag via atomicExch,
-          // the next time any thread does atomicAdd(&d_stopFlag, 0) it’ll see 1
-          // and break. printf("thread %d get outta dodge cuz we converged...",
-          // idx);
-          writeResult<ZEUS_DIM>(r,
-                                2,
-                                f(x_arr),
-                                x_arr.data(),
-                                util::calculateGradientNorm<ZEUS_DIM>(g_arr),
-                                iter,
-                                idx);
-          if constexpr (SaveTrajectories) {
-            deviceStatus[iter * N + idx] = 2;
-          }
+        // check if somebody already asked to stop
+        if (termination::checkStopFlag<ZEUS_DIM, SaveTrajectories>(
+              ctx, r, f, x_arr, g_arr, iter, idx, N, deviceStatus))
           break;
-        }
         num_steps++;
         util::computeSearchDirection<ZEUS_DIM>(p_arr, &H, g_arr); // p = -H * g
 
@@ -179,48 +164,14 @@ namespace bfgs {
             g_arr[i] = g_new[i];
           }
         }
-        // refactor? yes
         double grad_norm = util::calculateGradientNorm<ZEUS_DIM>(g_arr);
-        // catch not finite gradient norm or function value
-        if (!isfinite(grad_norm) || !isfinite(fnew)) {
-          writeResult<ZEUS_DIM>(r, 5, fnew, x_arr.data(), grad_norm, iter, idx);
-          if constexpr (SaveTrajectories) {
-            deviceStatus[iter * N + idx] = 5;
-          }
+        if (termination::checkNonFinite<ZEUS_DIM, SaveTrajectories>(
+              r, grad_norm, fnew, x_arr.data(), iter, idx, N, deviceStatus))
           break;
-        }
-        if (grad_norm < tolerance) {
-          // atomically increment the converged counter
-          int oldCount = atomicAdd(&ctx->convergedCount, 1);
-          int newCount = oldCount + 1;
-          double fcurr = f(x_arr);
-          writeResult<ZEUS_DIM>(
-            r, 1, fcurr, x_arr.data(), grad_norm, iter, idx);
-          if constexpr (SaveTrajectories) {
-            deviceStatus[iter * N + idx] = 1;
-          }
-          // if we just hit the threshold set by the user, the VERY FIRST thread
-          // to do so sets ctx->stopFlag=1 so everyone else exits on their next
-          // check
-          if (newCount == requiredConverged) {
-            // flip the global stop flag
-            atomicExch(&ctx->stopFlag, 1);
-            __threadfence();
-            printf("\nThread %d is the %d%s converged thread (iter=%d); fn = "
-                   "%.6f.\n",
-                   idx,
-                   newCount,
-                   (newCount == 1 ? "st" :
-                    newCount == 2 ? "nd" :
-                    newCount == 3 ? "rd" :
-                                    "th"),
-                   iter,
-                   fcurr);
-          }
-          // in _any_ case, whether we were the last to converge or not,
-          // we are individually done so break
+        if (termination::checkConvergence<ZEUS_DIM, SaveTrajectories>(
+              ctx, r, f, x_arr, grad_norm, tolerance, requiredConverged,
+              iter, idx, N, deviceStatus))
           break;
-        }
 
         /*  deviceTrajectory layout: idx * (MAX_ITER * ZEUS_DIM) + iter *
         ZEUS_DIM + i if (save_trajectories) { for (int i = 0; i < ZEUS_DIM; i++)
@@ -230,20 +181,10 @@ namespace bfgs {
         }*/
 
       } // end bfgs loop
-      // if we broek out because we hit the max numberof iterations, then its a
-      // surrender
-      if (MAX_ITER == iter) {
-        writeResult<ZEUS_DIM>(r,
-                              0,
-                              f(x_arr),
-                              x_arr.data(),
-                              util::calculateGradientNorm<ZEUS_DIM>(g_arr),
-                              iter,
-                              idx);
-        if constexpr (SaveTrajectories) {
-          deviceStatus[(MAX_ITER - 1) * N + idx] = 0;
-        }
-      }
+      // if we exited by exhausting iterations, record the surrender result
+      termination::checkMaxIter<ZEUS_DIM, SaveTrajectories>(
+        r, f, x_arr, g_arr, /*done=*/(iter < MAX_ITER), iter, MAX_ITER,
+        idx, N, deviceStatus);
       deviceResults[idx] = r.fval;
       result[idx] = r;
       if (ad_cycles_out)

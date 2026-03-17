@@ -164,19 +164,9 @@ namespace bfgs {
         }
         // Global stop check
         if (tile.thread_rank() == 0) {
-          if (atomicAdd(&ctx->stopFlag, 0) != 0) {
-            writeResult<ZEUS_DIM>(r,
-                                  2,
-                                  f(x_arr),
-                                  x_arr.data(),
-                                  util::calculateGradientNorm<ZEUS_DIM>(g_arr),
-                                  iter,
-                                  tile_global_id);
-            if constexpr (SaveTrajectories) {
-              deviceStatus[iter * N + tile_global_id] = 2;
-            }
+          if (termination::checkStopFlag<ZEUS_DIM, SaveTrajectories>(
+                ctx, r, f, x_arr, g_arr, iter, tile_global_id, N, deviceStatus))
             *done_flag = 1;
-          }
         }
         tile.sync();
         if (*done_flag)
@@ -228,27 +218,13 @@ namespace bfgs {
           }
 
           const double grad_norm = util::calculateGradientNorm<ZEUS_DIM>(g_arr);
-          if (!isfinite(grad_norm) || !isfinite(fnew)) {
-            writeResult<ZEUS_DIM>(
-              r, 5, fnew, x_arr.data(), grad_norm, iter, tile_global_id);
-            if constexpr (SaveTrajectories) {
-              deviceStatus[iter * N + tile_global_id] = 5;
-            }
+          if (termination::checkNonFinite<ZEUS_DIM, SaveTrajectories>(
+                r, grad_norm, fnew, x_arr.data(), iter, tile_global_id, N,
+                deviceStatus) ||
+              termination::checkConvergence<ZEUS_DIM, SaveTrajectories>(
+                ctx, r, f, x_arr, grad_norm, tolerance, requiredConverged,
+                iter, tile_global_id, N, deviceStatus))
             *done_flag = 1;
-          } else if (grad_norm < tolerance) {
-            const int oldCount = atomicAdd(&ctx->convergedCount, 1);
-            const double fcurr = f(x_arr);
-            writeResult<ZEUS_DIM>(
-              r, 1, fcurr, x_arr.data(), grad_norm, iter, tile_global_id);
-            if constexpr (SaveTrajectories) {
-              deviceStatus[iter * N + tile_global_id] = 1;
-            }
-            if (oldCount + 1 == requiredConverged) {
-              atomicExch(&ctx->stopFlag, 1);
-              __threadfence();
-            }
-            *done_flag = 1;
-          }
         }
         tile.sync();
         if (*done_flag)
@@ -259,18 +235,9 @@ namespace bfgs {
 
       // Max-iters surrender
       if (tile.thread_rank() == 0) {
-        if (!*done_flag && iter == MAX_ITER) {
-          writeResult<ZEUS_DIM>(r,
-                                0,
-                                f(x_arr),
-                                x_arr.data(),
-                                util::calculateGradientNorm<ZEUS_DIM>(g_arr),
-                                iter,
-                                tile_global_id);
-          if constexpr (SaveTrajectories) {
-            deviceStatus[(MAX_ITER - 1) * N + tile_global_id] = 0;
-          }
-        }
+        termination::checkMaxIter<ZEUS_DIM, SaveTrajectories>(
+          r, f, x_arr, g_arr, (bool)*done_flag, iter, MAX_ITER,
+          tile_global_id, N, deviceStatus);
         deviceResults[tile_global_id] = r.fval;
         result[tile_global_id] = r;
       }
