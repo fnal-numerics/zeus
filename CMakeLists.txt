@@ -207,31 +207,42 @@ if(ZEUS_BUILD_TESTS)
     )
     FetchContent_MakeAvailable(catch2)
 
-    add_executable(non_null_tests test/non_null_tests.cu)
-    target_link_libraries(non_null_tests PRIVATE zeus Catch2::Catch2WithMain)
-    add_test(NAME non_null_tests COMMAND non_null_tests)
+    # Compile the Catch2 session runner once as a plain C++ static library.
+    # Every test executable links against this instead of Catch2::Catch2WithMain,
+    # so main() is never recompiled per target.
+    add_library(test_main STATIC test/catch_main.cpp)
+    target_link_libraries(test_main PUBLIC Catch2::Catch2)
 
-    add_executable(unit_test
-      test/catch_main.cpp
-      test/util_tests.cu
-      test/fun_tests.cu
-      test/pso_tests.cu
-      test/bfgs_tests.cu
-      test/dual_tests.cu
-      test/matrix_tests.cu
-      test/cuda_buffer_tests.cu
-      test/device_matrix_tests.cu
-    )
-    
-    set_target_properties(unit_test PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-    target_include_directories(unit_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples)
-    target_compile_options(unit_test PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
-    target_compile_definitions(unit_test PRIVATE UNIT_TEST)
-    target_link_libraries(unit_test PRIVATE zeus Catch2::Catch2WithMain)
-    
     enable_testing()
     include(Catch)
-    catch_discover_tests(unit_test REPORTER console)
+
+    add_executable(non_null_tests test/non_null_tests.cu)
+    set_target_properties(non_null_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+    target_link_libraries(non_null_tests PRIVATE zeus test_main)
+    catch_discover_tests(non_null_tests REPORTER console)
+
+    # One executable per test file so all CUDA device-link (nvlink) steps run
+    # in parallel rather than waiting on a single serial nvlink over all TUs.
+    set(ZEUS_UNIT_TESTS
+        util_tests
+        fun_tests
+        pso_tests
+        bfgs_tests
+        dual_tests
+        matrix_tests
+        cuda_buffer_tests
+        device_matrix_tests
+    )
+
+    foreach(test_name IN LISTS ZEUS_UNIT_TESTS)
+        add_executable(${test_name} test/${test_name}.cu)
+        set_target_properties(${test_name} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+        target_include_directories(${test_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples)
+        target_compile_options(${test_name} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
+        target_compile_definitions(${test_name} PRIVATE UNIT_TEST)
+        target_link_libraries(${test_name} PRIVATE zeus test_main)
+        catch_discover_tests(${test_name} REPORTER console)
+    endforeach()
 
     # Bad objectives test (compile-time failure verification)
     set(BAD_SRC "${CMAKE_CURRENT_SOURCE_DIR}/test/bad_objectives.cu")

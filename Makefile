@@ -91,7 +91,7 @@ remote-clean:
 
 remote-build: remote-sync
 	@echo "🛠️ Building on $(REMOTE_HOST)..."
-	ssh $(REMOTE_HOST) "set -e; cd $(REMOTE_DIR); if [ -f remote_env.sh ]; then . ./remote_env.sh; fi; mkdir -p build; cd build; cmake -G 'Unix Makefiles' -DZEUS_BUILD_TESTS=ON ..; cmake --build . -j8"
+	ssh $(REMOTE_HOST) "set -e; cd $(REMOTE_DIR); if [ -f remote_env.sh ]; then . ./remote_env.sh; fi; mkdir -p build; cd build; cmake -G Ninja -DZEUS_BUILD_TESTS=ON ..; cmake --build . -j8"
 
 remote-test: remote-build
 	@echo "🧪 Running tests on $(REMOTE_HOST)..."
@@ -99,11 +99,11 @@ remote-test: remote-build
 
 remote-test-dual:
 	@echo "🧪 Running only [dual] tests on $(REMOTE_HOST)..."
-	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; cd build && ./unit_test '[dual]'"
+	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; cd build && ./dual_tests '[dual]'"
 
 remote-test-non-null:
 	@echo "🧪 Running non_null tests on $(REMOTE_HOST)..."
-	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; mkdir -p build && cd build && cmake -G 'Unix Makefiles' -DZEUS_BUILD_TESTS=ON .. && cmake --build . -j && ./non_null_tests"
+	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; mkdir -p build && cd build && cmake -G Ninja -DZEUS_BUILD_TESTS=ON .. && cmake --build . -j && ./non_null_tests"
 
 remote-optimize: remote-build
 	@if [ -z "$(FUNC)" ] || [ -z "$(ARGS)" ] || [ -z "$(FILE)" ]; then \
