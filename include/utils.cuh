@@ -78,7 +78,7 @@ namespace util {
                                   double* hostTrajectoryFval,
                                   double* hostTrajectoryGrad,
                                   int8_t* hostStatus,
-                                  int8_t* hostAlphaZero,
+                                  double* hostAlpha,
                                   const OptimizationParams& params,
                                   int DIM,
                                   std::string_view filename);
@@ -373,40 +373,43 @@ namespace util {
     unsigned int* vectors,
     int N);
 
-   template <typename Function, int DIM>
-   __device__ double
-   lineSearch(double f0,
-              const double* x,
-              const double* p,
-              const double* g,
-              Function const& f)
-   {
-     // Modified Strong Wolfe-like condition:
-     // 1. Armijo condition: f(x + alpha*p) <= f(x) + c1*alpha*(g·p)
-     // 2. Actual decrease: f(x + alpha*p) < f(x) (strict decrease required)
-     // This prevents accepting steps that satisfy Armijo but don't improve the function.
-     const double c1 = 0.1;  // Armijo constant (reduced from 0.3 for stricter condition)
-     double alpha = 1.0;
-     double ddir = dotProductDevice(g, p, DIM);
-     std::array<double, DIM> xTemp;
-     
-     for (int i = 0; i < 20; i++) {
-       for (int j = 0; j < DIM; j++) {
-         xTemp[j] = x[j] + alpha * p[j];
-       }
-       double f1 = f(xTemp);
-       
-       // Check both Armijo condition AND actual function decrease
-       // This ensures we don't accept steps that satisfy Armijo but don't improve f
-       if (f1 <= f0 + c1 * alpha * ddir && f1 < f0) {
-         // Both conditions satisfied: accept the step
-         break;
-       }
-       
-       alpha *= 0.5;
-     }
-     return alpha;
-   }
+  template <typename Function, int DIM>
+  __device__ double
+  lineSearch(double f0,
+             const double* x,
+             const double* p,
+             const double* g,
+             Function const& f)
+  {
+    // Modified Strong Wolfe-like condition:
+    // 1. Armijo condition: f(x + alpha*p) <= f(x) + c1*alpha*(g·p)
+    // 2. Actual decrease: f(x + alpha*p) < f(x) (strict decrease required)
+    // This prevents accepting steps that satisfy Armijo but don't improve the
+    // function.
+    const double c1 =
+      0.1; // Armijo constant (reduced from 0.3 for stricter condition)
+    double alpha = 1.0;
+    double ddir = dotProductDevice(g, p, DIM);
+    std::array<double, DIM> xTemp;
+
+    for (int i = 0; i < 20; i++) {
+      for (int j = 0; j < DIM; j++) {
+        xTemp[j] = x[j] + alpha * p[j];
+      }
+      double f1 = f(xTemp);
+
+      // Check both Armijo condition AND actual function decrease
+      // This ensures we don't accept steps that satisfy Armijo but don't
+      // improve f
+      if (f1 <= f0 + c1 * alpha * ddir && f1 < f0) {
+        // Both conditions satisfied: accept the step
+        break;
+      }
+
+      alpha *= 0.5;
+    }
+    return alpha;
+  }
 
   // overload that takes arrays
   template <typename Function, std::size_t DIM>

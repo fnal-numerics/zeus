@@ -131,13 +131,13 @@ namespace util {
                          double* hostTrajectoryFval,
                          double* hostTrajectoryGrad,
                          int8_t* hostStatus,
-                         int8_t* hostAlphaZero,
+                         double* hostAlpha,
                          const OptimizationParams& params,
                          int DIM,
                          std::string_view filename)
   {
     std::ofstream stepOut(std::string{filename});
-    stepOut << "traj\tstep\tfval\tgrad\tstatus\talpha_zero";
+    stepOut << "traj\tstep\tfval\tgrad\tstatus\talpha";
     for (int d = 0; d < DIM; d++)
       stepOut << "\tx" << d;
     stepOut << "\n";
@@ -162,7 +162,7 @@ namespace util {
           stepOut << "\t" << gnorm;
         }
         stepOut << "\t" << (int)hostStatus[it * N + i];
-        stepOut << "\t" << (int)hostAlphaZero[it * N + i];
+        stepOut << "\t" << hostAlpha[it * N + i];
 
         // Then write coordinates
         for (int d = 0; d < DIM; d++) {
@@ -186,7 +186,7 @@ namespace util {
                              double* hostTrajectoryFval,
                              double* hostTrajectoryGrad,
                              int8_t* hostStatus,
-                             int8_t* hostAlphaZero,
+                             double* hostAlpha,
                              const OptimizationParams& params,
                              int DIM,
                              std::string_view filename)
@@ -205,7 +205,7 @@ namespace util {
         dataFile.addVar("trajectory_coords", ncDouble, coordsDims);
       coordsVar.putVar(hostTrajectoryCoords);
 
-      // fval, grad, status: (step, trajectory)
+      // fval, grad, status, alpha: (step, trajectory)
       std::vector<NcDim> valDims = {stepDim, trajDim};
       NcVar fvalVar = dataFile.addVar("fval", ncDouble, valDims);
       fvalVar.putVar(hostTrajectoryFval);
@@ -216,8 +216,8 @@ namespace util {
       NcVar statusVar = dataFile.addVar("status", ncByte, valDims);
       statusVar.putVar(hostStatus);
 
-      NcVar alphaZeroVar = dataFile.addVar("alpha_zero", ncByte, valDims);
-      alphaZeroVar.putVar(hostAlphaZero);
+      NcVar alphaVar = dataFile.addVar("alpha", ncDouble, valDims);
+      alphaVar.putVar(hostAlpha);
 
       // Attributes
       dataFile.putAtt("ZEUS_TRAJECTORY_FORMAT_VERSION", ncInt, 1);
@@ -248,7 +248,7 @@ namespace util {
                       double* hostTrajectoryFval,
                       double* hostTrajectoryGrad,
                       int8_t* hostStatus,
-                      int8_t* hostAlphaZero,
+                      double* hostAlpha,
                       const OptimizationParams& params,
                       int DIM,
                       std::string_view filename)
@@ -258,7 +258,7 @@ namespace util {
                                     hostTrajectoryFval,
                                     hostTrajectoryGrad,
                                     hostStatus,
-                                    hostAlphaZero,
+                                    hostAlpha,
                                     params,
                                     DIM,
                                     filename);
@@ -268,7 +268,7 @@ namespace util {
                                         hostTrajectoryFval,
                                         hostTrajectoryGrad,
                                         hostStatus,
-                                        hostAlphaZero,
+                                        hostAlpha,
                                         params,
                                         DIM,
                                         filename);

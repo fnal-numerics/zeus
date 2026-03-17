@@ -81,7 +81,7 @@ namespace bfgs {
                   double* deviceTrajectoryFval,
                   double* deviceTrajectoryGrad,
                   int8_t* deviceStatus,
-                  int8_t* deviceAlphaZero,
+                  double* deviceAlpha,
                   int N,
                   const int MAX_ITER,
                   const int requiredConverged,
@@ -187,10 +187,10 @@ namespace bfgs {
           util::computeSearchDirection<ZEUS_DIM>(p_arr, &H, g_arr); // p = -H g
           double alpha = util::lineSearch<Function, ZEUS_DIM>(
             bestVal, x_arr, p_arr, g_arr, f);
+          if constexpr (SaveTrajectories) {
+            deviceAlpha[iter * N + tile_global_id] = alpha;
+          }
           if (alpha == 0.0) {
-            if constexpr (SaveTrajectories) {
-              deviceAlphaZero[iter * N + tile_global_id] = 1;
-            }
             alpha = 1e-3;
           }
           for (int d = 0; d < ZEUS_DIM; ++d) {
@@ -304,6 +304,8 @@ namespace bfgs {
            double* deviceTrajectoryFval,
            double* deviceTrajectoryGrad,
            int8_t* deviceStatus,
+           double* deviceAlpha,
+           double* hostAlpha,
            const int requiredConverged,
            const double tolerance,
            bool save_trajectories,
@@ -369,14 +371,6 @@ namespace bfgs {
       cudaMemcpy(
         d_ctx, &h_ctx, sizeof(util::BFGSContext), cudaMemcpyHostToDevice);
 
-      // Allocate deviceAlphaZero array for trajectory diagnostics
-      int8_t* deviceAlphaZero = nullptr;
-      if (save_trajectories) {
-        size_t alphaZeroBytes = size_t(N) * MAX_ITER * sizeof(int8_t);
-        cudaMalloc(&deviceAlphaZero, alphaZeroBytes);
-        cudaMemset(deviceAlphaZero, 0, alphaZeroBytes);
-      }
-
       // launch the tile-per-BFGS kernel
       if (save_trajectories) {
         optimizeTiles<Function, (int)ZEUS_DIM, TS, true, StateType>
@@ -390,7 +384,7 @@ namespace bfgs {
             deviceTrajectoryFval,
             deviceTrajectoryGrad,
             deviceStatus,
-            deviceAlphaZero,
+            deviceAlpha,
             (int)N,
             MAX_ITER,
             requiredConverged,
@@ -444,15 +438,12 @@ namespace bfgs {
       cudaEventDestroy(stopOpt);
       cudaFree(d_ctx);
 
-      // Copy alpha zero diagnostic data back to host if trajectories were saved
-      std::vector<int8_t> h_alphaZero;
-      if (save_trajectories && deviceAlphaZero) {
-        h_alphaZero.resize(size_t(N) * MAX_ITER);
-        cudaMemcpy(h_alphaZero.data(),
-                   deviceAlphaZero,
-                   h_alphaZero.size() * sizeof(int8_t),
+      // Copy alpha diagnostic data back to host if trajectories were saved
+      if (save_trajectories && deviceAlpha && hostAlpha) {
+        cudaMemcpy(hostAlpha,
+                   deviceAlpha,
+                   size_t(N) * MAX_ITER * sizeof(double),
                    cudaMemcpyDeviceToHost);
-        cudaFree(deviceAlphaZero);
       }
 
       std::vector<zeus::Result<ZEUS_DIM>> h_results(N);

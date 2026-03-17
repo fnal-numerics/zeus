@@ -90,6 +90,17 @@ namespace zeus {
         cudaMemset(deviceStatus, -1, n_steps);
       }
 
+      double* deviceAlpha = nullptr;
+      CudaBuffer<double> alphaBuffer(0);
+      std::vector<double> hostAlpha;
+      if (save_trajectories && parallel) {
+        size_t n_alpha = size_t(N) * MAX_ITER;
+        alphaBuffer = CudaBuffer<double>(n_alpha);
+        deviceAlpha = alphaBuffer.data();
+        cudaMemset(deviceAlpha, 0, n_alpha * sizeof(double));
+        hostAlpha.assign(n_alpha, 0.0);
+      }
+
       DoubleBuffer pso_results_device(0);
       float ms_init = 0.0f, ms_pso = 0.0f;
       if (PSO_ITER >= 0) {
@@ -119,6 +130,8 @@ namespace zeus {
           deviceTrajectoryFval,
           deviceTrajectoryGrad,
           deviceStatus,
+          deviceAlpha,
+          hostAlpha.data(),
           requiredConverged,
           tolerance,
           save_trajectories,
@@ -127,6 +140,9 @@ namespace zeus {
           states,
           run,
           f);
+        // deviceAlpha is owned by alphaBuffer; it will be freed when
+        // alphaBuffer goes out of scope. The launch function has already copied
+        // to hostAlpha.
       } else {
         std::cout << "sequential" << "\n";
         best = bfgs::sequential::launch<Function, ZEUS_DIM, StateType>(
@@ -176,7 +192,10 @@ namespace zeus {
         std::vector<double> hostTrajectoryFval(n_steps);
         std::vector<double> hostTrajectoryGrad(n_steps);
         std::vector<int8_t> hostStatus(n_steps);
-        std::vector<int8_t> hostAlphaZero(n_steps, 0);  // Sequential doesn't track alpha=0
+        // hostAlpha was populated by parallel launch; for sequential, fill with
+        // zeros
+        if (hostAlpha.empty())
+          hostAlpha.assign(n_steps, 0.0);
 
         cudaMemcpy(hostTrajectoryCoords.data(),
                    deviceTrajectoryCoords,
@@ -212,7 +231,7 @@ namespace zeus {
                                   hostTrajectoryFval.data(),
                                   hostTrajectoryGrad.data(),
                                   hostStatus.data(),
-                                  hostAlphaZero.data(),
+                                  hostAlpha.data(),
                                   params,
                                   ZEUS_DIM,
                                   trajectory_file);
