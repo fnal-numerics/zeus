@@ -117,8 +117,7 @@ namespace zeus {
 
       zeus::Result<ZEUS_DIM> best;
       float ms_opt = 0.0f;
-      if (run != 0) {
-        std::cout << "parallel" << "\n";
+      if (parallel) {
         best = bfgs::parallel::launch<Function, ZEUS_DIM, StateType>(
           N,
           PSO_ITER,
@@ -144,7 +143,6 @@ namespace zeus {
         // alphaBuffer goes out of scope. The launch function has already copied
         // to hostAlpha.
       } else {
-        std::cout << "sequential" << "\n";
         best = bfgs::sequential::launch<Function, ZEUS_DIM, StateType>(
           N,
           PSO_ITER,

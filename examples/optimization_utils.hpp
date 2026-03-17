@@ -20,6 +20,7 @@ struct OptimizationParams {
   double tolerance;
   int seed;
   int run_id;
+  bool parallel = false;
   zeus::PRNGType prng_type = zeus::PRNGType::XORWOW; // default
   std::string trajectory_file; // defaults to empty
 };
@@ -31,7 +32,7 @@ inline bool parse_args(int argc, char* argv[], OptimizationParams& params)
     std::cerr << "Usage: " << argv[0]
               << " <lower_bound> <upper_bound> <max_iter> <pso_iters> "
                  "<converged> <num_optimizations> <tolerance> <seed> <run> "
-                 "[--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]\n";
+                 "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]\n";
     return false;
   }
 
@@ -49,7 +50,9 @@ inline bool parse_args(int argc, char* argv[], OptimizationParams& params)
     // Parse optional arguments
     for (int i = 10; i < argc; ++i) {
       std::string arg = argv[i];
-      if (arg == "--save-trajectories" && i + 1 < argc) {
+      if (arg == "--parallel") {
+        params.parallel = true;
+      } else if (arg == "--save-trajectories" && i + 1 < argc) {
         params.trajectory_file = argv[++i];
       } else if (arg == "--prng" && i + 1 < argc) {
         std::string val = argv[++i];
@@ -83,7 +86,8 @@ inline void print_params(const OptimizationParams& params)
             << "Number of optimizations: " << params.num_optimizations << "\n"
             << "Tolerance: " << params.tolerance << "\n"
             << "Seed: " << params.seed << "\n"
-            << "Run ID: " << params.run_id << "\n";
+            << "Run ID: " << params.run_id << "\n"
+            << "Algorithm: " << (params.parallel ? "parallel" : "sequential") << "\n";
   if (!params.trajectory_file.empty()) {
     std::cout << "Trajectory file: " << params.trajectory_file << "\n";
   }

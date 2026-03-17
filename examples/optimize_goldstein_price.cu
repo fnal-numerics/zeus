@@ -32,7 +32,7 @@ main(int argc, char* argv[])
                            params.tolerance,
                            params.seed,
                            params.run_id,
-                           true,
+                           params.parallel,
                            params.prng_type,
                            params.trajectory_file);
 

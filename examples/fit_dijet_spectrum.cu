@@ -97,7 +97,7 @@ main(int argc, char* argv[])
     std::cerr
       << "Usage: " << argv[0]
       << " <num_optimizations> <max_bfgs_iter> <run_id> "
-         "[--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]\n";
+         "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]\n";
     return 1;
   }
   const size_t N = std::stoul(argv[1]);
@@ -106,9 +106,12 @@ main(int argc, char* argv[])
 
   std::string trajectory_file;
   zeus::PRNGType prng_type = zeus::PRNGType::XORWOW;
+  bool parallel = false;
   for (int i = 4; i < argc; ++i) {
     std::string arg = argv[i];
-    if (arg == "--save-trajectories" && i + 1 < argc) {
+    if (arg == "--parallel") {
+      parallel = true;
+    } else if (arg == "--save-trajectories" && i + 1 < argc) {
       trajectory_file = argv[++i];
     } else if (arg == "--prng" && i + 1 < argc) {
       std::string val = argv[++i];
@@ -164,7 +167,7 @@ main(int argc, char* argv[])
                         1e-8,
                         42,
                         run,
-                        true,
+                        parallel,
                         prng_type,
                         trajectory_file);
 
