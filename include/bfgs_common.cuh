@@ -237,6 +237,41 @@ namespace bfgs {
       }
     }
 
+    /// Checks whether the consecutive zero-length step limit has been exceeded.
+    /// Call this only when the line search returned alpha == 0.
+    /// Increments consecutive_zero_steps; if nzerosteps > 0 and the counter
+    /// reaches the limit, writes status 6 and returns true (terminate).
+    /// If nzerosteps == 0 the limit is disabled and this always returns false.
+    template <int DIM, bool SaveTrajectories, typename Function>
+    __device__ __forceinline__ bool
+    checkZeroSteps(zeus::Result<DIM>& r,
+                   int& consecutive_zero_steps,
+                   int nzerosteps,
+                   const Function& f,
+                   const std::array<double, DIM>& x_arr,
+                   const std::array<double, DIM>& g_arr,
+                   int iter,
+                   int id,
+                   int N,
+                   int8_t* deviceStatus)
+    {
+      ++consecutive_zero_steps;
+      if (nzerosteps > 0 && consecutive_zero_steps >= nzerosteps) {
+        writeResult<DIM>(r,
+                         6,
+                         f(x_arr),
+                         x_arr.data(),
+                         util::calculateGradientNorm<DIM>(g_arr),
+                         iter,
+                         id);
+        if constexpr (SaveTrajectories) {
+          deviceStatus[iter * N + id] = 6;
+        }
+        return true;
+      }
+      return false;
+    }
+
   } // namespace termination
 
   /// Find and return the best result from N parallel optimizations.

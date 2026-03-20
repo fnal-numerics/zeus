@@ -47,6 +47,7 @@ namespace zeus {
                  int requiredConverged,
                  std::string const& fun_name,
                  double tolerance,
+                 int nzerosteps,
                  int seed,
                  int run,
                  bool parallel,
@@ -133,6 +134,7 @@ namespace zeus {
           hostAlpha.data(),
           requiredConverged,
           tolerance,
+          nzerosteps,
           save_trajectories,
           ms_opt,
           fun_name,
@@ -156,6 +158,7 @@ namespace zeus {
           deviceStatus,
           requiredConverged,
           tolerance,
+          nzerosteps,
           save_trajectories,
           ms_opt,
           fun_name,
@@ -254,7 +257,8 @@ namespace zeus {
          int run,
          bool parallel,
          PRNGType prng_type = PRNGType::XORWOW,
-         std::string_view trajectory_file = {})
+         std::string_view trajectory_file = {},
+         int nzerosteps = 0)
     {
       util::setStackSize();
       float ms_rand = 0.0f;
@@ -274,6 +278,7 @@ namespace zeus {
               requiredConverged,
               fun_name,
               tolerance,
+              nzerosteps,
               seed,
               run,
               parallel,
@@ -295,6 +300,7 @@ namespace zeus {
             requiredConverged,
             fun_name,
             tolerance,
+            nzerosteps,
             seed,
             run,
             parallel,
@@ -318,6 +324,7 @@ namespace zeus {
             requiredConverged,
             fun_name,
             tolerance,
+            nzerosteps,
             seed,
             run,
             parallel,
@@ -347,7 +354,8 @@ namespace zeus {
        int run,
        bool parallel = true,
        PRNGType prng_type = PRNGType::XORWOW,
-       std::string_view trajectory_file = {})
+       std::string_view trajectory_file = {},
+       int nzerosteps = 0)
   {
     return impl::Zeus(f,
                       lower,
@@ -362,7 +370,8 @@ namespace zeus {
                       run,
                       parallel,
                       prng_type,
-                      trajectory_file);
+                      trajectory_file,
+                      nzerosteps);
   }
 
 } // end zeus namespace

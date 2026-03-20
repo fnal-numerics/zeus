@@ -97,7 +97,8 @@ main(int argc, char* argv[])
     std::cerr
       << "Usage: " << argv[0]
       << " <num_optimizations> <max_bfgs_iter> <run_id> "
-         "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]\n";
+         "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]"
+         " [--nzerosteps <n>]\n";
     return 1;
   }
   const size_t N = std::stoul(argv[1]);
@@ -107,6 +108,7 @@ main(int argc, char* argv[])
   std::string trajectory_file;
   zeus::PRNGType prng_type = zeus::PRNGType::XORWOW;
   bool parallel = false;
+  int nzerosteps = 0;
   for (int i = 4; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg == "--parallel") {
@@ -125,6 +127,8 @@ main(int argc, char* argv[])
         std::cerr << "Unknown PRNG type: " << val
                   << ". Using default xorwow.\n";
       }
+    } else if (arg == "--nzerosteps" && i + 1 < argc) {
+      nzerosteps = std::stoi(argv[++i]);
     } else {
       std::cerr << "Unknown argument: " << arg << "\n";
       return 1;
@@ -169,7 +173,8 @@ main(int argc, char* argv[])
                         run,
                         parallel,
                         prng_type,
-                        trajectory_file);
+                        trajectory_file,
+                        nzerosteps);
 
   std::cout << "best NLL: " << res.fval << "\n";
 

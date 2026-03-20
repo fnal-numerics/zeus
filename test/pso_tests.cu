@@ -25,7 +25,7 @@ copyDevice(const T* dptr, T* hptr, size_t n)
 }
 
 TEST_CASE("pso::initKernel sets pBest & gBest for util::Rastrigin<2>",
-          "[pso][init]")
+          "[pso][init][gpu]")
 {
   constexpr int N = 1, DIM = 2;
   const double lower = -5.0, upper = 5.0;
@@ -94,7 +94,7 @@ TEST_CASE("pso::initKernel sets pBest & gBest for util::Rastrigin<2>",
 }
 
 TEST_CASE("pso::iterKernel inertia‐only updates X and V for 4 particles in 1D",
-          "[pso][component][iter]")
+          "[pso][component][iter][gpu]")
 {
   constexpr int N = 4, DIM = 1;
   const double lower = 0.0, upper = 1.0;
@@ -179,7 +179,7 @@ TEST_CASE("pso::iterKernel inertia‐only updates X and V for 4 particles in 1D"
 }
 
 TEST_CASE("pso::iterKernel with zero w,c1,c2 leaves X unchanged and V zero",
-          "[pso][iter]")
+          "[pso][iter][gpu]")
 {
   constexpr int N = 1, DIM = 2;
   const double lower = -5.0, upper = 5.0;
@@ -286,7 +286,8 @@ pointerStatus(double* p)
   return 0; // success
 }
 
-TEST_CASE("pso::launch throws zeus::CudaError<3> when overflowing the memory")
+TEST_CASE("pso::launch throws zeus::CudaError<3> when overflowing the memory",
+          "[gpu][isolated]")
 {
   // exhaust almost all free memory on the device ──────────────
   std::vector<void*> scraps;
@@ -342,7 +343,7 @@ struct TrappingFunction {
 };
 
 TEST_CASE("pso::launch throws zeus::CudaError<4> when the kernel launch fails",
-          "[pso][kernel-error]")
+          "[pso][kernel-error][gpu][isolated]")
 {
   using Fn = TrappingFunction;
   constexpr int DIM = 2;
@@ -363,7 +364,7 @@ TEST_CASE("pso::launch throws zeus::CudaError<4> when the kernel launch fails",
 }
 
 TEST_CASE("pso::launch throws zeus::CudaError<3> when cudaMalloc fails",
-          "[pso][malloc-error]")
+          "[pso][malloc-error][gpu][isolated]")
 {
   using Fn = util::Rosenbrock<2>;
   constexpr int DIM = 2;

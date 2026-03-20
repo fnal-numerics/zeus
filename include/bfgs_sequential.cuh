@@ -33,6 +33,7 @@ namespace bfgs {
              const int MAX_ITER,
              const int requiredConverged,
              const double tolerance,
+             const int nzerosteps,
              util::NonNull<zeus::Result<ZEUS_DIM>*> result,
              util::NonNull<StateType*> states,
              util::NonNull<util::BFGSContext*> ctx,
@@ -65,6 +66,7 @@ namespace bfgs {
                             idx);
       util::initializeIdentityMatrix(&H, ZEUS_DIM);
       int num_steps = 0, iter;
+      int consecutive_zero_steps = 0;
       double x_raw[ZEUS_DIM];
       // initialize x either from PSO array or fallback by RNG
 #pragma unroll
@@ -118,8 +120,13 @@ namespace bfgs {
         double alpha =
           util::lineSearch<Function, ZEUS_DIM>(bestVal, x_arr, p_arr, g_arr, f);
         if (alpha == 0.0) {
-          printf("Alpha is zero, no movement in iteration=%d\n", iter);
+          if (termination::checkZeroSteps<ZEUS_DIM, SaveTrajectories>(
+                r, consecutive_zero_steps, nzerosteps, f, x_arr, g_arr,
+                iter, idx, N, deviceStatus))
+            break;
           alpha = 1e-3;
+        } else {
+          consecutive_zero_steps = 0;
         }
 
         // update current point by taking a step size of alpha in the direction
@@ -365,6 +372,7 @@ namespace bfgs {
            int8_t* deviceStatus,
            const int requiredConverged,
            const double tolerance,
+           const int nzerosteps,
            bool save_trajectories,
            float& ms_opt,
            std::string fun_name,
@@ -459,6 +467,7 @@ namespace bfgs {
                                   MAX_ITER,
                                   requiredConverged,
                                   tolerance,
+                                  nzerosteps,
                                   util::NonNull{d_results.data()},
                                   util::NonNull{states},
                                   util::NonNull{d_ctx},
@@ -482,6 +491,7 @@ namespace bfgs {
                                   MAX_ITER,
                                   requiredConverged,
                                   tolerance,
+                                  nzerosteps,
                                   util::NonNull{d_results.data()},
                                   util::NonNull{states},
                                   util::NonNull{d_ctx},

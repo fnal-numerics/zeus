@@ -216,10 +216,32 @@ if(ZEUS_BUILD_TESTS)
     enable_testing()
     include(Catch)
 
+    function(zeus_add_gpu_catch_test target_name test_name)
+        add_test(
+            NAME ${test_name}
+            COMMAND $<TARGET_FILE:${target_name}> ${ARGN} --reporter console
+        )
+        set_tests_properties(${test_name} PROPERTIES
+            LABELS "${target_name};gpu"
+            RESOURCE_GROUPS "gpus:1"
+        )
+    endfunction()
+
+    function(zeus_discover_tests target_name)
+        zeus_add_gpu_catch_test(${target_name} ${target_name}_gpu "[gpu]~[isolated]")
+
+        catch_discover_tests(${target_name}
+            REPORTER console
+            TEST_SPEC "~[gpu]"
+            PROPERTIES
+                LABELS "${target_name}"
+        )
+    endfunction()
+
     add_executable(non_null_tests test/non_null_tests.cu)
     set_target_properties(non_null_tests PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
     target_link_libraries(non_null_tests PRIVATE zeus test_main)
-    catch_discover_tests(non_null_tests REPORTER console)
+    zeus_discover_tests(non_null_tests)
 
     # One executable per test file so all CUDA device-link (nvlink) steps run
     # in parallel rather than waiting on a single serial nvlink over all TUs.
@@ -241,8 +263,24 @@ if(ZEUS_BUILD_TESTS)
         target_compile_options(${test_name} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)
         target_compile_definitions(${test_name} PRIVATE UNIT_TEST)
         target_link_libraries(${test_name} PRIVATE zeus test_main)
-        catch_discover_tests(${test_name} REPORTER console)
+        zeus_discover_tests(${test_name})
     endforeach()
+
+    zeus_add_gpu_catch_test(
+        pso_tests
+        pso_tests_overflow_memory_gpu
+        "pso::launch throws zeus::CudaError<3> when overflowing the memory"
+    )
+    zeus_add_gpu_catch_test(
+        pso_tests
+        pso_tests_kernel_error_gpu
+        "pso::launch throws zeus::CudaError<4> when the kernel launch fails"
+    )
+    zeus_add_gpu_catch_test(
+        pso_tests
+        pso_tests_malloc_error_gpu
+        "pso::launch throws zeus::CudaError<3> when cudaMalloc fails"
+    )
 
     # Bad objectives test (compile-time failure verification)
     set(BAD_SRC "${CMAKE_CURRENT_SOURCE_DIR}/test/bad_objectives.cu")

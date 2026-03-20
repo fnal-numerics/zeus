@@ -140,7 +140,7 @@ kernel_struct_access(util::NonNull<TestData*> data, double* out_val, int* out_co
   }
 }
 
-TEST_CASE("NonNull: Usage in CUDA kernel - array operations", "[NonNull][device]")
+TEST_CASE("NonNull: Usage in CUDA kernel - array operations", "[NonNull][device][gpu]")
 {
   const int size = 10;
   double h_input[size];
@@ -180,7 +180,7 @@ TEST_CASE("NonNull: Usage in CUDA kernel - array operations", "[NonNull][device]
   cudaFree(d_output);
 }
 
-TEST_CASE("NonNull: Dereference in CUDA kernel", "[NonNull][device]")
+TEST_CASE("NonNull: Dereference in CUDA kernel", "[NonNull][device][gpu]")
 {
   double h_value = 5.5;
   double h_result = 0.0;
@@ -205,7 +205,7 @@ TEST_CASE("NonNull: Dereference in CUDA kernel", "[NonNull][device]")
   cudaFree(d_result);
 }
 
-TEST_CASE("NonNull: Struct member access in CUDA kernel", "[NonNull][device]")
+TEST_CASE("NonNull: Struct member access in CUDA kernel", "[NonNull][device][gpu]")
 {
   TestData h_data{42.42, 123};
   double h_out_val = 0.0;

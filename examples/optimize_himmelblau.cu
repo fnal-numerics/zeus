@@ -34,7 +34,8 @@ main(int argc, char* argv[])
                            params.run_id,
                            params.parallel,
                            params.prng_type,
-                           params.trajectory_file);
+                           params.trajectory_file,
+                           params.nzerosteps);
 
   std::cout << "\n=== Optimization Result ===\n";
   std::cout << "Status: " << result.status << " ";
@@ -48,6 +49,10 @@ main(int argc, char* argv[])
     std::cout << "(CUDA memory allocation failure)";
   else if (result.status == 4)
     std::cout << "(CUDA runtime error)";
+  else if (result.status == 5)
+    std::cout << "(Non-finite values encountered)";
+  else if (result.status == 6)
+    std::cout << "(Consecutive zero-step limit reached)";
   std::cout << "\n";
   std::cout << "Function value: " << std::scientific << result.fval
             << std::defaultfloat << "\n";

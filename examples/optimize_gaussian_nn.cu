@@ -22,7 +22,8 @@ run_gaussian(std::size_t N,
              int run,
              bool parallel,
              zeus::PRNGType prng_type,
-             std::string_view trajectory_file)
+             std::string_view trajectory_file,
+             int nzerosteps)
 {
   using T = double;
   constexpr T off = T(0.5);
@@ -48,7 +49,8 @@ run_gaussian(std::size_t N,
                         run,
                         parallel,
                         prng_type,
-                        trajectory_file);
+                        trajectory_file,
+                        nzerosteps);
   std::cout << "global minimum: " << res.fval << "  (expected 0.0)\n\n";
 }
 
@@ -65,7 +67,8 @@ run_neural_net(std::size_t N,
                int run,
                bool parallel,
                zeus::PRNGType prng_type,
-               std::string_view trajectory_file)
+               std::string_view trajectory_file,
+               int nzerosteps)
 {
   constexpr size_t In = 5;
   constexpr size_t H = 15;
@@ -96,7 +99,8 @@ run_neural_net(std::size_t N,
                         run,
                         parallel,
                         prng_type,
-                        trajectory_file);
+                        trajectory_file,
+                        nzerosteps);
   std::cout << "final loss: " << res.fval << "\n\n";
 }
 
@@ -111,7 +115,8 @@ main(int argc, char* argv[])
     std::cerr
       << "Usage: " << argv[0]
       << " <num_optimizations> <max_bfgs_iter> <run_id> "
-         "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]\n";
+         "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]"
+         " [--nzerosteps <n>]\n";
     return 1;
   }
   const std::size_t N = std::stoul(argv[1]);
@@ -121,6 +126,7 @@ main(int argc, char* argv[])
   std::string trajectory_file;
   zeus::PRNGType prng_type = zeus::PRNGType::XORWOW;
   bool parallel = false;
+  int nzerosteps = 0;
   for (int i = 4; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg == "--parallel") {
@@ -139,6 +145,8 @@ main(int argc, char* argv[])
         std::cerr << "Unknown PRNG type: " << val
                   << ". Using default xorwow.\n";
       }
+    } else if (arg == "--nzerosteps" && i + 1 < argc) {
+      nzerosteps = std::stoi(argv[++i]);
     } else {
       std::cerr << "Unknown argument: " << arg << "\n";
       return 1;
@@ -147,8 +155,8 @@ main(int argc, char* argv[])
 
   util::setStackSize();
 
-  run_gaussian(N, bfgs, run, parallel, prng_type, trajectory_file);
-  run_neural_net(N, bfgs, run, parallel, prng_type, trajectory_file);
+  run_gaussian(N, bfgs, run, parallel, prng_type, trajectory_file, nzerosteps);
+  run_neural_net(N, bfgs, run, parallel, prng_type, trajectory_file, nzerosteps);
 
   return 0;
 }

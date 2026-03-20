@@ -72,21 +72,21 @@ run_grad(const double x[D], double out[D])
 // TEST_CASEs below
 
 // Value tests
-TEST_CASE("Rastrigin@origin", "[fun][value]")
+TEST_CASE("Rastrigin@origin", "[fun][value][gpu]")
 {
   constexpr size_t D = 2;
   double x[D] = {0.0, 0.0};
   REQUIRE(run_value<util::Rastrigin, D>(x) == Approx(0.0));
 }
 
-TEST_CASE("Ackley@origin", "[fun][value]")
+TEST_CASE("Ackley@origin", "[fun][value][gpu]")
 {
   constexpr size_t D = 2;
   double x[D] = {0.0, 0.0};
   REQUIRE(run_value<util::Ackley, D>(x) == Approx(0.0).margin(1e-6));
 }
 
-TEST_CASE("Rosenbrock@min", "[fun][value]")
+TEST_CASE("Rosenbrock@min", "[fun][value][gpu]")
 {
   constexpr size_t D = 2;
   double x[D] = {1.0, 1.0};
@@ -94,7 +94,7 @@ TEST_CASE("Rosenbrock@min", "[fun][value]")
 }
 
 // Gradient tests
-TEST_CASE("grad_Rastrigin@origin", "[fun][grad]")
+TEST_CASE("grad_Rastrigin@origin", "[fun][grad][gpu]")
 {
   constexpr size_t D = 2;
   double x[D] = {0.0, 0.0};
@@ -104,7 +104,7 @@ TEST_CASE("grad_Rastrigin@origin", "[fun][grad]")
     REQUIRE(got[i] == Approx(expect[i]));
 }
 
-TEST_CASE("grad_Ackley@origin", "[fun][grad]")
+TEST_CASE("grad_Ackley@origin", "[fun][grad][gpu]")
 {
   constexpr size_t D = 2;
   double x[D] = {-1e-17, 1e-17};
@@ -117,7 +117,7 @@ TEST_CASE("grad_Ackley@origin", "[fun][grad]")
   }
 }
 
-TEST_CASE("grad_Rosenbrock@min", "[fun][grad]")
+TEST_CASE("grad_Rosenbrock@min", "[fun][grad][gpu]")
 {
   constexpr size_t D = 2;
   double x[D] = {1.0, 1.0};

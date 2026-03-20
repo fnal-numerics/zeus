@@ -23,7 +23,7 @@ testVectorScaleKernel(const double* a, double s, double* r, int n)
   util::vectorScale(a, s, r, n);
 }
 
-TEST_CASE("vectorAdd works on small arrays", "[utils][vector]")
+TEST_CASE("vectorAdd works on small arrays", "[utils][vector][gpu]")
 {
   constexpr int N = 5;
   double hA[N] = {1, 2, 3, 4, 5}, hB[N] = {5, 4, 3, 2, 1}, hR[N] = {0};
@@ -44,7 +44,7 @@ TEST_CASE("vectorAdd works on small arrays", "[utils][vector]")
   cudaFree(dR);
 }
 
-TEST_CASE("vectorScale works for small arrays", "[utils][vector]")
+TEST_CASE("vectorScale works for small arrays", "[utils][vector][gpu]")
 {
   constexpr int N = 5;
   double hA[N] = {1, 2, 3, 4, 5}, hR[N] = {0};
@@ -80,7 +80,7 @@ TEST_CASE("Sentinel pointers are unique and stable")
   REQUIRE(KERNEL_ERROR == const_cast<double*>(&kernel_error));
 }
 
-TEST_CASE("freeCudaPtrs actually frees device allocations")
+TEST_CASE("freeCudaPtrs actually frees device allocations", "[gpu]")
 {
   double *p1 = nullptr, *p2 = nullptr, *p3 = nullptr;
 
@@ -99,7 +99,7 @@ TEST_CASE("freeCudaPtrs actually frees device allocations")
   cudaGetLastError();
 }
 
-TEST_CASE("cleanupAndFail returns the kernel-error sentinel")
+TEST_CASE("cleanupAndFail returns the kernel-error sentinel", "[gpu]")
 {
   double *d1 = nullptr, *d2 = nullptr, *d3 = nullptr, *d4 = nullptr,
          *d5 = nullptr, *d6 = nullptr;

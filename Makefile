@@ -4,6 +4,25 @@
 
 REMOTE_HOST ?= perlmutter.nersc.gov
 REMOTE_DIR ?= zeus
+REMOTE_CTEST_JOBS ?= auto
+PERLMUTTER_CTEST_RESOURCE_SPEC ?= ctest-resources.generated.json
+
+define REMOTE_CTEST_SETUP
+'set -e' \
+'cd $(REMOTE_DIR)' \
+'[ -f remote_env.sh ] && . ./remote_env.sh' \
+'cd build' \
+'CTEST_JOBS="$(REMOTE_CTEST_JOBS)"' \
+'if [ "$$CTEST_JOBS" = auto ] || [ -z "$$CTEST_JOBS" ]; then CTEST_JOBS=$$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1); fi' \
+'CTEST_RESOURCE_SPEC="$(PERLMUTTER_CTEST_RESOURCE_SPEC)"' \
+'VISIBLE_DEVICES="$$CUDA_VISIBLE_DEVICES"' \
+'if [ -n "$$VISIBLE_DEVICES" ]; then OLD_IFS="$$IFS"; IFS=,; set -- $$VISIBLE_DEVICES; IFS="$$OLD_IFS"; GPU_COUNT=$$#; else GPU_COUNT=$$(nvidia-smi -L 2>/dev/null | grep -c '^"'"'GPU '"'"' || true); fi' \
+'printf '"'"'{\n  "version": {\n    "major": 1,\n    "minor": 0\n  },\n  "local": [\n    {\n      "gpus": [\n'"'"' > "$$CTEST_RESOURCE_SPEC"' \
+'gpu_index=0' \
+'while [ $$gpu_index -lt $$GPU_COUNT ]; do if [ $$gpu_index -gt 0 ]; then printf '"'"',\n'"'"' >> "$$CTEST_RESOURCE_SPEC"; fi; printf '"'"'        {\n          "id": "%s",\n          "slots": 1\n        }'"'"' "$$gpu_index" >> "$$CTEST_RESOURCE_SPEC"; gpu_index=$$((gpu_index + 1)); done' \
+'printf '"'"'\n      ]\n    }\n  ]\n}\n'"'"' >> "$$CTEST_RESOURCE_SPEC"' \
+'echo "Generated $$CTEST_RESOURCE_SPEC with $$GPU_COUNT visible GPU(s)."'
+endef
 
 .DEFAULT_GOAL := help
 
@@ -37,8 +56,9 @@ help:
 	@echo "  make remote-sync          - Mirror local changes to $(REMOTE_HOST):$(REMOTE_DIR)"
 	@echo "  make remote-build         - Build Zeus on $(REMOTE_HOST) via SSH"
 	@echo "  make remote-test          - Run ctest on $(REMOTE_HOST) via SSH"
-	@echo "  make remote-test-dual     - Run only [dual] Catch2 tests on $(REMOTE_HOST)"
-	@echo "  make remote-test-non-null - Build and run non_null tests on $(REMOTE_HOST)"
+	@echo "                             Auto-detects visible GPUs and CPU count unless overridden"
+	@echo "  make remote-test-dual     - Run only dual_tests ctest entries on $(REMOTE_HOST)"
+	@echo "  make remote-test-non-null - Run only non_null_tests ctest entries on $(REMOTE_HOST)"
 	@echo "  make remote-optimize      - Run optimization on $(REMOTE_HOST) and copy results back (compressed)"
 	@echo "                             Usage: make remote-optimize FUNC=rosenbrock ARGS=\"...\" FILE=out.tsv"
 	@echo "  make remote-clean         - Remove build directory on $(REMOTE_HOST)"
@@ -95,15 +115,15 @@ remote-build: remote-sync
 
 remote-test: remote-build
 	@echo "🧪 Running tests on $(REMOTE_HOST)..."
-	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; cd build && ctest --output-on-failure"
+	@printf '%s\n' $(REMOTE_CTEST_SETUP) 'ctest -j"$$CTEST_JOBS" --resource-spec-file "$$CTEST_RESOURCE_SPEC" --output-on-failure' | ssh $(REMOTE_HOST) /bin/sh
 
-remote-test-dual:
+remote-test-dual: remote-build
 	@echo "🧪 Running only [dual] tests on $(REMOTE_HOST)..."
-	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; cd build && ./dual_tests '[dual]'"
+	@printf '%s\n' $(REMOTE_CTEST_SETUP) 'ctest -j"$$CTEST_JOBS" -L '^"'"'^dual_tests$$'"'"' --resource-spec-file "$$CTEST_RESOURCE_SPEC" --output-on-failure' | ssh $(REMOTE_HOST) /bin/sh
 
-remote-test-non-null:
+remote-test-non-null: remote-build
 	@echo "🧪 Running non_null tests on $(REMOTE_HOST)..."
-	ssh $(REMOTE_HOST) "cd $(REMOTE_DIR) && [ -f remote_env.sh ] && . ./remote_env.sh; mkdir -p build && cd build && cmake -G Ninja -DZEUS_BUILD_TESTS=ON .. && cmake --build . -j && ./non_null_tests"
+	@printf '%s\n' $(REMOTE_CTEST_SETUP) 'ctest -j"$$CTEST_JOBS" -L '^"'"'^non_null_tests$$'"'"' --resource-spec-file "$$CTEST_RESOURCE_SPEC" --output-on-failure' | ssh $(REMOTE_HOST) /bin/sh
 
 remote-optimize: remote-build
 	@if [ -z "$(FUNC)" ] || [ -z "$(ARGS)" ] || [ -z "$(FILE)" ]; then \

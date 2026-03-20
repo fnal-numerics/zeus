@@ -19,7 +19,7 @@ read_device(const Matrix<T>& m)
 }
 
 // host element access & dims (square)
-TEST_CASE("matrix: square host element access & dims", "[matrix][host][square]")
+TEST_CASE("matrix: square host element access & dims", "[matrix][host][square][gpu]")
 {
   constexpr std::size_t N = 4;
 
@@ -39,7 +39,7 @@ TEST_CASE("matrix: square host element access & dims", "[matrix][host][square]")
 }
 
 // host element access & dims (rectangular)
-TEST_CASE("matrix: not square host element access & dims", "[matrix][host]")
+TEST_CASE("matrix: not square host element access & dims", "[matrix][host][gpu]")
 {
   constexpr std::size_t R = 2, C = 3;
   Matrix<double> m(R, C);
@@ -58,7 +58,7 @@ TEST_CASE("matrix: not square host element access & dims", "[matrix][host]")
 }
 
 // copy constructor (values match)
-TEST_CASE("matrix: copy constructor deep-copies values", "[matrix][copy]")
+TEST_CASE("matrix: copy constructor deep-copies values", "[matrix][copy][gpu]")
 {
   constexpr std::size_t R = 3, C = 2;
   Matrix<double> m1(R, C);
@@ -76,7 +76,7 @@ TEST_CASE("matrix: copy constructor deep-copies values", "[matrix][copy]")
 
 // deep copy constructor (no aliasing)
 TEST_CASE("matrix: copy constructor deep-copies, no aliasing",
-          "[matrix][copy][deep]")
+          "[matrix][copy][deep][gpu]")
 {
   constexpr std::size_t R = 2, C = 2;
   Matrix<double> a(R, C);
@@ -99,7 +99,7 @@ TEST_CASE("matrix: copy constructor deep-copies, no aliasing",
 
 // copy assignment deep-copies + syncs device from the new host
 TEST_CASE("matrix: copy assignment deep-copies and syncs device",
-          "[matrix][assign][copy]")
+          "[matrix][assign][copy][gpu]")
 {
   constexpr std::size_t R = 2, C = 2;
 
@@ -127,7 +127,7 @@ TEST_CASE("matrix: copy assignment deep-copies and syncs device",
 
 // copy constructor from a source whose device buffer is stale
 TEST_CASE("matrix: copy ctor uses source host data when device stale",
-          "[matrix][copy][host-source]")
+          "[matrix][copy][host-source][gpu]")
 {
   constexpr std::size_t R = 2, C = 3, N = R * C;
 
@@ -153,7 +153,7 @@ TEST_CASE("matrix: copy ctor uses source host data when device stale",
 
 // move constructor: transfers ownership, nulls source
 TEST_CASE("matrix: move constructor transfers ownership and nulls source",
-          "[matrix][move][ctor]")
+          "[matrix][move][ctor][gpu]")
 {
   Matrix<double> src(1, 1);
   src(0, 0) = 123.456;
@@ -175,7 +175,7 @@ TEST_CASE("matrix: move constructor transfers ownership and nulls source",
 
 // move assignment: transfers ownership, nulls source
 TEST_CASE("matrix: move assignment transfers ownership and nulls source",
-          "[matrix][move][assign]")
+          "[matrix][move][assign][gpu]")
 {
   constexpr std::size_t R = 2, C = 2;
 
@@ -202,7 +202,7 @@ TEST_CASE("matrix: move assignment transfers ownership and nulls source",
 }
 
 // swap correctness
-TEST_CASE("swap(Matrix,Matrix) swaps buffers and dims", "[matrix][swap]")
+TEST_CASE("swap(Matrix,Matrix) swaps buffers and dims", "[matrix][swap][gpu]")
 {
   Matrix<double> a(1, 2), b(2, 1);
   a(0, 0) = 11;
@@ -227,7 +227,7 @@ TEST_CASE("swap(Matrix,Matrix) swaps buffers and dims", "[matrix][swap]")
 }
 
 // copy assignment
-TEST_CASE("matrix: assignment host (copy-assign)", "[matrix][host][assign]")
+TEST_CASE("matrix: assignment host (copy-assign)", "[matrix][host][assign][gpu]")
 {
   Matrix<double> m1(2, 2);
   for (int i = 0; i < 2; ++i)
@@ -245,7 +245,7 @@ TEST_CASE("matrix: assignment host (copy-assign)", "[matrix][host][assign]")
 // setter tests
 // per-element set(i,j, x) performs immediate H->D sync of that element
 TEST_CASE("matrix: set(i,j, x) updates device per element",
-          "[matrix][device][set]")
+          "[matrix][device][set][gpu]")
 {
   Matrix<double> m(2, 2);
   m.set(0, 0, 11.0);
@@ -270,7 +270,7 @@ TEST_CASE("matrix: set(i,j, x) updates device per element",
 
 // bulk set from std::array copies entire buffer to device
 TEST_CASE("matrix: set(std::array) bulk-updates device",
-          "[matrix][device][set][array]")
+          "[matrix][device][set][array][gpu]")
 {
   constexpr int R = 2, C = 3, N = R * C;
   Matrix<double> m(R, C);
@@ -294,7 +294,7 @@ TEST_CASE("matrix: set(std::array) bulk-updates device",
 }
 
 // bulk set from raw pointer
-TEST_CASE("matrix: set(ptr,count) bulk-updates device", "[matrix][device]")
+TEST_CASE("matrix: set(ptr,count) bulk-updates device", "[matrix][device][gpu]")
 {
   constexpr int R = 3, C = 2, N = R * C;
   Matrix<double> m(R, C);
@@ -327,7 +327,7 @@ TEST_CASE("matrix: constructor rejects zero dims", "[matrix][errors]")
 }
 
 // OOB access throws
-TEST_CASE("matrix: operator() bounds check", "[matrix][errors][bounds]")
+TEST_CASE("matrix: operator() bounds check", "[matrix][errors][bounds][gpu]")
 {
   Matrix<double> m(2, 2);
   REQUIRE_THROWS_AS(m(2, 0), std::out_of_range);
@@ -335,7 +335,7 @@ TEST_CASE("matrix: operator() bounds check", "[matrix][errors][bounds]")
 }
 
 // set(std::array) with mismatched size throws
-TEST_CASE("matrix: set(std::array) rejects wrong size", "[matrix][errors][set]")
+TEST_CASE("matrix: set(std::array) rejects wrong size", "[matrix][errors][set][gpu]")
 {
   Matrix<double> m(2, 2);
   std::array<double, 3> wrong{{1, 2, 3}}; // expected 4

@@ -78,18 +78,18 @@ TEST_CASE("DeviceMatrix is non-copyable and non-assignable", "[traits]")
   STATIC_REQUIRE(std::is_destructible_v<DeviceMatrix<int>>);
 }
 
-TEST_CASE("DeviceMatrix<int> fill and readback small", "[functional][int]")
+TEST_CASE("DeviceMatrix<int> fill and readback small", "[functional][int][gpu]")
 {
   run_fill_and_check<int>(3, 4, 10);
 }
 
 TEST_CASE("DeviceMatrix<double> fill and readback rectangular",
-          "[functional][double]")
+          "[functional][double][gpu]")
 {
   run_fill_and_check<double>(5, 2, 1.5);
 }
 
-TEST_CASE("Repeated construction/destruction test", "[lifecycle]")
+TEST_CASE("Repeated construction/destruction test", "[lifecycle][gpu]")
 {
   for (int k = 0; k < 5; ++k) {
     run_fill_and_check<std::int32_t>(2, 3, k * 100);

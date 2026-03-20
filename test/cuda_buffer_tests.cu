@@ -5,7 +5,7 @@ using Catch::Approx;
 
 using namespace zeus;
 
-TEST_CASE("allocation of small buffer succeeds", "[DoubleBuffer]")
+TEST_CASE("allocation of small buffer succeeds", "[DoubleBuffer][gpu]")
 {
   DoubleBuffer buf(4);
   REQUIRE(buf.size() == 4);
@@ -31,7 +31,7 @@ TEST_CASE("zero-length buffer behaves correctly", "[DoubleBuffer]")
   REQUIRE(buf.copyToHost(nullptr, 0) == 0);
 }
 
-TEST_CASE("ctor from host array + copyToHost round-trips", "[DoubleBuffer]")
+TEST_CASE("ctor from host array + copyToHost round-trips", "[DoubleBuffer][gpu]")
 {
   std::array<double, 3> host = {{1.1, 2.2, 3.3}};
   DoubleBuffer buf(host);
@@ -39,7 +39,7 @@ TEST_CASE("ctor from host array + copyToHost round-trips", "[DoubleBuffer]")
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("copyToHost(vector&) overload", "[DoubleBuffer]")
+TEST_CASE("copyToHost(vector&) overload", "[DoubleBuffer][gpu]")
 {
   std::array<double, 2> host = {{4.4, 5.5}};
   DoubleBuffer buf(host);
@@ -49,7 +49,7 @@ TEST_CASE("copyToHost(vector&) overload", "[DoubleBuffer]")
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("copy ctor performs deep copy", "[DoubleBuffer]")
+TEST_CASE("copy ctor performs deep copy", "[DoubleBuffer][gpu]")
 {
   std::array<double, 2> host = {{6.6, 7.7}};
   DoubleBuffer a(host);
@@ -63,7 +63,7 @@ TEST_CASE("copy ctor performs deep copy", "[DoubleBuffer]")
   REQUIRE(vb[1] == host[1]);
 }
 
-TEST_CASE("copy assignment (self and distinct) is safe", "[DoubleBuffer]")
+TEST_CASE("copy assignment (self and distinct) is safe", "[DoubleBuffer][gpu]")
 {
   DoubleBuffer a(5);
   void* old_d = a.data();
@@ -79,7 +79,7 @@ TEST_CASE("copy assignment (self and distinct) is safe", "[DoubleBuffer]")
   REQUIRE(b.copyToHost() == a.copyToHost()); // contents should match
 }
 
-TEST_CASE("raw-pointer copyToHost size-mismatch yields error", "[DoubleBuffer]")
+TEST_CASE("raw-pointer copyToHost size-mismatch yields error", "[DoubleBuffer][gpu]")
 {
   std::array<double, 2> host = {{8.8, 9.9}};
   DoubleBuffer buf(host);
@@ -87,7 +87,7 @@ TEST_CASE("raw-pointer copyToHost size-mismatch yields error", "[DoubleBuffer]")
   REQUIRE(buf.copyToHost(small, 1) != 0);
 }
 
-TEST_CASE("move constructor transfers ownership", "[DoubleBuffer]")
+TEST_CASE("move constructor transfers ownership", "[DoubleBuffer][gpu]")
 {
   std::array<double, 3> host = {{1.0, 2.0, 3.0}};
   DoubleBuffer a(host);
@@ -101,7 +101,7 @@ TEST_CASE("move constructor transfers ownership", "[DoubleBuffer]")
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("move assignment transfers ownership", "[DoubleBuffer]")
+TEST_CASE("move assignment transfers ownership", "[DoubleBuffer][gpu]")
 {
   std::array<double, 2> host = {{5.5, 6.6}};
   DoubleBuffer a(host);
@@ -117,7 +117,7 @@ TEST_CASE("move assignment transfers ownership", "[DoubleBuffer]")
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("repeated allocate/free does not crash", "[DoubleBuffer][destructor]")
+TEST_CASE("repeated allocate/free does not crash", "[DoubleBuffer][destructor][gpu]")
 {
   // Create and destroy a buffer 1000 times
   for (int i = 0; i < 1000; ++i) {
@@ -129,26 +129,22 @@ TEST_CASE("repeated allocate/free does not crash", "[DoubleBuffer][destructor]")
 }
 
 TEST_CASE("destructor actually frees device memory",
-          "[DoubleBuffer][destructor]")
+          "[DoubleBuffer][destructor][gpu]")
 {
-  size_t free_before, total;
-  // query free/total device memory before
-  auto st = cudaMemGetInfo(&free_before, &total);
-  REQUIRE(st == cudaSuccess);
+  double* raw_ptr = nullptr;
 
   {
     // allocate ~8 MB
     DoubleBuffer buf(1024 * 1024);
-    REQUIRE(buf.data() != nullptr);
+    raw_ptr = buf.data();
+    REQUIRE(raw_ptr != nullptr);
     // destructor will run at the end of this scope
   }
 
-  size_t free_after;
-  st = cudaMemGetInfo(&free_after, &total);
-  REQUIRE(st == cudaSuccess);
-
-  // after destruction, free memory should be at least as large as before
-  REQUIRE(free_after >= free_before);
+  // If ownership was released by the destructor, a second free must fail.
+  const auto st = cudaFree(raw_ptr);
+  REQUIRE(st != cudaSuccess);
+  cudaGetLastError();
 }
 
 TEST_CASE("default constructor creates empty buffer",
@@ -165,7 +161,7 @@ TEST_CASE("default constructor creates empty buffer",
   // should be safe to destroy (destructor shouldn't call cudaFree on nullptr)
 }
 
-TEST_CASE("swap exchanges buffer contents", "[DoubleBuffer][swap]")
+TEST_CASE("swap exchanges buffer contents", "[DoubleBuffer][swap][gpu]")
 {
   std::array<double, 3> host_a = {{1.0, 2.0, 3.0}};
   std::array<double, 2> host_b = {{4.0, 5.0}};
@@ -196,7 +192,7 @@ TEST_CASE("swap exchanges buffer contents", "[DoubleBuffer][swap]")
   REQUIRE(vec_b == std::vector<double>(host_a.begin(), host_a.end()));
 }
 
-TEST_CASE("swap with empty buffer", "[DoubleBuffer][swap]")
+TEST_CASE("swap with empty buffer", "[DoubleBuffer][swap][gpu]")
 {
   std::array<double, 2> host = {{7.0, 8.0}};
   DoubleBuffer a(host);
@@ -216,7 +212,7 @@ TEST_CASE("swap with empty buffer", "[DoubleBuffer][swap]")
   REQUIRE(vec_b == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("implicit conversion to raw pointer", "[DoubleBuffer][conversion]")
+TEST_CASE("implicit conversion to raw pointer", "[DoubleBuffer][conversion][gpu]")
 {
   std::array<double, 3> host = {{1.5, 2.5, 3.5}};
   DoubleBuffer buf(host);
@@ -241,7 +237,7 @@ TEST_CASE("implicit conversion for empty buffer", "[DoubleBuffer][conversion]")
   REQUIRE(raw_ptr == nullptr);
 }
 
-TEST_CASE("operator== compares pointer and size", "[DoubleBuffer][equality]")
+TEST_CASE("operator== compares pointer and size", "[DoubleBuffer][equality][gpu]")
 {
   std::array<double, 3> host = {{1.0, 2.0, 3.0}};
   DoubleBuffer a(host);
@@ -268,7 +264,7 @@ TEST_CASE("operator== for empty buffers", "[DoubleBuffer][equality]")
   REQUIRE(a == c);
 }
 
-TEST_CASE("operator== after move", "[DoubleBuffer][equality]")
+TEST_CASE("operator== after move", "[DoubleBuffer][equality][gpu]")
 {
   std::array<double, 2> host = {{5.0, 6.0}};
   DoubleBuffer a(host);

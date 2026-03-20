@@ -12,6 +12,37 @@ using Catch::Approx;
 
 using namespace zeus;
 
+namespace {
+
+void
+require_cuda_success(cudaError_t status, const char* action)
+{
+  INFO(action << ": " << cudaGetErrorString(status));
+  REQUIRE(status == cudaSuccess);
+}
+
+void
+require_cuda_launch_success(const char* kernel_name)
+{
+  require_cuda_success(cudaGetLastError(), kernel_name);
+}
+
+template<typename T>
+struct DeviceBuffer {
+  T* ptr = nullptr;
+
+  ~DeviceBuffer()
+  {
+    if (ptr != nullptr)
+      cudaFree(ptr);
+  }
+
+  T** out() { return &ptr; }
+  T* get() const { return ptr; }
+};
+
+} // namespace
+
 // 1D quadratic function for testing
 struct Quadratic {
   static constexpr std::size_t arity = 1;
@@ -79,100 +110,112 @@ Check: 0 ≤ 0.4 ? Yes, so we stop with α=0.5.
 
 Thus the correct expected step-size is 0.5.
 */
-TEST_CASE("device lineSearch on x^2 from x=1 gives α=1", "[bfgs][line_search]")
+TEST_CASE("device lineSearch on x^2 from x=1 gives α=1", "[bfgs][line_search][gpu]")
 {
   double hX[1] = {1.0}, hP[1] = {-2.0}, hG[1] = {2.0};
-  double *dX, *dP, *dG, *dOut;
-  cudaMalloc(&dX, sizeof(hX));
-  cudaMalloc(&dP, sizeof(hP));
-  cudaMalloc(&dG, sizeof(hG));
-  cudaMalloc(&dOut, sizeof(double));
-  cudaMemcpy(dX, hX, sizeof(hX), cudaMemcpyHostToDevice);
-  cudaMemcpy(dP, hP, sizeof(hP), cudaMemcpyHostToDevice);
-  cudaMemcpy(dG, hG, sizeof(hG), cudaMemcpyHostToDevice);
+  DeviceBuffer<double> dX, dP, dG, dOut;
+  require_cuda_success(cudaMalloc(dX.out(), sizeof(hX)), "cudaMalloc dX");
+  require_cuda_success(cudaMalloc(dP.out(), sizeof(hP)), "cudaMalloc dP");
+  require_cuda_success(cudaMalloc(dG.out(), sizeof(hG)), "cudaMalloc dG");
+  require_cuda_success(cudaMalloc(dOut.out(), sizeof(double)), "cudaMalloc dOut");
+  require_cuda_success(
+    cudaMemcpy(dX.get(), hX, sizeof(hX), cudaMemcpyHostToDevice),
+    "cudaMemcpy hX -> dX");
+  require_cuda_success(
+    cudaMemcpy(dP.get(), hP, sizeof(hP), cudaMemcpyHostToDevice),
+    "cudaMemcpy hP -> dP");
+  require_cuda_success(
+    cudaMemcpy(dG.get(), hG, sizeof(hG), cudaMemcpyHostToDevice),
+    "cudaMemcpy hG -> dG");
 
   double f0 = 1.0;
-  testLineSearch<<<1, 1>>>(dX, dP, dG, f0, dOut);
-  cudaDeviceSynchronize();
+  testLineSearch<<<1, 1>>>(dX.get(), dP.get(), dG.get(), f0, dOut.get());
+  require_cuda_launch_success("testLineSearch launch");
+  require_cuda_success(cudaDeviceSynchronize(), "testLineSearch sync");
 
   double alpha;
-  cudaMemcpy(&alpha, dOut, sizeof(double), cudaMemcpyDeviceToHost);
+  require_cuda_success(
+    cudaMemcpy(&alpha, dOut.get(), sizeof(double), cudaMemcpyDeviceToHost),
+    "cudaMemcpy dOut -> alpha");
   REQUIRE(alpha == Approx(0.5).margin(1e-8));
-
-  cudaFree(dX);
-  cudaFree(dP);
-  cudaFree(dG);
-  cudaFree(dOut);
 }
 
-TEST_CASE("device gradient‐norm of [3,4] is 5", "[bfgs][norm]")
+TEST_CASE("device gradient‐norm of [3,4] is 5", "[bfgs][norm][gpu]")
 {
   double hG[2] = {3.0, 4.0}, out;
-  double *dG, *dOut;
-  cudaMalloc(&dG, sizeof(hG));
-  cudaMalloc(&dOut, sizeof(double));
-  cudaMemcpy(dG, hG, sizeof(hG), cudaMemcpyHostToDevice);
+  DeviceBuffer<double> dG, dOut;
+  require_cuda_success(cudaMalloc(dG.out(), sizeof(hG)), "cudaMalloc dG");
+  require_cuda_success(cudaMalloc(dOut.out(), sizeof(double)), "cudaMalloc dOut");
+  require_cuda_success(
+    cudaMemcpy(dG.get(), hG, sizeof(hG), cudaMemcpyHostToDevice),
+    "cudaMemcpy hG -> dG");
 
-  testGradNorm<<<1, 1>>>(dG, dOut);
-  cudaDeviceSynchronize();
-  cudaMemcpy(&out, dOut, sizeof(double), cudaMemcpyDeviceToHost);
+  testGradNorm<<<1, 1>>>(dG.get(), dOut.get());
+  require_cuda_launch_success("testGradNorm launch");
+  require_cuda_success(cudaDeviceSynchronize(), "testGradNorm sync");
+  require_cuda_success(
+    cudaMemcpy(&out, dOut.get(), sizeof(double), cudaMemcpyDeviceToHost),
+    "cudaMemcpy dOut -> out");
 
   REQUIRE(out == Approx(5.0).margin(1e-12));
-
-  cudaFree(dG);
-  cudaFree(dOut);
 }
 
-TEST_CASE("device identity init sets H=I for 3×3", "[bfgs][identity]")
+TEST_CASE("device identity init sets H=I for 3×3", "[bfgs][identity][gpu]")
 {
   constexpr int DIM = 3;
   double hH[DIM * DIM];
-  double* dH;
-  cudaMalloc(&dH, sizeof(hH));
+  DeviceBuffer<double> dH;
+  require_cuda_success(cudaMalloc(dH.out(), sizeof(hH)), "cudaMalloc dH");
 
-  testIdentity<<<1, 1>>>(dH, DIM);
-  cudaDeviceSynchronize();
-  cudaMemcpy(hH, dH, sizeof(hH), cudaMemcpyDeviceToHost);
+  testIdentity<<<1, 1>>>(dH.get(), DIM);
+  require_cuda_launch_success("testIdentity launch");
+  require_cuda_success(cudaDeviceSynchronize(), "testIdentity sync");
+  require_cuda_success(
+    cudaMemcpy(hH, dH.get(), sizeof(hH), cudaMemcpyDeviceToHost),
+    "cudaMemcpy dH -> hH");
 
   for (int i = 0; i < DIM; i++) {
     for (int j = 0; j < DIM; j++) {
       REQUIRE(hH[i * DIM + j] == Approx(i == j ? 1.0 : 0.0).margin(1e-12));
     }
   }
-  cudaFree(dH);
 }
 
 TEST_CASE("device computeSearchDirection uses H=I -> p=-g for 3D",
-          "[bfgs][direction]")
+          "[bfgs][direction][gpu]")
 {
   constexpr int DIM = 3;
   double hH[DIM * DIM], hG[DIM] = {1.0, -2.0, 0.5}, hP[DIM];
-  double *dH, *dG, *dP;
+  DeviceBuffer<double> dH, dG, dP;
   // host‐side identity fill
   for (int i = 0; i < DIM; ++i)
     for (int j = 0; j < DIM; ++j)
       hH[i * DIM + j] = (i == j ? 1.0 : 0.0);
   // util::initialize_identity_matrix(hH, DIM);
-  cudaMalloc(&dH, sizeof(hH));
-  cudaMalloc(&dG, sizeof(hG));
-  cudaMalloc(&dP, sizeof(hP));
-  cudaMemcpy(dH, hH, sizeof(hH), cudaMemcpyHostToDevice);
-  cudaMemcpy(dG, hG, sizeof(hG), cudaMemcpyHostToDevice);
+  require_cuda_success(cudaMalloc(dH.out(), sizeof(hH)), "cudaMalloc dH");
+  require_cuda_success(cudaMalloc(dG.out(), sizeof(hG)), "cudaMalloc dG");
+  require_cuda_success(cudaMalloc(dP.out(), sizeof(hP)), "cudaMalloc dP");
+  require_cuda_success(
+    cudaMemcpy(dH.get(), hH, sizeof(hH), cudaMemcpyHostToDevice),
+    "cudaMemcpy hH -> dH");
+  require_cuda_success(
+    cudaMemcpy(dG.get(), hG, sizeof(hG), cudaMemcpyHostToDevice),
+    "cudaMemcpy hG -> dG");
 
-  testSearchDir<<<1, 1>>>(dH, dG, dP);
-  cudaDeviceSynchronize();
-  cudaMemcpy(hP, dP, sizeof(hP), cudaMemcpyDeviceToHost);
+  testSearchDir<<<1, 1>>>(dH.get(), dG.get(), dP.get());
+  require_cuda_launch_success("testSearchDir launch");
+  require_cuda_success(cudaDeviceSynchronize(), "testSearchDir sync");
+  require_cuda_success(
+    cudaMemcpy(hP, dP.get(), sizeof(hP), cudaMemcpyDeviceToHost),
+    "cudaMemcpy dP -> hP");
 
   for (int i = 0; i < DIM; i++) {
     REQUIRE(hP[i] == Approx(-hG[i]).margin(1e-12));
   }
-  cudaFree(dH);
-  cudaFree(dG);
-  cudaFree(dP);
 }
 
 TEST_CASE("device bfgsUpdate updates H correctly for a 2D step",
-          "[bfgs][update]")
+          "[bfgs][update][gpu]")
 {
   constexpr int DIM = 2;
   double hH[DIM * DIM];
@@ -181,31 +224,36 @@ TEST_CASE("device bfgsUpdate updates H correctly for a 2D step",
       hH[i * DIM + j] = (i == j ? 1.0 : 0.0);
   // util::initialize_identity_matrix(hH,DIM);
   double dx[DIM] = {1.0, 0.0}, dg[DIM] = {2.0, 0.0};
-  double *dH, *ddx, *ddg;
-  cudaMalloc(&dH, sizeof(hH));
-  cudaMalloc(&ddx, sizeof(dx));
-  cudaMalloc(&ddg, sizeof(dg));
-  cudaMemcpy(dH, hH, sizeof(hH), cudaMemcpyHostToDevice);
-  cudaMemcpy(ddx, dx, sizeof(dx), cudaMemcpyHostToDevice);
-  cudaMemcpy(ddg, dg, sizeof(dg), cudaMemcpyHostToDevice);
+  DeviceBuffer<double> dH, ddx, ddg;
+  require_cuda_success(cudaMalloc(dH.out(), sizeof(hH)), "cudaMalloc dH");
+  require_cuda_success(cudaMalloc(ddx.out(), sizeof(dx)), "cudaMalloc ddx");
+  require_cuda_success(cudaMalloc(ddg.out(), sizeof(dg)), "cudaMalloc ddg");
+  require_cuda_success(
+    cudaMemcpy(dH.get(), hH, sizeof(hH), cudaMemcpyHostToDevice),
+    "cudaMemcpy hH -> dH");
+  require_cuda_success(
+    cudaMemcpy(ddx.get(), dx, sizeof(dx), cudaMemcpyHostToDevice),
+    "cudaMemcpy dx -> ddx");
+  require_cuda_success(
+    cudaMemcpy(ddg.get(), dg, sizeof(dg), cudaMemcpyHostToDevice),
+    "cudaMemcpy dg -> ddg");
 
   double dot = 2.0;
-  testBfgsUpdate<<<1, 1>>>(dH, ddx, ddg, dot);
-  cudaDeviceSynchronize();
-  cudaMemcpy(hH, dH, sizeof(hH), cudaMemcpyDeviceToHost);
+  testBfgsUpdate<<<1, 1>>>(dH.get(), ddx.get(), ddg.get(), dot);
+  require_cuda_launch_success("testBfgsUpdate launch");
+  require_cuda_success(cudaDeviceSynchronize(), "testBfgsUpdate sync");
+  require_cuda_success(
+    cudaMemcpy(hH, dH.get(), sizeof(hH), cudaMemcpyDeviceToHost),
+    "cudaMemcpy dH -> hH");
 
   REQUIRE(hH[0] == Approx(0.5).margin(1e-12));
   REQUIRE(hH[1] == Approx(0.0).margin(1e-12));
   REQUIRE(hH[2] == Approx(0.0).margin(1e-12));
   REQUIRE(hH[3] == Approx(1.0).margin(1e-12));
-
-  cudaFree(dH);
-  cudaFree(ddx);
-  cudaFree(ddg);
 }
 
 TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
-          "[bfgs][optimize]")
+          "[bfgs][optimize][gpu]")
 {
   constexpr int N = 1, DIM = 2;
   const double lower = -5.0, upper = 5.0;
@@ -249,6 +297,7 @@ TEST_CASE("bfgs::launch converges immediately for util::Rastrigin<2>",
       /*deviceStatus*/ nullptr,
       /*requiredConverged*/ requiredConverged,
       /*tolerance*/ tolerance,
+      /*nzerosteps*/ 0,
       /*save_trajectories*/ false,
       /*ms_opt*/ ms_opt,
       /*fun_name*/ fun_name,
@@ -277,7 +326,7 @@ struct Quad {
   }
 };
 
-TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
+TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt][gpu]")
 {
   constexpr int N = 1, DIM = 2;
   double hInit[DIM] = {4.5, 4.5};
@@ -309,6 +358,7 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
     /*deviceStatus*/ nullptr,
     /*requiredConverged*/ 1,
     /*tolerance*/ 1e-6,
+    /*nzerosteps*/ 0,
     /*save_trajectories*/ false,
     /*ms_opt*/ ms_opt,
     /*fun_name*/ fun_name,
@@ -327,7 +377,7 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt]")
   cudaFree(d_states);
 }
 
-TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
+TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize][gpu]")
 {
   constexpr int N = 1, DIM = 2;
   const double lower = -5.0, upper = 5.0;
@@ -370,6 +420,7 @@ TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize]")
       /*deviceStatus*/ nullptr,
       /*requiredConverged*/ requiredConverged,
       /*tolerance*/ tolerance,
+      /*nzerosteps*/ 0,
       /*save_trajectories*/ false,
       /*ms_opt*/ ms_opt,
       /*fun_name*/ fun_name,
@@ -417,7 +468,7 @@ struct BadObjective {
   }
 };
 
-TEST_CASE("good/bad objective test", "[bfgs][objective]")
+TEST_CASE("good/bad objective test", "[bfgs][objective][gpu]")
 {
   const int N = 1, MAX_ITER = 1, requiredConverged = 1;
   const double lower = 0.0, upper = 1.0, tolerance = 1e-6;
@@ -458,6 +509,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
                  MAX_ITER,
                  requiredConverged,
                  tolerance,
+                 /*nzerosteps=*/0,
                  util::NonNull{d_out},
                  util::NonNull{states},
                  util::NonNull{d_ctx});
@@ -487,7 +539,7 @@ TEST_CASE("good/bad objective test", "[bfgs][objective]")
 #endif
 }
 
-TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
+TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory][gpu]")
 {
   // Use a large MAX_ITER so BFGS converges well before the buffer fills.
   // We then verify: slots up to convergence have valid data; slots after have
@@ -552,6 +604,7 @@ TEST_CASE("Trajectory saving writes to buffer", "[bfgs][trajectory]")
                  MAX_ITER,
                  requiredConverged,
                  tolerance,
+                 /*nzerosteps=*/0,
                  util::NonNull{d_out},
                  util::NonNull{states},
                  util::NonNull{d_ctx});

@@ -86,6 +86,7 @@ namespace bfgs {
                   const int MAX_ITER,
                   const int requiredConverged,
                   const double tolerance,
+                  const int nzerosteps,
                   util::NonNull<zeus::Result<ZEUS_DIM>*> result,
                   util::NonNull<StateType*> states,
                   util::NonNull<util::BFGSContext*> ctx)
@@ -116,6 +117,7 @@ namespace bfgs {
       std::array<double, ZEUS_DIM> x_arr, x_new, g_arr, g_new, p_arr;
       DeviceMatrix<double> H(ZEUS_DIM, ZEUS_DIM), Htmp(ZEUS_DIM, ZEUS_DIM);
       zeus::Result<ZEUS_DIM> r;
+      int consecutive_zero_steps = 0;
 
       // init
       if (tile.thread_rank() == 0) {
@@ -181,11 +183,20 @@ namespace bfgs {
             deviceAlpha[iter * N + tile_global_id] = alpha;
           }
           if (alpha == 0.0) {
-            alpha = 1e-3;
+            if (termination::checkZeroSteps<ZEUS_DIM, SaveTrajectories>(
+                  r, consecutive_zero_steps, nzerosteps, f, x_arr, g_arr,
+                  iter, tile_global_id, N, deviceStatus))
+              *done_flag = 1;
+            else
+              alpha = 1e-3;
+          } else {
+            consecutive_zero_steps = 0;
           }
-          for (int d = 0; d < ZEUS_DIM; ++d) {
-            x_new[d] = x_arr[d] + alpha * p_arr[d];
-            x_shared[d] = x_new[d]; // publish to tile for gradient
+          if (!*done_flag) {
+            for (int d = 0; d < ZEUS_DIM; ++d) {
+              x_new[d] = x_arr[d] + alpha * p_arr[d];
+              x_shared[d] = x_new[d]; // publish to tile for gradient
+            }
           }
         }
         tile.sync();
@@ -275,6 +286,7 @@ namespace bfgs {
            double* hostAlpha,
            const int requiredConverged,
            const double tolerance,
+           const int nzerosteps,
            bool save_trajectories,
            float& ms_opt,
            std::string fun_name,
@@ -356,6 +368,7 @@ namespace bfgs {
             MAX_ITER,
             requiredConverged,
             tolerance,
+            nzerosteps,
             util::NonNull{d_results.data()},
             util::NonNull{states},
             util::NonNull{d_ctx});
@@ -376,6 +389,7 @@ namespace bfgs {
             MAX_ITER,
             requiredConverged,
             tolerance,
+            nzerosteps,
             util::NonNull{d_results.data()},
             util::NonNull{states},
             util::NonNull{d_ctx});
