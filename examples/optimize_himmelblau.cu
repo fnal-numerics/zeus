@@ -1,7 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include "zeus.cuh"
-#include "sample_functions.hpp"
+#include "himmelblau.hpp"
 #include "optimization_utils.hpp"
 
 using namespace zeus_examples;

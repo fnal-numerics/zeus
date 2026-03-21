@@ -10,12 +10,13 @@ budget, tolerance, etc.) to measure convergence rate and solution quality.
 
 ## Common Command-Line Interface
 
-Every program accepts exactly the same nine positional arguments and an optional trajectory saving flag:
+Every program accepts exactly the same nine positional arguments plus a set of optional flags:
 
 ```
 <executable> <lower_bound> <upper_bound> <max_iter> <pso_iters> \
              <required_converged> <num_optimizations> <tolerance> <seed> <run_id> \
-             [--save-trajectories <filename>]
+             [--parallel] [--save-trajectories <filename>] \
+             [--prng <xorwow|philox|sobol>] [--nzerosteps <n>]
 ```
 
 | Position | Argument | Type | Description |
@@ -29,7 +30,10 @@ Every program accepts exactly the same nine positional arguments and an optional
 | 7 | `tolerance` | `double` | Gradient-norm convergence threshold |
 | 8 | `seed` | `int` | RNG seed for reproducible swarm initialization |
 | 9 | `run_id` | `int` | Integer label written to output, useful when sweeping over multiple runs |
+| Optional | `--parallel` | flag | Use the parallel BFGS algorithm instead of the sequential one |
 | Optional | `--save-trajectories <filename>` | `string` | Saves the optimization trajectory data to the specified TSV file |
+| Optional | `--prng <xorwow\|philox\|sobol>` | `string` | PRNG backend for swarm initialization (default: `xorwow`) |
+| Optional | `--nzerosteps <n>` | `int` | Stop a thread early after `n` consecutive zero-length steps (0 = disabled) |
 
 **Example:**
 
@@ -70,7 +74,7 @@ Each function is chosen to stress a different aspect of the optimizer.
 
 ### Rosenbrock (`optimize_rosenbrock`)
 
-$$f(\mathbf{x}) = \sum_{i=1}^{D-1} \left[ (1 - x_i)^2 + 100 (x_{i+1} - x_i^2)^2 \right]$$
+$$f(\mathbf{x}) = \sum_{i=1}^{D - 1} \left[ (1 - x_i)^2 + 100 (x_{i+1} - x_i^2)^2 \right]$$
 
 - **Global minimum:** $f(\mathbf{1}) = 0$
 - **Typical bounds:** $[-5, 5]^D$
@@ -109,9 +113,9 @@ $$f(\mathbf{x}) = -20 \exp\!\left(-0.2\sqrt{\tfrac{1}{D}\sum x_i^2}\right) - \ex
 Ackley combines a smooth exponential bowl with a high-frequency cosine
 modulation. Near the origin the landscape is nearly flat, which can confuse
 gradient estimators; far from it, misleading local minima abound. It tests
-whether automatic differentiation through the `exp` and `cos` branches
-produces numerically stable gradients across the full domain, and whether
-PSO can survive the flat near-zero region.
+whether automatic differentiation through the `exp` and `cos` branches produces
+numerically stable gradients across the full domain, and whether PSO can
+survive the flat near-zero region.
 
 ---
 
@@ -119,22 +123,21 @@ PSO can survive the flat near-zero region.
 
 $$f(x_1, x_2) = (x_1^2 + x_2 - 11)^2 + (x_1 + x_2^2 - 7)^2$$
 
-- **Four global minima**, all at $f = 0$:
-  $(3,\,2)$, $(-2.805,\,3.131)$, $(-3.779,\,-3.283)$, $(3.584,\,-1.848)$
+- **Four global minima**, all at $f = 0$: $(3,\, 2)$, $(-2.805,\, 3.131)$, $(-3.779,\, -3.283)$, $(3.584,\, -1.848)$
 - **Typical bounds:** $[-5, 5]^2$
 
 Himmelblau's function is 2D and has four symmetric global minima of equal
-value. It tests whether the optimizer can reliably find *any* of them when
-started from a random swarm, and whether the `required_converged` consensus
-mechanism handles the case where different threads converge to different
-(but equally valid) basins.
+value. It tests whether the optimizer can reliably find any of them when started
+from a random swarm, and whether the `required_converged` consensus mechanism
+handles the case where different threads converge to different (but equally
+valid) basins.
 
 ---
 
 ### Goldstein-Price (`optimize_goldstein_price`)
 
-$$f(x,y) = \bigl[1 + (x+y+1)^2(19 - 14x + 3x^2 - 14y + 6xy + 3y^2)\bigr]$$
-$$\times \bigl[30 + (2x-3y)^2(18 - 32x + 12x^2 + 48y - 36xy + 27y^2)\bigr]$$
+$$f(x, y) = \bigl[1 + (x + y + 1)^2 (19 - 14x + 3x^2 - 14y + 6xy + 3y^2)\bigr]$$
+$$\times \bigl[30 + (2x - 3y)^2 (18 - 32x + 12x^2 + 48y - 36xy + 27y^2)\bigr]$$
 
 - **Global minimum:** $f(0, -1) = 3$
 - **Typical bounds:** $[-2, 2]^2$
@@ -152,7 +155,11 @@ products.
 
 | File | Purpose |
 |------|---------|
-| [sample_functions.hpp](sample_functions.hpp) | `__device__`/`__host__` implementations of all five functions plus their Zeus-compatible callable wrappers (`util::Rosenbrock<D>`, etc.) |
+| [rosenbrock.hpp](rosenbrock.hpp) | `__device__`/`__host__` implementations of the Rosenbrock function plus `util::Rosenbrock<D>` wrapper |
+| [rastrigin.hpp](rastrigin.hpp) | `__device__`/`__host__` implementations of the Rastrigin function plus `util::Rastrigin<D>` wrapper |
+| [ackley.hpp](ackley.hpp) | `__device__`/`__host__` implementations of the Ackley function plus `util::Ackley<D>` wrapper |
+| [himmelblau.hpp](himmelblau.hpp) | `__device__`/`__host__` implementations of the Himmelblau function plus `util::Himmelblau<D>` wrapper |
+| [goldstein_price.hpp](goldstein_price.hpp) | `__device__`/`__host__` implementations of the Goldstein-Price function plus `util::GoldsteinPrice<D>` wrapper |
 | [optimization_utils.hpp](optimization_utils.hpp) | `OptimizationParams` struct, `parse_args()`, and `print_params()` — the shared CLI plumbing used by every driver |
 | [gaussian.hpp](gaussian.hpp) | Example of a user-defined callable using a `Matrix` covariance structure (not used by the benchmark drivers) |
 | [tutorial.md](tutorial.md) | Step-by-step guide for converting a free function into a Zeus-compatible templated callable |
