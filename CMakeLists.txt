@@ -170,14 +170,19 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ZeusConfig.cmake
 
 # Examples
 if(ZEUS_BUILD_EXAMPLES)
+    # Shared host-only utilities (CLI parsing, output formatting) for the benchmark drivers
+    add_library(examples_utils STATIC examples/optimization_utils.cc)
+    target_include_directories(examples_utils
+        PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/examples
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
     # Individual optimizer programs
     set(OPTIMIZERS rosenbrock rastrigin ackley goldstein_price himmelblau)
     set(OPTIMIZER_FLAGS $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr -O3 --use_fast_math -Xptxas=-O3 -rdc=true>)
-    
+
     foreach(optimizer IN LISTS OPTIMIZERS)
         add_executable(optimize_${optimizer} examples/optimize_${optimizer}.cu)
-        target_include_directories(optimize_${optimizer} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/examples)
-        target_link_libraries(optimize_${optimizer} PRIVATE zeus)
+        target_link_libraries(optimize_${optimizer} PRIVATE zeus examples_utils)
         target_compile_options(optimize_${optimizer} PRIVATE ${OPTIMIZER_FLAGS})
     endforeach()
 

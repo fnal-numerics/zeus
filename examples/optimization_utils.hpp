@@ -1,10 +1,6 @@
 #pragma once
 
 #include <string>
-#include <iostream>
-#include <iomanip>
-#include <stdexcept>
-#include <cstdlib>
 #include "../include/traits.hpp"
 
 namespace zeus_examples {
@@ -27,77 +23,17 @@ struct OptimizationParams {
 };
 
 /// Parse command-line arguments into OptimizationParams
-inline bool parse_args(int argc, char* argv[], OptimizationParams& params)
-{
-  if (argc < 10) {
-    std::cerr << "Usage: " << argv[0]
-              << " <lower_bound> <upper_bound> <max_iter> <pso_iters> "
-                 "<converged> <num_optimizations> <tolerance> <seed> <run> "
-                 "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]"
-                 " [--nzerosteps <n>]\n";
-    return false;
-  }
-
-  try {
-    params.lower_bound = std::atof(argv[1]);
-    params.upper_bound = std::atof(argv[2]);
-    params.max_iterations = std::stoi(argv[3]);
-    params.pso_iterations = std::stoi(argv[4]);
-    params.required_converged = std::stoi(argv[5]);
-    params.num_optimizations = std::stoi(argv[6]);
-    params.tolerance = std::stod(argv[7]);
-    params.seed = std::stoi(argv[8]);
-    params.run_id = std::stoi(argv[9]);
-
-    // Parse optional arguments
-    for (int i = 10; i < argc; ++i) {
-      std::string arg = argv[i];
-      if (arg == "--parallel") {
-        params.parallel = true;
-      } else if (arg == "--save-trajectories" && i + 1 < argc) {
-        params.trajectory_file = argv[++i];
-      } else if (arg == "--prng" && i + 1 < argc) {
-        std::string val = argv[++i];
-        if (val == "xorwow") params.prng_type = zeus::PRNGType::XORWOW;
-        else if (val == "philox") params.prng_type = zeus::PRNGType::PHILOX;
-        else if (val == "sobol") params.prng_type = zeus::PRNGType::SOBOL;
-        else {
-          std::cerr << "Unknown PRNG type: " << val << ". Using default xorwow.\n";
-        }
-      } else if (arg == "--nzerosteps" && i + 1 < argc) {
-        params.nzerosteps = std::stoi(argv[++i]);
-      } else {
-        std::cerr << "Unknown or incomplete argument: " << arg << "\n";
-        return false;
-      }
-    }
-  } catch (const std::exception& e) {
-    std::cerr << "Error parsing arguments: " << e.what() << "\n";
-    return false;
-  }
-
-  return true;
-}
+bool parse_args(int argc, char* argv[], OptimizationParams& params);
 
 /// Print optimization parameters to stdout
-inline void print_params(const OptimizationParams& params)
-{
-  std::cout << std::setprecision(10)
-            << "Bounds: [" << params.lower_bound << ", " << params.upper_bound << "]\n"
-            << "Max iterations: " << params.max_iterations << "\n"
-            << "PSO iterations: " << params.pso_iterations << "\n"
-            << "Required converged: " << params.required_converged << "\n"
-            << "Number of optimizations: " << params.num_optimizations << "\n"
-            << "Tolerance: " << params.tolerance << "\n"
-            << "Seed: " << params.seed << "\n"
-            << "Run ID: " << params.run_id << "\n"
-            << "Algorithm: " << (params.parallel ? "parallel" : "sequential") << "\n";
-  if (!params.trajectory_file.empty()) {
-    std::cout << "Trajectory file: " << params.trajectory_file << "\n";
-  }
-  if (params.nzerosteps > 0) {
-    std::cout << "Max consecutive zero steps: " << params.nzerosteps << "\n";
-  }
-}
+void print_params(const OptimizationParams& params);
+
+/// Print the optimization banner, e.g. "=== Ackley Function Optimization (2D) ==="
+void print_banner(const std::string& title, int dim);
+
+/// Print the Zeus result block (status, fval, gradient norm, iterations, time, coordinates)
+void print_result(int status, double fval, double gradientNorm,
+                  int iter, double ms_opt,
+                  const double* coords, int dim);
 
 }  // namespace zeus_examples

@@ -1,5 +1,3 @@
-#include <iostream>
-#include <iomanip>
 #include "zeus.cuh"
 #include "himmelblau.hpp"
 #include "optimization_utils.hpp"
@@ -14,9 +12,8 @@ main(int argc, char* argv[])
     return 1;
   }
 
-  std::cout << "\n=== Himmelblau Function Optimization (2D) ===\n\n";
+  print_banner("Himmelblau Function Optimization", 2);
   print_params(params);
-  std::cout << "\n";
 
   util::setStackSize();
 
@@ -37,36 +34,8 @@ main(int argc, char* argv[])
                            params.trajectory_file,
                            params.nzerosteps);
 
-  std::cout << "\n=== Optimization Result ===\n";
-  std::cout << "Status: " << result.status << " ";
-  if (result.status == 0)
-    std::cout << "(Surrendered - max iterations reached)";
-  else if (result.status == 1)
-    std::cout << "(Converged)";
-  else if (result.status == 2)
-    std::cout << "(Stopped by flag)";
-  else if (result.status == 3)
-    std::cout << "(CUDA memory allocation failure)";
-  else if (result.status == 4)
-    std::cout << "(CUDA runtime error)";
-  else if (result.status == 5)
-    std::cout << "(Non-finite values encountered)";
-  else if (result.status == 6)
-    std::cout << "(Consecutive zero-step limit reached)";
-  std::cout << "\n";
-  std::cout << "Function value: " << std::scientific << result.fval
-            << std::defaultfloat << "\n";
-  std::cout << "Gradient norm: " << std::scientific << result.gradientNorm
-            << std::defaultfloat << "\n";
-  std::cout << "Iterations: " << result.iter << "\n";
-  std::cout << "Optimization time: " << result.ms_opt << " ms\n";
-  std::cout << "Best coordinates: (";
-  for (int i = 0; i < 2; ++i) {
-    std::cout << std::setprecision(10) << result.coordinates[i];
-    if (i < 1)
-      std::cout << ", ";
-  }
-  std::cout << ")\n\n";
+  print_result(result.status, result.fval, result.gradientNorm,
+               result.iter, result.ms_opt, result.coordinates, 2);
 
   return 0;
 }
