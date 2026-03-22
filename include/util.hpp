@@ -71,8 +71,6 @@ namespace util {
     std::string fun_name;
   };
 
-
-
   double calculateEuclideanError(const std::string fun_name,
                                  const double* coordinates,
                                  const int dim);

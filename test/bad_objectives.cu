@@ -1,5 +1,5 @@
-#include "bfgs_sequential.cuh"  // bfgs::sequential::optimize
-#include "duals.cuh" // dual::DualNumber
+#include "bfgs_sequential.cuh" // bfgs::sequential::optimize
+#include "duals.cuh"           // dual::DualNumber
 #include <array>
 
 constexpr int DIM = 2;
@@ -31,18 +31,19 @@ instantiate_bad1()
   Result<DIM>* d_out = nullptr;
 
   // should trigger static_assert -- wrong signature for double)
-  bfgs::sequential::optimize<BadObjective1, DIM, 128><<<1, 128>>>(BadObjective1{},
-                                                            0.0,
-                                                            1.0,
-                                                            d_pso,
-                                                            d_results,
-                                                            nullptr,
-                                                            /*N=*/1,
-                                                            /*MAX_ITER=*/1,
-                                                            /*reqConv=*/1,
-                                                            /*tol=*/1e-6,
-                                                            d_out,
-                                                            states);
+  bfgs::sequential::optimize<BadObjective1, DIM, 128>
+    <<<1, 128>>>(BadObjective1{},
+                 0.0,
+                 1.0,
+                 d_pso,
+                 d_results,
+                 nullptr,
+                 /*N=*/1,
+                 /*MAX_ITER=*/1,
+                 /*reqConv=*/1,
+                 /*tol=*/1e-6,
+                 d_out,
+                 states);
 }
 
 void
@@ -55,18 +56,19 @@ instantiate_bad2()
 
   // this should pass the first check but trigger the static_assert (no
   // DualNumber overload).
-  bfgs::sequential::optimize<BadObjective2, DIM, 128><<<1, 128>>>(BadObjective2{},
-                                                            0.0,
-                                                            1.0,
-                                                            d_pso,
-                                                            d_results,
-                                                            nullptr,
-                                                            /*N=*/1,
-                                                            /*MAX_ITER=*/1,
-                                                            /*reqConv=*/1,
-                                                            /*tol=*/1e-6,
-                                                            d_out,
-                                                            states);
+  bfgs::sequential::optimize<BadObjective2, DIM, 128>
+    <<<1, 128>>>(BadObjective2{},
+                 0.0,
+                 1.0,
+                 d_pso,
+                 d_results,
+                 nullptr,
+                 /*N=*/1,
+                 /*MAX_ITER=*/1,
+                 /*reqConv=*/1,
+                 /*tol=*/1e-6,
+                 d_out,
+                 states);
 }
 
 int

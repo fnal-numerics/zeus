@@ -34,8 +34,13 @@ main(int argc, char* argv[])
                            params.trajectory_file,
                            params.nzerosteps);
 
-  print_result(result.status, result.fval, result.gradientNorm,
-               result.iter, result.ms_opt, result.coordinates, 2);
+  print_result(result.status,
+               result.fval,
+               result.gradientNorm,
+               result.iter,
+               result.ms_opt,
+               result.coordinates,
+               2);
 
   return 0;
 }

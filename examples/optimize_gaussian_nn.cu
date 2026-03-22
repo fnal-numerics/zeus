@@ -112,11 +112,11 @@ int
 main(int argc, char* argv[])
 {
   if (argc < 4) {
-    std::cerr
-      << "Usage: " << argv[0]
-      << " <num_optimizations> <max_bfgs_iter> <run_id> "
-         "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]"
-         " [--nzerosteps <n>]\n";
+    std::cerr << "Usage: " << argv[0]
+              << " <num_optimizations> <max_bfgs_iter> <run_id> "
+                 "[--parallel] [--save-trajectories <filename>] [--prng "
+                 "<xorwow|philox|sobol>]"
+                 " [--nzerosteps <n>]\n";
     return 1;
   }
   const std::size_t N = std::stoul(argv[1]);
@@ -156,7 +156,8 @@ main(int argc, char* argv[])
   util::setStackSize();
 
   run_gaussian(N, bfgs, run, parallel, prng_type, trajectory_file, nzerosteps);
-  run_neural_net(N, bfgs, run, parallel, prng_type, trajectory_file, nzerosteps);
+  run_neural_net(
+    N, bfgs, run, parallel, prng_type, trajectory_file, nzerosteps);
 
   return 0;
 }

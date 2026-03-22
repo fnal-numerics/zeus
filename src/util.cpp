@@ -2,7 +2,6 @@
 
 namespace util {
 
-
   void
   createOutputDirs(const std::string& path)
   {

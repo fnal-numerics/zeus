@@ -14,32 +14,40 @@ using namespace zeus;
 
 namespace {
 
-void
-require_cuda_success(cudaError_t status, const char* action)
-{
-  INFO(action << ": " << cudaGetErrorString(status));
-  REQUIRE(status == cudaSuccess);
-}
-
-void
-require_cuda_launch_success(const char* kernel_name)
-{
-  require_cuda_success(cudaGetLastError(), kernel_name);
-}
-
-template<typename T>
-struct DeviceBuffer {
-  T* ptr = nullptr;
-
-  ~DeviceBuffer()
+  void
+  require_cuda_success(cudaError_t status, const char* action)
   {
-    if (ptr != nullptr)
-      cudaFree(ptr);
+    INFO(action << ": " << cudaGetErrorString(status));
+    REQUIRE(status == cudaSuccess);
   }
 
-  T** out() { return &ptr; }
-  T* get() const { return ptr; }
-};
+  void
+  require_cuda_launch_success(const char* kernel_name)
+  {
+    require_cuda_success(cudaGetLastError(), kernel_name);
+  }
+
+  template <typename T>
+  struct DeviceBuffer {
+    T* ptr = nullptr;
+
+    ~DeviceBuffer()
+    {
+      if (ptr != nullptr)
+        cudaFree(ptr);
+    }
+
+    T**
+    out()
+    {
+      return &ptr;
+    }
+    T*
+    get() const
+    {
+      return ptr;
+    }
+  };
 
 } // namespace
 
@@ -110,14 +118,16 @@ Check: 0 ≤ 0.4 ? Yes, so we stop with α=0.5.
 
 Thus the correct expected step-size is 0.5.
 */
-TEST_CASE("device lineSearch on x^2 from x=1 gives α=1", "[bfgs][line_search][gpu]")
+TEST_CASE("device lineSearch on x^2 from x=1 gives α=1",
+          "[bfgs][line_search][gpu]")
 {
   double hX[1] = {1.0}, hP[1] = {-2.0}, hG[1] = {2.0};
   DeviceBuffer<double> dX, dP, dG, dOut;
   require_cuda_success(cudaMalloc(dX.out(), sizeof(hX)), "cudaMalloc dX");
   require_cuda_success(cudaMalloc(dP.out(), sizeof(hP)), "cudaMalloc dP");
   require_cuda_success(cudaMalloc(dG.out(), sizeof(hG)), "cudaMalloc dG");
-  require_cuda_success(cudaMalloc(dOut.out(), sizeof(double)), "cudaMalloc dOut");
+  require_cuda_success(cudaMalloc(dOut.out(), sizeof(double)),
+                       "cudaMalloc dOut");
   require_cuda_success(
     cudaMemcpy(dX.get(), hX, sizeof(hX), cudaMemcpyHostToDevice),
     "cudaMemcpy hX -> dX");
@@ -145,7 +155,8 @@ TEST_CASE("device gradient‐norm of [3,4] is 5", "[bfgs][norm][gpu]")
   double hG[2] = {3.0, 4.0}, out;
   DeviceBuffer<double> dG, dOut;
   require_cuda_success(cudaMalloc(dG.out(), sizeof(hG)), "cudaMalloc dG");
-  require_cuda_success(cudaMalloc(dOut.out(), sizeof(double)), "cudaMalloc dOut");
+  require_cuda_success(cudaMalloc(dOut.out(), sizeof(double)),
+                       "cudaMalloc dOut");
   require_cuda_success(
     cudaMemcpy(dG.get(), hG, sizeof(hG), cudaMemcpyHostToDevice),
     "cudaMemcpy hG -> dG");
@@ -377,7 +388,8 @@ TEST_CASE("bfgs::launch converges for Quad<2>", "[bfgs][opt][gpu]")
   cudaFree(d_states);
 }
 
-TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>", "[bfgs][optimize][gpu]")
+TEST_CASE("bfgs::launch converges for util::Rosenbrock<2>",
+          "[bfgs][optimize][gpu]")
 {
   constexpr int N = 1, DIM = 2;
   const double lower = -5.0, upper = 5.0;

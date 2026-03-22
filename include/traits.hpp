@@ -41,13 +41,15 @@ namespace zeus {
   };
 
   /// Concept: Valid Zeus objective function
-  /// 
+  ///
   /// A Zeus objective must:
   /// 1. Be callable with std::array<double, DIM> and return double
-  /// 2. Be callable with std::array<dual::DualNumber, DIM> and return dual::DualNumber
-  /// 
-  /// This ensures the objective is properly templated for automatic differentiation.
-  /// 
+  /// 2. Be callable with std::array<dual::DualNumber, DIM> and return
+  /// dual::DualNumber
+  ///
+  /// This ensures the objective is properly templated for automatic
+  /// differentiation.
+  ///
   /// Example of a valid objective:
   /// @code
   /// template<typename T>
@@ -58,9 +60,8 @@ namespace zeus {
   /// }
   /// @endcode
   template <typename F, std::size_t DIM>
-  concept ZeusObjective = 
-    CallableWithArray<F, double, DIM> &&
-    CallableWithArray<F, dual::DualNumber, DIM>;
+  concept ZeusObjective = CallableWithArray<F, double, DIM> &&
+                          CallableWithArray<F, dual::DualNumber, DIM>;
 
   /// PRNG algorithms supported by Zeus
   enum class PRNGType {

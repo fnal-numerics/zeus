@@ -5,7 +5,7 @@ namespace util {
   /// Tracks global convergence status and signals early termination
   /// when required number of optimizations have converged.
   struct BFGSContext {
-    int stopFlag;        ///< Global flag to signal all threads to stop
-    int convergedCount;  ///< Number of optimizations that have converged
+    int stopFlag;       ///< Global flag to signal all threads to stop
+    int convergedCount; ///< Number of optimizations that have converged
   };
 }

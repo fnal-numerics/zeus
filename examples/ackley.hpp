@@ -38,12 +38,13 @@ namespace util {
     return term1 + term2 + 20.0 + exp(1.0);
   }
 
-  template<std::size_t D>
+  template <std::size_t D>
   struct Ackley {
     static constexpr std::size_t arity = D;
-    template<typename T>
-    __host__ __device__
-    T operator()(std::array<T,D> const& x) const {
+    template <typename T>
+    __host__ __device__ T
+    operator()(std::array<T, D> const& x) const
+    {
       return ackley<D>(x.data());
     }
   };

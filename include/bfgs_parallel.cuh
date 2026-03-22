@@ -184,8 +184,16 @@ namespace bfgs {
           }
           if (alpha == 0.0) {
             if (termination::checkZeroSteps<ZEUS_DIM, SaveTrajectories>(
-                  r, consecutive_zero_steps, nzerosteps, f, x_arr, g_arr,
-                  iter, tile_global_id, N, deviceStatus))
+                  r,
+                  consecutive_zero_steps,
+                  nzerosteps,
+                  f,
+                  x_arr,
+                  g_arr,
+                  iter,
+                  tile_global_id,
+                  N,
+                  deviceStatus))
               *done_flag = 1;
             else
               alpha = 1e-3;
@@ -230,11 +238,26 @@ namespace bfgs {
 
           const double grad_norm = util::calculateGradientNorm<ZEUS_DIM>(g_arr);
           if (termination::checkNonFinite<ZEUS_DIM, SaveTrajectories>(
-                r, grad_norm, fnew, x_arr.data(), iter, tile_global_id, N,
+                r,
+                grad_norm,
+                fnew,
+                x_arr.data(),
+                iter,
+                tile_global_id,
+                N,
                 deviceStatus) ||
               termination::checkConvergence<ZEUS_DIM, SaveTrajectories>(
-                ctx, r, f, x_arr, grad_norm, tolerance, requiredConverged,
-                iter, tile_global_id, N, deviceStatus))
+                ctx,
+                r,
+                f,
+                x_arr,
+                grad_norm,
+                tolerance,
+                requiredConverged,
+                iter,
+                tile_global_id,
+                N,
+                deviceStatus))
             *done_flag = 1;
         }
         tile.sync();
@@ -246,9 +269,16 @@ namespace bfgs {
 
       // Max-iters surrender
       if (tile.thread_rank() == 0) {
-        termination::checkMaxIter<ZEUS_DIM, SaveTrajectories>(
-          r, f, x_arr, g_arr, (bool)*done_flag, iter, MAX_ITER,
-          tile_global_id, N, deviceStatus);
+        termination::checkMaxIter<ZEUS_DIM, SaveTrajectories>(r,
+                                                              f,
+                                                              x_arr,
+                                                              g_arr,
+                                                              (bool)*done_flag,
+                                                              iter,
+                                                              MAX_ITER,
+                                                              tile_global_id,
+                                                              N,
+                                                              deviceStatus);
         deviceResults[tile_global_id] = r.fval;
         result[tile_global_id] = r;
       }

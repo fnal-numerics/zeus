@@ -37,19 +37,19 @@ namespace util {
     double x2 = x[1];
     double term1 = 1.0 + pow(x1 + x2 + 1.0, 2) *
                            (19.0 - 14.0 * x1 + 3.0 * pow(x1, 2) - 14.0 * x2 +
-                             6.0 * x1 * x2 + 3.0 * pow(x2, 2));
+                            6.0 * x1 * x2 + 3.0 * pow(x2, 2));
     double term2 = 30.0 + pow(2.0 * x1 - 3.0 * x2, 2) *
-                           (18.0 - 32.0 * x1 + 12.0 * pow(x1, 2) + 48.0 * x2 -
-                            36.0 * x1 * x2 + 27.0 * pow(x2, 2));
+                            (18.0 - 32.0 * x1 + 12.0 * pow(x1, 2) + 48.0 * x2 -
+                             36.0 * x1 * x2 + 27.0 * pow(x2, 2));
     return term1 * term2;
   }
 
   template <std::size_t D>
   struct GoldsteinPrice {
     static constexpr std::size_t arity = D;
-    template<typename T>
-    __host__ __device__
-    T operator()(std::array<T,D> const& x) const
+    template <typename T>
+    __host__ __device__ T
+    operator()(std::array<T, D> const& x) const
     {
       return goldstein_price<D>(x.data());
     }

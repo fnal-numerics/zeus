@@ -121,8 +121,16 @@ namespace bfgs {
           util::lineSearch<Function, ZEUS_DIM>(bestVal, x_arr, p_arr, g_arr, f);
         if (alpha == 0.0) {
           if (termination::checkZeroSteps<ZEUS_DIM, SaveTrajectories>(
-                r, consecutive_zero_steps, nzerosteps, f, x_arr, g_arr,
-                iter, idx, N, deviceStatus))
+                r,
+                consecutive_zero_steps,
+                nzerosteps,
+                f,
+                x_arr,
+                g_arr,
+                iter,
+                idx,
+                N,
+                deviceStatus))
             break;
           alpha = 1e-3;
         } else {
@@ -176,8 +184,17 @@ namespace bfgs {
               r, grad_norm, fnew, x_arr.data(), iter, idx, N, deviceStatus))
           break;
         if (termination::checkConvergence<ZEUS_DIM, SaveTrajectories>(
-              ctx, r, f, x_arr, grad_norm, tolerance, requiredConverged,
-              iter, idx, N, deviceStatus))
+              ctx,
+              r,
+              f,
+              x_arr,
+              grad_norm,
+              tolerance,
+              requiredConverged,
+              iter,
+              idx,
+              N,
+              deviceStatus))
           break;
 
         /*  deviceTrajectory layout: idx * (MAX_ITER * ZEUS_DIM) + iter *
@@ -190,8 +207,16 @@ namespace bfgs {
       } // end bfgs loop
       // if we exited by exhausting iterations, record the surrender result
       termination::checkMaxIter<ZEUS_DIM, SaveTrajectories>(
-        r, f, x_arr, g_arr, /*done=*/(iter < MAX_ITER), iter, MAX_ITER,
-        idx, N, deviceStatus);
+        r,
+        f,
+        x_arr,
+        g_arr,
+        /*done=*/(iter < MAX_ITER),
+        iter,
+        MAX_ITER,
+        idx,
+        N,
+        deviceStatus);
       deviceResults[idx] = r.fval;
       result[idx] = r;
       if (ad_cycles_out)

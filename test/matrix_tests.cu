@@ -19,7 +19,8 @@ read_device(const Matrix<T>& m)
 }
 
 // host element access & dims (square)
-TEST_CASE("matrix: square host element access & dims", "[matrix][host][square][gpu]")
+TEST_CASE("matrix: square host element access & dims",
+          "[matrix][host][square][gpu]")
 {
   constexpr std::size_t N = 4;
 
@@ -39,7 +40,8 @@ TEST_CASE("matrix: square host element access & dims", "[matrix][host][square][g
 }
 
 // host element access & dims (rectangular)
-TEST_CASE("matrix: not square host element access & dims", "[matrix][host][gpu]")
+TEST_CASE("matrix: not square host element access & dims",
+          "[matrix][host][gpu]")
 {
   constexpr std::size_t R = 2, C = 3;
   Matrix<double> m(R, C);
@@ -227,7 +229,8 @@ TEST_CASE("swap(Matrix,Matrix) swaps buffers and dims", "[matrix][swap][gpu]")
 }
 
 // copy assignment
-TEST_CASE("matrix: assignment host (copy-assign)", "[matrix][host][assign][gpu]")
+TEST_CASE("matrix: assignment host (copy-assign)",
+          "[matrix][host][assign][gpu]")
 {
   Matrix<double> m1(2, 2);
   for (int i = 0; i < 2; ++i)
@@ -335,7 +338,8 @@ TEST_CASE("matrix: operator() bounds check", "[matrix][errors][bounds][gpu]")
 }
 
 // set(std::array) with mismatched size throws
-TEST_CASE("matrix: set(std::array) rejects wrong size", "[matrix][errors][set][gpu]")
+TEST_CASE("matrix: set(std::array) rejects wrong size",
+          "[matrix][errors][set][gpu]")
 {
   Matrix<double> m(2, 2);
   std::array<double, 3> wrong{{1, 2, 3}}; // expected 4

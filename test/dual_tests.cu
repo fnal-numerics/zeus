@@ -365,7 +365,8 @@ TEST_CASE("operator abs(): abs(-3+2e)=3-2e", "[dual][abs][gpu]")
   FREE4(dX, dDX, dR, dD);
 }
 
-TEST_CASE("operator abs(): abs(0+1.5e) has real=0, dual=NaN", "[dual][abs][gpu]")
+TEST_CASE("operator abs(): abs(0+1.5e) has real=0, dual=NaN",
+          "[dual][abs][gpu]")
 {
   double x = 0.0, dx = 1.5, outR, outD;
   double *dX, *dDX, *dR, *dD;

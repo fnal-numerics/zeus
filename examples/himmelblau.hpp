@@ -32,9 +32,10 @@ namespace util {
   template <std::size_t D>
   struct Himmelblau {
     static constexpr std::size_t arity = D;
-    template<typename T>
-    __host__ __device__ 
-    T operator()(std::array<T,D> const& x) const {   
+    template <typename T>
+    __host__ __device__ T
+    operator()(std::array<T, D> const& x) const
+    {
       return himmelblau<D>(x.data());
     }
   };

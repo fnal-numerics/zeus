@@ -29,12 +29,13 @@ namespace util {
     return sum;
   }
 
-  template<std::size_t D>
+  template <std::size_t D>
   struct Rosenbrock {
     static constexpr std::size_t arity = D;
-    template<typename T>
-    __host__ __device__
-    T operator()(const std::array<T,D>& x) const {
+    template <typename T>
+    __host__ __device__ T
+    operator()(const std::array<T, D>& x) const
+    {
       return rosenbrock<D>(x.data());
     }
   };

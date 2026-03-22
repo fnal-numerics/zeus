@@ -94,11 +94,11 @@ int
 main(int argc, char* argv[])
 {
   if (argc < 4) {
-    std::cerr
-      << "Usage: " << argv[0]
-      << " <num_optimizations> <max_bfgs_iter> <run_id> "
-         "[--parallel] [--save-trajectories <filename>] [--prng <xorwow|philox|sobol>]"
-         " [--nzerosteps <n>]\n";
+    std::cerr << "Usage: " << argv[0]
+              << " <num_optimizations> <max_bfgs_iter> <run_id> "
+                 "[--parallel] [--save-trajectories <filename>] [--prng "
+                 "<xorwow|philox|sobol>]"
+                 " [--nzerosteps <n>]\n";
     return 1;
   }
   const size_t N = std::stoul(argv[1]);

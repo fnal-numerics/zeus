@@ -31,7 +31,8 @@ TEST_CASE("zero-length buffer behaves correctly", "[DoubleBuffer]")
   REQUIRE(buf.copyToHost(nullptr, 0) == 0);
 }
 
-TEST_CASE("ctor from host array + copyToHost round-trips", "[DoubleBuffer][gpu]")
+TEST_CASE("ctor from host array + copyToHost round-trips",
+          "[DoubleBuffer][gpu]")
 {
   std::array<double, 3> host = {{1.1, 2.2, 3.3}};
   DoubleBuffer buf(host);
@@ -79,7 +80,8 @@ TEST_CASE("copy assignment (self and distinct) is safe", "[DoubleBuffer][gpu]")
   REQUIRE(b.copyToHost() == a.copyToHost()); // contents should match
 }
 
-TEST_CASE("raw-pointer copyToHost size-mismatch yields error", "[DoubleBuffer][gpu]")
+TEST_CASE("raw-pointer copyToHost size-mismatch yields error",
+          "[DoubleBuffer][gpu]")
 {
   std::array<double, 2> host = {{8.8, 9.9}};
   DoubleBuffer buf(host);
@@ -117,7 +119,8 @@ TEST_CASE("move assignment transfers ownership", "[DoubleBuffer][gpu]")
   REQUIRE(out == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("repeated allocate/free does not crash", "[DoubleBuffer][destructor][gpu]")
+TEST_CASE("repeated allocate/free does not crash",
+          "[DoubleBuffer][destructor][gpu]")
 {
   // Create and destroy a buffer 1000 times
   for (int i = 0; i < 1000; ++i) {
@@ -212,7 +215,8 @@ TEST_CASE("swap with empty buffer", "[DoubleBuffer][swap][gpu]")
   REQUIRE(vec_b == std::vector<double>(host.begin(), host.end()));
 }
 
-TEST_CASE("implicit conversion to raw pointer", "[DoubleBuffer][conversion][gpu]")
+TEST_CASE("implicit conversion to raw pointer",
+          "[DoubleBuffer][conversion][gpu]")
 {
   std::array<double, 3> host = {{1.5, 2.5, 3.5}};
   DoubleBuffer buf(host);
@@ -237,7 +241,8 @@ TEST_CASE("implicit conversion for empty buffer", "[DoubleBuffer][conversion]")
   REQUIRE(raw_ptr == nullptr);
 }
 
-TEST_CASE("operator== compares pointer and size", "[DoubleBuffer][equality][gpu]")
+TEST_CASE("operator== compares pointer and size",
+          "[DoubleBuffer][equality][gpu]")
 {
   std::array<double, 3> host = {{1.0, 2.0, 3.0}};
   DoubleBuffer a(host);
