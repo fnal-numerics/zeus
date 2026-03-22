@@ -160,6 +160,7 @@ products.
 | [ackley.hpp](ackley.hpp) | `__device__`/`__host__` implementations of the Ackley function plus `util::Ackley<D>` wrapper |
 | [himmelblau.hpp](himmelblau.hpp) | `__device__`/`__host__` implementations of the Himmelblau function plus `util::Himmelblau<D>` wrapper |
 | [goldstein_price.hpp](goldstein_price.hpp) | `__device__`/`__host__` implementations of the Goldstein-Price function plus `util::GoldsteinPrice<D>` wrapper |
-| [optimization_utils.hpp](optimization_utils.hpp) | `OptimizationParams` struct, `parse_args()`, and `print_params()` — the shared CLI plumbing used by every driver |
+| [optimization_utils.hpp](optimization_utils.hpp) | `OptimizationParams` struct and declarations for all shared CLI and output functions |
+| [optimization_utils.cc](optimization_utils.cc) | Host-only implementations of `parse_args()`, `print_params()`, `print_banner()`, and `print_result()` — compiled once as the `examples_utils` static library and linked into every benchmark driver |
 | [gaussian.hpp](gaussian.hpp) | Example of a user-defined callable using a `Matrix` covariance structure (not used by the benchmark drivers) |
 | [tutorial.md](tutorial.md) | Step-by-step guide for converting a free function into a Zeus-compatible templated callable |
